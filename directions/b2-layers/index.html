@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quadrion AI · Layer Stack</title>
+<meta name="description" content="Quadrion AI fuses orthomosaics, elevation, point clouds, engineering models and graded findings into one georeferenced 3D scene with one timeline. Offline-first, for drone inspection and survey teams.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="modulepreload" href="../data/quadrion-data.js">
+<style>
+:root{
+  --bg0:#0B0F13;--bg1:#11161C;--bg2:#1E2630;--line:#2A3340;--line2:#3A4654;
+  --t0:#EEF2F5;--t1:#C5CDD6;--t2:#8E99A6;--mint:#5ED1B3;
+  --red:#E5484D;--orange:#F2994A;--yellow:#E8C547;--blue:#5B9BD5;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --cond:'IBM Plex Sans Condensed','IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);--quart:cubic-bezier(.25,1,.5,1);
+  --gut:clamp(16px,4.6vw,72px);--maxw:1320px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg0);color-scheme:dark;-webkit-text-size-adjust:100%;overflow-x:hidden;overflow-x:clip}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
+body{background:var(--bg0);color:var(--t1);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:hidden;overflow-x:clip;text-rendering:optimizeLegibility}
+img{display:block;max-width:100%}
+a{color:inherit}
+button{font:inherit;color:inherit}
+::selection{background:rgba(94,209,179,.28);color:var(--t0)}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- atmosphere ---------- */
+.atmo{position:fixed;inset:0;pointer-events:none;z-index:0}
+.atmo::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(142,153,166,.16) 1px,transparent 1.35px);background-size:22px 22px;-webkit-mask-image:radial-gradient(ellipse 85% 75% at 55% 42%,#000 0%,rgba(0,0,0,.5) 50%,transparent 92%);mask-image:radial-gradient(ellipse 85% 75% at 55% 42%,#000 0%,rgba(0,0,0,.5) 50%,transparent 92%)}
+.atmo::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 66% 38%,rgba(94,209,179,.03),transparent 70%),radial-gradient(ellipse 125% 95% at 50% 40%,transparent 48%,rgba(2,4,6,.72) 100%)}
+main,footer{position:relative;z-index:1}
+
+/* ---------- nav ---------- */
+.nav{position:fixed;top:0;left:0;right:0;z-index:50;height:64px;padding:0 var(--gut);display:flex;align-items:center;border-bottom:1px solid transparent;transition:background-color .6s var(--ease),border-color .6s var(--ease)}
+.nav.is-scrolled{background:rgba(11,15,19,.76);-webkit-backdrop-filter:blur(14px) saturate(125%);backdrop-filter:blur(14px) saturate(125%);border-bottom-color:rgba(42,51,64,.85)}
+.nav-in{width:100%;max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;gap:28px}
+.brand{display:block;flex:none;border-radius:6px}
+.brand img{height:26px;width:auto}
+.brand:focus-visible{outline:2px solid var(--mint);outline-offset:6px}
+.nav-links{display:flex;gap:24px;margin-left:18px;list-style:none}
+.nav-links a{position:relative;font-size:14px;color:var(--t2);text-decoration:none;padding:6px 0;transition:color .3s var(--ease)}
+.nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--mint);transform:scaleX(0);transform-origin:right;transition:transform .5s var(--ease)}
+.nav-links a:hover{color:var(--t0)}
+.nav-links a:hover::after{transform:scaleX(1);transform-origin:left}
+.nav-links a:focus-visible{outline:1px solid var(--mint);outline-offset:4px;border-radius:2px}
+.nav-cta{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-cta .lnk{font-size:14px;color:var(--t1);text-decoration:none;padding:8px 10px;border-radius:6px;transition:color .3s,background .3s}
+.nav-cta .lnk:hover{color:var(--t0);background:rgba(30,38,48,.7)}
+
+/* ---------- buttons ---------- */
+.btn{--h:46px;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:var(--h);padding:0 20px;border-radius:8px;font:500 14.5px/1 var(--sans);letter-spacing:.003em;text-decoration:none;white-space:nowrap;cursor:pointer;border:1px solid transparent;transition:background-color .35s var(--ease),border-color .35s var(--ease),color .35s,box-shadow .5s var(--ease)}
+.btn .arr{width:14px;height:14px;flex:none;transition:transform .5s var(--ease)}
+.btn:hover .arr{transform:translateX(3px)}
+.btn:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+.btn-primary{background:var(--mint);color:#04110D;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.btn-primary:hover{background:#76DDC2;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 10px 34px -10px rgba(94,209,179,.55)}
+.btn-ghost{background:rgba(17,22,28,.45);border-color:var(--line2);color:var(--t0)}
+.btn-ghost:hover{border-color:var(--t2);background:rgba(30,38,48,.7)}
+.btn-sm{--h:36px;padding:0 14px;font-size:13.5px;border-radius:7px}
+.btn-lg{--h:56px;padding:0 28px;font-size:16px;border-radius:10px}
+.btn .lbl-in{display:inline-flex;align-items:center;gap:10px;will-change:transform}
+
+/* ---------- story stage ---------- */
+.story{position:relative;z-index:1}
+.stage{position:relative;width:100%;height:100vh;height:100svh;overflow:hidden}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 1.4s var(--ease)}
+.gl-on #gl{opacity:1}
+.ov{position:absolute;inset:0;pointer-events:none;z-index:2}
+#leaders{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+#labels{position:absolute;inset:0}
+.o{position:absolute;left:0;top:0;opacity:0;visibility:hidden;will-change:transform,opacity}
+
+/* layer labels */
+.lbl{text-shadow:0 1px 8px #0B0F13,0 0 2px #0B0F13;display:flex;align-items:baseline;gap:7px;font:500 11px/1 var(--mono);letter-spacing:.09em;color:var(--t1);white-space:nowrap;background:none;border:0;padding:6px 4px;cursor:default;pointer-events:auto;transition:color .35s var(--ease)}
+.lbl b{font-weight:500;color:var(--t2);transition:color .35s}
+.lbl em{font-style:normal;font-size:9.5px;letter-spacing:.12em;color:var(--t2);margin-left:6px;padding-left:9px;border-left:1px solid var(--line2);transition:color .35s}
+.lbl.hot,.lbl.hot b{color:var(--mint)}
+.lbl.hot em{color:var(--t1)}
+.lbl.r{flex-direction:row-reverse}
+.lbl.two{display:grid;grid-template-columns:min-content max-content;justify-content:start;column-gap:7px;row-gap:6px;padding:6px 8px;border-radius:5px;background:rgba(11,15,19,.62)}
+.lbl.two em{grid-column:1/-1;margin:0;padding:0;border:0;font-size:9.5px}
+.lbl.r em{margin:0 6px 0 0;padding:0 9px 0 0;border-left:0;border-right:1px solid var(--line2)}
+.lbl:focus-visible{outline:1px solid var(--mint);outline-offset:2px;border-radius:3px}
+.lbl.sm{font-size:10px;color:var(--t2);pointer-events:none}
+.lbl.sm b{color:var(--t1)}
+.lbl.load em{animation:pulse 1.4s var(--quart) infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* finding pins */
+.pin{width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:0;background:none;cursor:pointer;pointer-events:auto;display:grid;place-items:center}
+.pin i{position:relative;width:11px;height:11px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2.5px #0B0F13,0 0 0 3.5px rgba(238,242,245,.35);transition:transform .45s var(--ease)}
+.pin::before{content:"";position:absolute;inset:0;border-radius:50%;border:1px solid var(--c);opacity:.7;animation:ring 2.4s var(--quart) infinite;animation-delay:var(--d,0s)}
+.pin:hover i,.pin:focus-visible i,.pin.hot i{transform:scale(1.45)}
+.pin:focus-visible{outline:1px solid var(--mint);outline-offset:4px}
+.pin span{position:absolute;left:19px;top:3px;font:500 10px/1 var(--mono);letter-spacing:.1em;color:var(--t0);white-space:nowrap;text-shadow:0 1px 6px #0B0F13}
+.pin.mini{transform-origin:center}
+.pin.mini span{display:none}
+@keyframes ring{from{transform:scale(.6);opacity:.9}to{transform:scale(2.1);opacity:0}}
+
+.card{position:absolute;left:0;top:0;z-index:7;width:290px;border-radius:12px;background:rgba(13,18,23,.96);border:1px solid var(--line2);box-shadow:0 30px 70px -24px rgba(0,0,0,.85);overflow:hidden;pointer-events:none;opacity:0;visibility:hidden;transform:translate3d(-999px,-999px,0);transition:opacity .3s var(--ease),visibility 0s .3s}
+.card.on{opacity:1;visibility:visible;transition:opacity .3s var(--ease),visibility 0s}
+.card .ph{position:relative;aspect-ratio:4/3;background:var(--bg2);overflow:hidden}
+.card .ph img{width:100%;height:100%;object-fit:cover;transform:scale(1.06);transition:transform 1.2s var(--ease)}
+.card.on .ph img{transform:none}
+.card .ph b{position:absolute;left:10px;top:10px;font:500 10px/1 var(--mono);letter-spacing:.12em;padding:5px 7px;border-radius:4px;background:rgba(11,15,19,.85);color:var(--c,var(--t0));border:1px solid currentColor}
+.card .bd{padding:12px 14px 13px}
+.card .k{font:500 10px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.card h4{font:500 15px/1.3 var(--sans);color:var(--t0);margin:7px 0 5px;letter-spacing:-.01em}
+.card p{font-size:12.5px;line-height:1.5;color:var(--t2)}
+.sev5{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:10px}
+.sev5 i{height:4px;border-radius:1px;background:var(--bg2)}
+.sev5 i.on{background:var(--c)}
+
+/* flare photo cards */
+.pc{width:var(--cw,206px);border-radius:10px;background:rgba(13,18,23,.95);border:1px solid var(--line2);overflow:hidden;pointer-events:auto;box-shadow:0 24px 60px -24px rgba(0,0,0,.8);transition:border-color .4s var(--ease)}
+.pc:hover{border-color:rgba(94,209,179,.6)}
+.pc .ph{position:relative;aspect-ratio:3/2;background:var(--bg2);overflow:hidden}
+.pc img,.pc canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pc canvas{opacity:0;clip-path:inset(0 100% 0 0);transition:opacity .4s var(--ease),clip-path .9s var(--ease)}
+.pc:hover canvas,.pc.mask canvas{opacity:1;clip-path:inset(0 0 0 0)}
+.pc .ph em{position:absolute;right:7px;bottom:7px;font:500 9px/1 var(--mono);font-style:normal;letter-spacing:.12em;color:var(--t1);background:rgba(11,15,19,.82);padding:4px 6px;border-radius:3px;transition:color .3s}
+.pc:hover .ph em{color:var(--mint)}
+.pc .cp{padding:8px 10px 9px;font:500 10px/1.45 var(--mono);letter-spacing:.06em;color:var(--t2)}
+.pc .cp b{display:flex;align-items:center;gap:7px;color:var(--t0);font-weight:500;letter-spacing:.1em}
+.pc .cp b i{width:6px;height:6px;border-radius:1.5px;background:var(--c)}
+
+/* data callouts */
+.co{padding:7px 10px;border-radius:6px;background:rgba(11,15,19,.9);border:1px solid var(--line2);font:500 11.5px/1 var(--mono);letter-spacing:.03em;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--t0)}
+.co small{color:var(--t2);font-size:9.5px;letter-spacing:.14em;margin-right:8px}
+.co i{font-style:normal;margin-left:8px}
+.co.cut{border-color:rgba(229,72,77,.55)}.co.cut i{color:#F39A9D}
+.co.fill{border-color:rgba(91,155,213,.6)}.co.fill i{color:#A5C8EA}
+.dl{font:500 11px/1 var(--mono);letter-spacing:.12em;color:var(--t0);white-space:nowrap}
+.dl small{display:block;margin-top:7px;color:var(--t2);font-size:9.5px;letter-spacing:.16em}
+.dl i{display:inline-block;width:6px;height:6px;border-radius:1.5px;background:var(--line2);margin-right:8px;vertical-align:1px}
+.dl.on i{background:var(--mint)}
+.sl{text-align:center;font:500 10.5px/1 var(--mono);letter-spacing:.12em;color:var(--t0);white-space:nowrap}
+.sl small{display:block;margin-top:7px;color:var(--t2);font-size:9px;letter-spacing:.14em}
+
+/* hero */
+.hero-copy{position:absolute;z-index:3;left:var(--gut);top:50%;transform:translateY(-47%);width:min(540px,40vw);will-change:opacity,transform}
+.hero-copy>*{animation:rise 1.25s var(--ease) both}
+.hero-copy>*:nth-child(2){animation-delay:.08s}.hero-copy>*:nth-child(3){animation-delay:.16s}.hero-copy>*:nth-child(4){animation-delay:.24s}.hero-copy>*:nth-child(5){animation-delay:.32s}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.eyebrow{display:flex;align-items:center;gap:10px;font:500 11.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--t2)}
+.eyebrow::before{content:"";width:7px;height:7px;border-radius:1.5px;background:var(--mint);flex:none}
+h1{font:500 clamp(46px,5.5vw,92px)/.95 var(--sans);letter-spacing:-.045em;color:var(--t0);margin:24px 0 24px}
+h1 .l2{display:block;color:var(--t1)}
+h1 .pt{color:var(--mint)}
+.lede{font-size:clamp(16px,1.2vw,18.5px);line-height:1.6;color:var(--t1);max-width:500px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:34px}
+.hero-meta{display:flex;gap:30px;margin-top:44px;padding-top:20px;border-top:1px solid rgba(42,51,64,.8);font:400 10.5px/1.4 var(--mono);letter-spacing:.1em;color:var(--t2);text-transform:uppercase}
+.hero-meta b{display:block;margin-top:6px;font:500 14px/1.2 var(--mono);color:var(--t0);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+
+.cap{position:absolute;z-index:3;left:var(--gut);bottom:10vh;width:min(430px,36vw);opacity:0;visibility:hidden;will-change:opacity,transform}
+.cap .idx{font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--mint)}
+.cap h2{font:500 clamp(30px,3vw,46px)/1.03 var(--sans);letter-spacing:-.035em;color:var(--t0);margin:16px 0 14px}
+.cap p{font-size:16px;color:var(--t1)}
+.cap .stats{display:flex;gap:22px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font:400 10.5px/1.4 var(--mono);letter-spacing:.1em;color:var(--t2);text-transform:uppercase}
+.cap .stats b{display:block;margin-top:5px;color:var(--t0);font-weight:500;font-size:13px;letter-spacing:.02em;font-variant-numeric:tabular-nums;text-transform:none}
+.cap .stats .c{color:#F39A9D}.cap .stats .f{color:#A5C8EA}
+.cap.top{left:50%;top:12vh;bottom:auto;width:min(1000px,90vw);text-align:center}
+.cap.top h2{font-size:clamp(28px,3vw,46px);margin:14px 0 10px}
+.cap.top p{max-width:640px;margin:0 auto}
+
+.rail{position:absolute;z-index:3;right:var(--gut);top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:15px;font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2);opacity:0;pointer-events:none}
+.rail a{display:flex;align-items:center;gap:10px;opacity:.5;text-decoration:none;transition:opacity .5s var(--ease),color .5s}
+.rail a:hover{opacity:.9}
+.rail a i{position:relative;width:14px;height:1px;background:var(--line2);overflow:hidden;transition:width .6s var(--ease)}
+.rail a i::after{content:"";position:absolute;inset:0;background:var(--mint);transform:scaleX(var(--f,0));transform-origin:left}
+.rail a.on{opacity:1;color:var(--t0)}
+.rail a.on i{width:40px}
+.rail a.done i::after{transform:scaleX(1);background:var(--t2)}
+.rail a:focus-visible{outline:1px solid var(--mint);outline-offset:4px}
+.hud{position:absolute;z-index:3;right:var(--gut);bottom:26px;text-align:right;font:400 10.5px/1.6 var(--mono);letter-spacing:.08em;color:var(--t2);font-variant-numeric:tabular-nums;opacity:0}
+.hud b{color:var(--t1);font-weight:500}
+.wait{position:absolute;z-index:4;left:50%;bottom:30px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:999px;background:rgba(11,15,19,.88);border:1px solid var(--line2);font:500 10.5px/1 var(--mono);letter-spacing:.12em;color:var(--t1);opacity:0;visibility:hidden;transition:opacity .4s var(--ease),visibility 0s .4s}
+.wait.on{opacity:1;visibility:visible;transition:opacity .4s var(--ease),visibility 0s}
+.wait span{position:relative;width:34px;height:1px;background:var(--line2);overflow:hidden}
+.wait span::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-40%;background:var(--mint);animation:sweep 1.2s var(--quart) infinite}
+@keyframes sweep{to{left:100%}}
+.cue{position:absolute;z-index:3;left:50%;transform:translateX(-50%);bottom:28px;display:flex;align-items:center;gap:12px;font:500 10.5px/1 var(--mono);letter-spacing:.16em;color:var(--t2)}
+.cue span{position:relative;width:1px;height:34px;background:var(--line2);overflow:hidden}
+.cue span::after{content:"";position:absolute;left:0;top:-40%;width:1px;height:40%;background:var(--mint);animation:drip 2.2s var(--quart) infinite}
+@keyframes drip{to{top:110%}}
+
+.tip{position:absolute;left:0;top:0;z-index:6;width:270px;padding:14px 15px 13px;border-radius:10px;background:rgba(13,18,23,.95);border:1px solid var(--line2);box-shadow:0 24px 60px -20px rgba(0,0,0,.7);pointer-events:none;opacity:0;transform:translate3d(-999px,-999px,0);transition:opacity .25s var(--ease)}
+.tip.on{opacity:1}
+.tip .k{font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mint)}
+.tip h4{font:500 15.5px/1.3 var(--sans);color:var(--t0);margin:9px 0 6px;letter-spacing:-.01em}
+.tip p{font-size:13px;line-height:1.5;color:var(--t2)}
+.tip .m{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font:400 10.5px/1.3 var(--mono);letter-spacing:.08em;color:var(--t1);font-variant-numeric:tabular-nums}
+
+/* ---------- recreated app window ---------- */
+.app{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;visibility:hidden}
+.app.live{visibility:visible}
+.aw{position:absolute;border:1px solid var(--line2);border-radius:14px;box-shadow:0 0 0 200vmax rgba(7,10,13,.62),0 60px 140px -40px rgba(0,0,0,.9);pointer-events:none}
+.ap{position:absolute;background:#0E1318;overflow:hidden;font-size:12px;color:var(--t1);pointer-events:auto;will-change:transform,opacity}
+.ap-top{display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--line);border-radius:13px 13px 0 0;font:500 12.5px/1 var(--sans);color:var(--t2)}
+.ap-top img{width:18px;height:18px}
+.ap-top .t{color:var(--t0)}
+.ap-top .tabs{display:flex;gap:2px;margin-left:14px}
+.ap-top .tabs span{padding:6px 10px;border-radius:5px;font-size:12px;color:var(--t2)}
+.ap-top .tabs span.on{background:var(--bg2);color:var(--t0)}
+.ap-top .sp{flex:1}
+.ap-top .tag{font:500 10px/1 var(--mono);letter-spacing:.12em;color:var(--mint);padding:5px 7px;border:1px solid rgba(94,209,179,.35);border-radius:5px}
+.ap-top .dots{display:flex;gap:12px;margin-left:8px}
+.ap-top .dots svg{width:12px;height:12px;stroke:var(--t2);fill:none;stroke-width:1.3}
+.ap-h{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 9px;font:500 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--t2)}
+.ap-h b{font-weight:500;color:var(--t1)}
+.ap-side{border-right:1px solid var(--line)}
+.ds{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:10px 14px;border:0;background:none;cursor:pointer;border-left:2px solid transparent;transition:background .3s,border-color .3s}
+.ds:hover,.ds.on{background:rgba(30,38,48,.7);border-left-color:var(--mint)}
+.ds:focus-visible{outline:1px solid var(--mint);outline-offset:-2px}
+.ds i{flex:none;width:8px;height:8px;margin-top:4px;border-radius:2px;background:var(--line2);transition:background .3s}
+.ds:hover i,.ds.on i{background:var(--mint)}
+.ds b{display:block;font:500 12.5px/1.25 var(--sans);color:var(--t0)}
+.ds small{display:block;margin-top:3px;font:400 10px/1.35 var(--mono);letter-spacing:.04em;color:var(--t2)}
+.lyr{display:flex;flex-wrap:wrap;gap:5px;padding:4px 14px 12px}
+.lyr span{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--line2);font:500 9.5px/1 var(--mono);letter-spacing:.08em;color:var(--t1)}
+.lyr span i{width:5px;height:5px;border-radius:1px;background:var(--mint)}
+.ap-iss{border-left:1px solid var(--line);display:flex;flex-direction:column}
+.isr{display:flex;gap:10px;align-items:center;width:100%;padding:8px 12px;border:0;background:none;text-align:left;cursor:pointer;border-top:1px solid rgba(42,51,64,.6);transition:background .3s}
+.isr:hover,.isr.on{background:rgba(30,38,48,.75)}
+.isr:focus-visible{outline:1px solid var(--mint);outline-offset:-2px}
+.isr img,.isr .ph{flex:none;width:44px;height:33px;border-radius:4px;object-fit:cover;background:var(--bg2)}
+.isr .tx{flex:1;min-width:0}
+.isr b{display:block;font:500 12px/1.25 var(--sans);color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.isr small{display:block;margin-top:3px;font:400 9.5px/1 var(--mono);letter-spacing:.06em;color:var(--t2)}
+.isr .sv{flex:none;font:500 9.5px/1 var(--mono);letter-spacing:.06em;padding:4px 5px;border-radius:3px;border:1px solid var(--c);color:var(--c)}
+.isum{padding:9px 12px;border-top:1px solid rgba(42,51,64,.6);font:400 10px/1.5 var(--mono);letter-spacing:.05em;color:var(--t2)}
+.isum b{color:var(--t0);font-weight:500}
+.agbox{margin:auto 10px 10px;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:rgba(11,15,19,.6)}
+.agbox .h{display:flex;justify-content:space-between;font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.agbox .h b{color:var(--t2);font-weight:500;border:1px solid var(--line2);border-radius:3px;padding:2px 4px}
+.agbox .q{margin-top:8px;font:400 11px/1.45 var(--mono);color:var(--t1);min-height:32px}
+.agbox .q .caret{display:inline-block;width:5px;height:11px;background:var(--mint);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(2) infinite}
+.ap-time{border-top:1px solid var(--line);border-radius:0 0 13px 13px;padding:0 14px 10px}
+.tl-h{display:flex;align-items:center;gap:12px;height:30px;font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.tl-h .pl{width:0;height:0;border-left:7px solid var(--t1);border-top:4.5px solid transparent;border-bottom:4.5px solid transparent}
+.tl-h .sp{flex:1}
+.tl-g{position:relative;display:grid;grid-template-columns:150px 1fr;row-gap:5px;font:400 10px/1 var(--mono);letter-spacing:.04em}
+.tl-g .nm{color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px;line-height:14px}
+.tl-g .tr{position:relative;height:14px;border-radius:3px;background:rgba(30,38,48,.55)}
+.tl-g .tr span{position:absolute;top:2px;bottom:2px;border-radius:2px;background:#3F4B5B}
+.tl-g .tr span.m{background:rgba(94,209,179,.55)}
+.tl-ruler{position:relative;margin-left:150px;height:16px;font:400 9px/1 var(--mono);color:var(--t2);border-bottom:1px solid var(--line)}
+.tl-ruler span{position:absolute;bottom:4px;transform:translateX(-50%)}
+.tl-play{position:absolute;top:0;bottom:-4px;width:1px;background:var(--mint);left:calc(150px + (100% - 150px) * var(--x,.3))}
+.tl-play::before{content:"";position:absolute;top:-3px;left:-4px;width:9px;height:6px;border-radius:2px;background:var(--mint)}
+.av-chip{position:absolute;display:flex;gap:6px;pointer-events:none}
+.av-chip span{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:5px;background:rgba(11,15,19,.82);border:1px solid var(--line2);font:500 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--t1)}
+
+/* ---------- static story (reduced motion / no WebGL) ---------- */
+.story-static{display:none;padding:96px var(--gut) 40px}
+html.static .story-static{display:block}
+html.static .stage{height:auto;min-height:100svh}
+html.static .cue,html.static .cap,html.static .rail,html.static .hud,html.static #gl,html.static .ov,html.static .wait{display:none}
+html.static .hero-copy{position:relative;left:auto;top:auto;transform:none;width:auto;max-width:640px;padding:140px var(--gut) 24px}
+.ss{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center;padding:64px 0;border-top:1px solid var(--line)}
+.ss .idx{font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--mint)}
+.ss h2{font:500 clamp(28px,3vw,44px)/1.05 var(--sans);letter-spacing:-.03em;color:var(--t0);margin:14px 0 12px}
+.ss p{color:var(--t1)}
+.ss ul{list-style:none;margin-top:18px;border-top:1px solid var(--line)}
+.ss li{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line);font:500 11px/1.3 var(--mono);letter-spacing:.08em;color:var(--t1)}
+.ss li span{color:var(--t2);text-align:right}
+.ss-vis{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg1);aspect-ratio:3/2}
+.ss-vis img,.ss-vis canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ss-vis img.still{object-fit:contain;background:var(--bg0)}
+
+/* ---------- sections ---------- */
+.sec{position:relative;padding:clamp(96px,13vw,176px) var(--gut)}
+.wrap{max-width:var(--maxw);margin:0 auto}
+.kicker{display:flex;align-items:center;gap:12px;font:500 11.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--t2)}
+.kicker b{color:var(--mint);font-weight:500}
+.kicker::after{content:"";height:1px;width:56px;background:var(--line2)}
+.h2{font:500 clamp(34px,4.3vw,64px)/1.02 var(--sans);letter-spacing:-.038em;color:var(--t0)}
+.h2 em{font-style:normal;color:var(--t2)}
+.sec-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px);gap:48px;align-items:end;margin:26px 0 56px}
+.sec-head .h2{font-size:clamp(34px,3.6vw,54px)}
+.sec-head .h2 em{display:block}
+@media (min-width:1081px){.sec-head .h2 em{white-space:nowrap}}
+.sec-head p{color:var(--t2);font-size:17px;max-width:440px;justify-self:end}
+
+/* bento */
+.bento{display:grid;gap:14px;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(268px,auto);
+  grid-template-areas:"a a a a a a a b b b b b" "a a a a a a a b b b b b" "c c c c d d d d e e e e" "g g g g g g g g e e e e" "g g g g g g g g f f f f"}
+.t-a{grid-area:a}.t-b{grid-area:b}.t-c{grid-area:c}.t-d{grid-area:d}.t-e{grid-area:e}.t-f{grid-area:f}.t-g{grid-area:g}
+.tile{position:relative;min-width:0}
+.tile-in{position:relative;height:100%;display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(23,30,38,.92),rgba(14,19,24,.94));overflow:hidden;isolation:isolate;transform:perspective(1100px);will-change:transform;transition:border-color .5s var(--ease)}
+.tile-in::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:radial-gradient(380px circle at var(--mx,50%) var(--my,0%),rgba(94,209,179,.42),rgba(94,209,179,.07) 42%,transparent 70%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);opacity:0;transition:opacity .6s var(--ease);pointer-events:none;z-index:5}
+.tile-in::after{content:"";position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,50%) var(--my,0%),rgba(94,209,179,.055),transparent 48%);opacity:0;transition:opacity .6s var(--ease);pointer-events:none;z-index:4}
+.tile:hover .tile-in::before,.tile:hover .tile-in::after{opacity:1}
+.tile-head{position:relative;z-index:2;padding:24px 26px 0}
+.tk{display:flex;align-items:center;gap:10px;font:500 10.5px/1 var(--mono);letter-spacing:.16em;color:var(--t2)}
+.tk i{width:6px;height:6px;border-radius:1.5px;background:var(--mint)}
+.tile h3{font:500 20px/1.22 var(--sans);letter-spacing:-.018em;color:var(--t0);margin:13px 0 7px}
+.tile p{font-size:14px;line-height:1.55;color:var(--t2);max-width:430px}
+.chip{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:5px;border:1px solid var(--line2);background:rgba(11,15,19,.78);font:500 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--t1);white-space:nowrap}
+.chip i{width:6px;height:6px;border-radius:1.5px}
+
+/* A corrosion */
+.cor{position:relative;flex:1;min-height:300px;margin:20px 26px 0;border-radius:10px 10px 0 0;overflow:hidden;border:1px solid var(--line);border-bottom:0;background:var(--bg1)}
+.cor .fr{position:absolute;inset:0;opacity:0;transition:opacity 1s var(--ease)}
+.cor .fr.on{opacity:1}
+.cor .fr img,.cor .fr canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cor .fr img{transform:scale(1.04);transition:transform 6s linear}
+.cor .fr.on img{transform:scale(1.0)}
+.cor .fr canvas{clip-path:inset(0 calc(100% - var(--w,0%)) 0 0)}
+.cor .scan{position:absolute;top:0;bottom:0;left:var(--w,0%);width:1px;background:var(--mint);box-shadow:0 0 12px rgba(94,209,179,.7);pointer-events:none;z-index:2}
+.cor .leg{position:absolute;z-index:3;left:12px;bottom:12px;display:flex;gap:5px;flex-wrap:wrap}
+.cor .meta{position:absolute;z-index:3;right:12px;top:12px;text-align:right}
+.cor .meta .chip{margin-left:4px}
+.cor-foot{display:flex;justify-content:space-between;gap:12px;padding:12px 26px 16px;font:500 10.5px/1.4 var(--mono);letter-spacing:.06em;color:var(--t2);border-top:1px solid var(--line);margin:0 26px;font-variant-numeric:tabular-nums}
+.cor-foot b{color:var(--t0);font-weight:500}
+
+/* B tank finding */
+.fd{flex:1;display:flex;flex-direction:column;margin:20px 26px 24px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:rgba(11,15,19,.5)}
+.fd .ph{position:relative;flex:1;min-height:180px;overflow:hidden;background:var(--bg2)}
+.fd .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.05);transition:opacity .8s var(--ease),transform 3.5s var(--ease)}
+.fd .ph img.on{opacity:1;transform:none}
+.fd .ph .sv{position:absolute;left:10px;top:10px;z-index:2}
+.fd .ph .cnt{position:absolute;right:10px;top:10px;z-index:2}
+.fd .bd{padding:12px 14px 14px;border-top:1px solid var(--line)}
+.fd .k{display:flex;justify-content:space-between;font:500 10px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.fd h4{font:500 16px/1.3 var(--sans);color:var(--t0);margin:8px 0 4px;transition:opacity .35s}
+.fd p{font-size:12.5px;line-height:1.5;color:var(--t2);min-height:38px;transition:opacity .35s}
+.fd .sev5 i{height:5px;transition:background .5s var(--ease)}
+.fd .sev5-l{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:6px;font:400 9px/1 var(--mono);letter-spacing:.1em;color:var(--t2)}
+
+/* C ortho */
+.orth{position:relative;flex:1;min-height:170px;margin:16px 26px 0;border-radius:10px 10px 0 0;overflow:hidden;border:1px solid var(--line);border-bottom:0;background:#1b2229;cursor:crosshair}
+.orth img{position:absolute;max-width:none;width:310%;left:-118%;top:-42%;transition:transform 8s linear}
+.orth .lp{position:absolute;left:0;top:0;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:1px solid var(--mint);box-shadow:0 10px 30px rgba(0,0,0,.6);overflow:hidden;opacity:0;transition:opacity .35s var(--ease);pointer-events:none;background-repeat:no-repeat}
+.orth:hover .lp{opacity:1}
+.orth .ch{position:absolute;right:10px;bottom:10px}
+.orth-foot{display:flex;justify-content:space-between;padding:10px 26px 16px;font:500 10.5px/1 var(--mono);letter-spacing:.06em;color:var(--t2);border-top:1px solid var(--line);margin:0 26px}
+.orth-foot b{color:var(--t0);font-weight:500}
+
+/* D race */
+.race{padding:20px 26px 24px;display:flex;flex-direction:column;gap:16px;flex:1;justify-content:flex-end}
+.lane-h{display:flex;justify-content:space-between;align-items:baseline;font:500 10.5px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.lane-h b{font:500 15px/1 var(--mono);color:var(--t0);letter-spacing:0;font-variant-numeric:tabular-nums}
+.bar{position:relative;height:8px;margin-top:9px;border-radius:2px;background:var(--bg2);overflow:hidden}
+.bar i{position:absolute;inset:0;transform-origin:left;transform:scaleX(0);background:var(--t2);border-radius:2px}
+.lane.gpu .bar i{background:var(--mint)}
+.lane.gpu .lane-h b.done{color:var(--mint)}
+.race-f{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid var(--line);font:400 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--t2)}
+.race-f b{font:600 24px/1 var(--cond);letter-spacing:-.01em;color:var(--t0);font-variant-numeric:tabular-nums}
+
+/* E agent */
+.agent{margin:18px 26px 24px;border:1px solid var(--line);border-radius:10px;background:rgba(11,15,19,.6);flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ag-h{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--line);font:500 12.5px/1 var(--sans);color:var(--t0)}
+.ag-h .key{font:500 10px/1 var(--mono);letter-spacing:.1em;color:var(--t2);padding:4px 6px;border:1px solid var(--line2);border-radius:4px}
+.ag-h .sp{flex:1}
+.tog{position:relative;width:28px;height:16px;border-radius:9px;background:var(--bg2);border:1px solid var(--line2);transition:background .4s var(--ease),border-color .4s}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--t2);transition:transform .5s var(--ease),background .4s}
+.tog.on{background:rgba(94,209,179,.18);border-color:rgba(94,209,179,.5)}
+.tog.on::after{transform:translateX(12px);background:var(--mint)}
+.ag-st{font:500 10px/1 var(--mono);letter-spacing:.12em;color:var(--t2);width:24px}
+.ag-b{padding:14px 13px;display:flex;flex-direction:column;gap:12px;flex:1}
+.msg{align-self:flex-end;max-width:88%;padding:9px 11px;border-radius:9px 9px 2px 9px;background:var(--bg2);font-size:13px;line-height:1.45;color:var(--t0);transition:opacity .5s var(--ease),transform .6s var(--ease)}
+.step{border:1px solid var(--line);border-radius:8px;padding:10px 11px;font:400 11.5px/1.55 var(--mono);color:var(--t1);transition:opacity .5s var(--ease),transform .6s var(--ease)}
+.step .s-h{display:flex;justify-content:space-between;font:500 9.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2);margin-bottom:8px}
+.step code{font:inherit;color:var(--t0);word-break:break-word}
+.caret{display:inline-block;width:6px;height:12px;background:var(--mint);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.chips{display:flex;gap:8px;margin-top:10px;transition:opacity .5s var(--ease),transform .6s var(--ease)}
+.chips .chip{height:26px;padding:0 11px;transition:background .3s,color .3s,border-color .3s,transform .25s var(--ease)}
+.chips .ok.press{background:var(--mint);color:#04110D;border-color:var(--mint);transform:scale(.96)}
+.chips .ok.done{border-color:rgba(94,209,179,.55);color:var(--mint)}
+.res{display:flex;gap:10px;align-items:center;font:400 11.5px/1.45 var(--mono);color:var(--t1);transition:opacity .5s var(--ease),transform .6s var(--ease)}
+.res img{flex:none;width:52px;height:39px;border-radius:4px;object-fit:cover}
+.res i{flex:none;width:6px;height:6px;border-radius:1.5px;background:var(--red)}
+.hide{opacity:0;transform:translateY(6px)}
+
+/* F seal */
+.seal{flex:1;display:flex;align-items:center;justify-content:center;padding:6px 18px 18px}
+.seal svg{width:100%;max-width:330px;height:auto;overflow:visible}
+
+/* G stockpile diff */
+.dif{position:relative;flex:1;min-height:250px;margin:18px 26px 0;border-radius:10px 10px 0 0;overflow:hidden;border:1px solid var(--line);border-bottom:0;background:#0d1217}
+.dif canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dif .wch{position:absolute;z-index:2;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;pointer-events:none}
+.dif .ld{position:absolute;inset:0;display:grid;place-items:center;font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.dif-foot{display:flex;gap:20px;flex-wrap:wrap;padding:12px 26px 16px;margin:0 26px;border-top:1px solid var(--line);font:500 11px/1 var(--mono);letter-spacing:.05em;font-variant-numeric:tabular-nums;color:var(--t2)}
+.dif-foot .c{color:#F39A9D}.dif-foot .f{color:#A5C8EA}.dif-foot b{color:var(--t0);font-weight:500}
+
+.specs{display:grid;grid-template-columns:repeat(4,1fr);margin-top:14px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.specs div{padding:20px 22px;border-right:1px solid var(--line);font:400 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.specs div:last-child{border-right:0}
+.specs b{display:block;margin-top:10px;font:500 15px/1.35 var(--sans);letter-spacing:0;color:var(--t0)}
+
+/* trust */
+.trust .grid{display:grid;grid-template-columns:1.05fr 1fr;gap:clamp(40px,6vw,96px);align-items:center}
+.airgap{position:relative;width:100%;aspect-ratio:1.12}
+.airgap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ag-layer{animation:float 6s var(--quart) infinite alternate}
+.ag-layer:nth-of-type(2){animation-delay:-1.5s}.ag-layer:nth-of-type(3){animation-delay:-3s}.ag-layer:nth-of-type(4){animation-delay:-4.5s}
+@keyframes float{from{transform:translateY(3px)}to{transform:translateY(-4px)}}
+.wan{stroke-dasharray:4 6;animation:wan 1.6s linear infinite}
+@keyframes wan{to{stroke-dashoffset:-20}}
+.promises{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);margin-top:40px}
+.pr{padding:26px 0 28px;border-bottom:1px solid var(--line)}
+.pr:nth-child(odd){padding-right:24px;border-right:1px solid var(--line)}
+.pr:nth-child(even){padding-left:24px}
+.pr .n{font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mint)}
+.pr h4{font:500 18px/1.25 var(--sans);letter-spacing:-.012em;color:var(--t0);margin:13px 0 7px}
+.pr p{font-size:14px;color:var(--t2)}
+
+/* CTA */
+.cta{text-align:center;overflow:hidden}
+.cta-bg{position:absolute;left:50%;top:50%;width:min(980px,120vw);transform:translate(-50%,-50%);opacity:.55;pointer-events:none}
+.cta .wrap{position:relative}
+.cta .kicker{justify-content:center}
+.cta .kicker::before{content:"";height:1px;width:56px;background:var(--line2)}
+.cta h2{font:500 clamp(38px,5.6vw,84px)/.98 var(--sans);letter-spacing:-.045em;color:var(--t0);max-width:1000px;margin:26px auto 22px}
+.cta p{color:var(--t1);max-width:520px;margin:0 auto;font-size:17px}
+.cta .ctas{justify-content:center;margin-top:40px;gap:14px}
+.cta small{display:block;margin-top:26px;font:400 11px/1.5 var(--mono);letter-spacing:.08em;color:var(--t2)}
+
+footer{border-top:1px solid var(--line);padding:64px var(--gut) 96px}
+.f-in{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:40px}
+.f-in img{height:26px;width:auto}
+.f-in p{margin-top:18px;font-size:14px;color:var(--t2);max-width:300px}
+.f-col h5{font:500 10.5px/1 var(--mono);letter-spacing:.16em;color:var(--t2);margin-bottom:16px}
+.f-col a{display:block;font-size:14px;color:var(--t1);text-decoration:none;padding:5px 0;transition:color .3s}
+.f-col a:hover{color:var(--mint)}
+.f-bot{max-width:var(--maxw);margin:56px auto 0;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font:400 11px/1.5 var(--mono);letter-spacing:.06em;color:var(--t2)}
+
+.badge{position:fixed;left:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:8px;padding:9px 13px 9px 11px;border-radius:999px;background:rgba(11,15,19,.86);border:1px solid var(--line2);font:500 11px/1 var(--mono);letter-spacing:.08em;color:var(--t1);text-decoration:none;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transition:color .3s,border-color .3s}
+.badge i{width:6px;height:6px;border-radius:1.5px;background:var(--mint)}
+.badge:hover{color:var(--t0);border-color:var(--t2)}
+.badge:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- responsive ---------- */
+@media (max-width:1180px){.nav-links{display:none}}
+@media (max-width:1080px){
+  .bento{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"a a" "a a" "b c" "b d" "e f" "e f" "g g" "g g"}
+  .specs{grid-template-columns:1fr 1fr}.specs div:nth-child(2){border-right:0}.specs div:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .trust .grid{grid-template-columns:1fr}
+  .airgap{max-width:620px;margin:0 auto}
+}
+@media (max-width:859px),(max-aspect-ratio:9/10){
+  .hero-copy{top:84px;transform:none;left:var(--gut);right:var(--gut);width:auto}
+  h1{font-size:clamp(40px,11vw,64px);margin:16px 0 14px}
+  .lede{font-size:15px;max-width:560px}
+  .ctas{margin-top:20px}
+  .hero-meta,.rail,.hud,.cue{display:none}
+  .lbl em,.lbl .nm{display:none}
+  .lbl{padding:6px 2px}
+  .cap{left:var(--gut);right:var(--gut);bottom:62px;width:auto;padding:16px 16px 16px;border-radius:12px;background:rgba(11,15,19,.84);border:1px solid var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .cap h2{font-size:25px;margin:11px 0 7px}
+  .cap p{font-size:13.5px}
+  .cap .stats{margin-top:11px;padding-top:11px;gap:14px}
+  .cap.top{top:76px;bottom:auto;left:var(--gut);right:var(--gut);width:auto}
+  .cap.top h2{font-size:25px}
+  .wait{bottom:auto;top:76px}
+  .card{width:236px}
+  .ap-top>span:not(.t):not(.tag):not(.sp),.ap-top .tabs{display:none}
+  .ss{grid-template-columns:1fr;gap:28px;padding:48px 0}
+}
+@media (max-width:700px){
+  .nav-cta .lnk{display:none}
+  .sec-head{grid-template-columns:1fr;gap:18px}
+  .sec-head p{justify-self:start}
+  .bento{grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e" "f" "g";grid-auto-rows:auto}
+  .cor{min-height:250px}.fd .ph{min-height:200px}.orth{min-height:200px}.dif{min-height:220px}.t-f .seal{min-height:190px}
+  .specs{grid-template-columns:1fr}.specs div{border-right:0;border-bottom:1px solid var(--line)}.specs div:last-child{border-bottom:0}
+  .promises{grid-template-columns:1fr}
+  .pr:nth-child(odd){padding-right:0;border-right:0}.pr:nth-child(even){padding-left:0}
+  .f-in{grid-template-columns:1fr 1fr}.f-in>div:first-child{grid-column:1/-1}
+  .btn-lg{--h:50px;padding:0 20px;font-size:15px}
+  .cor-foot,.orth-foot{flex-wrap:wrap}
+}
+@media (max-width:420px){.nav-cta .btn-sm{padding:0 11px;font-size:13px}.brand img{height:22px}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
+</style>
+<noscript><style>.story-static{display:block}#gl,.ov,.cap,.rail,.hud,.cue{display:none}.stage{height:auto}.hero-copy{position:relative;left:auto;top:auto;transform:none;width:auto;max-width:640px;padding:140px var(--gut) 24px}</style></noscript>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+</head>
+<body>
+<div class="atmo" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top" aria-label="Quadrion AI home"><img src="../assets/quadrion-horizontal-on-dark.svg" alt="Quadrion AI" width="124" height="26"></a>
+    <ul class="nav-links">
+      <li><a href="#story" data-p="0.085">Terminal</a></li>
+      <li><a href="#story" data-p="0.30">Tank</a></li>
+      <li><a href="#story" data-p="0.505">Flare</a></li>
+      <li><a href="#story" data-p="0.81">Stockpile</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#trust">Security</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a class="lnk" href="#cta">Download Player</a>
+      <a class="btn btn-primary btn-sm" href="#cta">Request a demo</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="story" id="story" aria-label="Four assets, four dimensions, one view">
+    <div class="stage" id="stage">
+      <canvas id="gl" aria-hidden="true"></canvas>
+
+      <div class="ov" id="ov">
+        <svg id="leaders" aria-hidden="true"></svg>
+        <div id="labels"></div>
+        <div class="tip" id="tip" role="status" aria-live="polite"><div class="k"></div><h4></h4><p></p><div class="m"></div></div>
+        <div class="card" id="fcard" aria-hidden="true"><div class="ph"><img alt="" width="1280" height="960"><b></b></div><div class="bd"><div class="k"></div><h4></h4><p></p><div class="sev5"><i></i><i></i><i></i><i></i><i></i></div></div></div>
+
+        <div class="app" id="app" aria-label="Quadrion AI app window, recreated around the live scene">
+          <div class="aw" id="awFrame"></div>
+          <div class="ap ap-top" id="apTop">
+            <img src="../assets/favicon.svg" alt=""><span class="t">Quadrion AI</span><span>Inspection programme · GCC</span>
+            <span class="tabs"><span class="on">Scene</span><span>Issues</span><span>Reports</span></span>
+            <span class="sp"></span><span class="tag">OFFLINE</span>
+            <span class="dots"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8"/></svg><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7"/></svg><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"/></svg></span>
+          </div>
+          <div class="ap ap-side" id="apSide">
+            <div class="ap-h">DATASETS <b>4</b></div><div class="ap-h" style="padding-top:0;letter-spacing:.08em;color:#5D6B78">SELECT TO VIEW</div>
+            <button class="ds" type="button" data-ds="0"><i></i><span><b>Tank terminal</b><small>ORTHO · CLOUD · MODEL</small></span></button>
+            <button class="ds" type="button" data-ds="1"><i></i><span><b>Storage tank interior</b><small>LIDAR · 280,000 PTS · 6 ISSUES</small></span></button>
+            <button class="ds" type="button" data-ds="2"><i></i><span><b>Flare stack, 80 m</b><small>MESH · 78 PATCHES</small></span></button>
+            <button class="ds" type="button" data-ds="3"><i></i><span><b>Stockpile yard</b><small>SURVEY 1 → 2 · 19 PILES</small></span></button>
+            <div class="ap-h" style="margin-top:6px">LAYERS</div>
+            <div class="lyr"><span><i></i>ORTHO</span><span><i></i>ELEVATION</span><span><i></i>CLOUD</span><span><i></i>MODEL</span><span><i></i>ISSUES</span><span><i></i>CUT/FILL</span></div>
+          </div>
+          <div class="ap ap-iss" id="apIss">
+            <div class="ap-h">ISSUES · STORAGE TANK <b id="issN">6</b></div>
+            <div id="issList"></div>
+            <div class="isum"><b>Flare stack</b> · 78 corrosion patches · moderate 77 · light 1</div>
+            <div class="isum"><b>Stockpile yard</b> · net −12,797 m³ between surveys</div>
+            <div class="agbox"><div class="h"><span>AGENT</span><b>YOUR KEY</b></div><div class="q" id="agQ"></div></div>
+          </div>
+          <div class="ap ap-time" id="apTime">
+            <div class="tl-h"><span class="pl"></span><span>TIMELINE</span><span class="sp"></span><span>DAY 0 → DAY 10</span></div>
+            <div style="position:relative">
+              <div class="tl-ruler"><span style="left:0%">0</span><span style="left:20%">2</span><span style="left:40%">4</span><span style="left:60%">6</span><span style="left:80%">8</span><span style="left:100%">10</span></div>
+              <div class="tl-g" style="margin-top:6px">
+                <span class="nm">Tank terminal · photogrammetry</span><span class="tr"><span style="left:2%;width:16%"></span></span>
+                <span class="nm">Storage tank · LiDAR + photos</span><span class="tr"><span style="left:24%;width:12%"></span></span>
+                <span class="nm">Flare stack · photos</span><span class="tr"><span style="left:40%;width:20%"></span></span>
+                <span class="nm">Stockpile · Survey 1 / 2</span><span class="tr"><span style="left:0%;width:4%"></span><span class="m" style="left:96%;width:4%"></span></span>
+              </div>
+              <div class="tl-play" id="tlPlay"></div>
+            </div>
+          </div>
+          <div class="av-chip" id="avChip"><span>PERSPECTIVE</span><span id="avName">STORAGE TANK · LIDAR + 6 FINDINGS</span></div>
+        </div>
+      </div>
+
+      <div class="hero-copy" id="heroCopy">
+        <div class="eyebrow">Offline 4D inspection workspace</div>
+        <h1>Four dimensions.<span class="l2">One view<span class="pt">.</span></span></h1>
+        <p class="lede">Quadrion AI fuses everything a drone job produces into one georeferenced 3D scene with one timeline. Every layer on this page is real survey data: a tank terminal, a storage tank, a flare stack and a stockpile yard.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="#cta">Request a demo <svg class="arr" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg></a>
+          <a class="btn btn-ghost" href="#cta">Download the free Player</a>
+        </div>
+        <div class="hero-meta">
+          <div>Asset<b>Tank terminal</b></div>
+          <div>Layers<b>5 · all real</b></div>
+          <div>Network<b>None required</b></div>
+        </div>
+      </div>
+
+      <div class="cue" id="cue" aria-hidden="true"><span></span>SCROLL TO FUSE THE STACK</div>
+
+      <div class="cap" data-cap="0" aria-hidden="true">
+        <div class="idx">01 — TANK TERMINAL</div>
+        <h2>Every layer, one coordinate system.</h2>
+        <p>The orthomosaic, a terrain model built from the photogrammetry cloud, the cloud itself and the engineering model snap into one georeferenced scene. No re-projecting, no switching tools.</p>
+        <div class="stats"><div>Layers<b>5 → 1</b></div><div>Site<b>≈ 2.1 × 1.0 km</b></div></div>
+      </div>
+      <div class="cap" data-cap="1" aria-hidden="true">
+        <div class="idx">02 — STORAGE TANK INTERIOR</div>
+        <h2>Slice the shell. Read the scan.</h2>
+        <p>The interior LiDAR scan sits inside the engineering model, course by course. Findings are pinned where they were found and graded, each with the photo that proves it.</p>
+        <div class="stats"><div>LiDAR<b>280,000 pts · 2 cm</b></div><div>Findings<b>6 · sev 3–5</b></div></div>
+      </div>
+      <div class="cap" data-cap="2" aria-hidden="true">
+        <div class="idx">03 — FLARE STACK, 80 M</div>
+        <h2>Corrosion, mapped patch by patch.</h2>
+        <p>Corrosion is traced on the inspection photos, projected onto the textured model and graded. Every patch links back to the photo and the mask it came from.</p>
+        <div class="stats"><div>Patches<b>78 mapped</b></div><div>Grades<b>77 moderate · 1 light</b></div></div>
+      </div>
+      <div class="cap" data-cap="3" aria-hidden="true">
+        <div class="idx">04 — STOCKPILE YARD</div>
+        <h2>Time is the fourth dimension.</h2>
+        <p>Two surveys, ten days apart, stack on one timeline. Fuse them and Quadrion measures what moved, surface to surface.</p>
+        <div class="stats"><div>Stockpiled volume<b id="volTot">76,199 m³</b></div><div>Cut / fill<b><span class="c" id="volCut">−0 m³</span> / <span class="f" id="volFill">+0 m³</span></b></div></div>
+      </div>
+      <div class="cap top" data-cap="4" aria-hidden="true">
+        <div class="idx">05 — ONE VIEW</div>
+        <h2>Four assets. One timeline. One window.</h2>
+        <p>Every survey becomes a slab on the same timeline. Then it all lives in one offline workspace.</p>
+      </div>
+
+      <nav class="rail" id="rail" aria-label="Story progress">
+        <a href="#story" data-p="0.085"><i></i>TANK TERMINAL</a>
+        <a href="#story" data-p="0.30"><i></i>STORAGE TANK</a>
+        <a href="#story" data-p="0.505"><i></i>FLARE STACK</a>
+        <a href="#story" data-p="0.81"><i></i>STOCKPILE YARD</a>
+        <a href="#story" data-p="0.97"><i></i>ONE VIEW</a>
+      </nav>
+      <div class="hud" id="hud" aria-hidden="true"><div>LOCAL FRAME · METRES</div><div id="hudXY">X — · Z —</div><div><b id="hudT">TANK TERMINAL · 5 LAYERS</b></div></div>
+      <div class="wait" id="wait" role="status" aria-live="polite"><span></span><em id="waitT" style="font-style:normal">STREAMING</em></div>
+    </div>
+
+    <div class="story-static" id="storyStatic">
+      <article class="ss">
+        <div class="ss-vis"><img class="still" data-still="0" src="../data/plant/ortho.jpg" alt="Orthomosaic of the tank terminal" loading="lazy"></div>
+        <div><div class="idx">01 — TANK TERMINAL</div><h2>Every layer, one coordinate system.</h2><p>Five real layers of one terminal fuse into a single georeferenced scene.</p>
+          <ul><li>01 · ORTHOMOSAIC<span>4096 × 2451 · 53 cm/px</span></li><li>02 · ELEVATION<span>from the cloud heights</span></li><li>03 · POINT CLOUD<span>378,789 pts</span></li><li>04 · 3D MODEL<span>engineering model</span></li><li>05 · ASSET TAGS<span>storage tanks + jetty</span></li></ul></div>
+      </article>
+      <article class="ss">
+        <div class="ss-vis"><img class="still" data-still="1" src="../data/tank/photos/F01_109_0256.jpg" alt="Crack in the bottom plate of the storage tank" loading="lazy"></div>
+        <div><div class="idx">02 — STORAGE TANK INTERIOR</div><h2>Slice the shell. Read the scan.</h2><p>The shell courses separate to reveal the 280,000-point interior LiDAR scan and six graded findings.</p>
+          <ul><li>01 · OUTER SHELL<span>3 courses + roof</span></li><li>02 · LIDAR INTERIOR<span>280,000 pts · 2 cm</span></li><li>03 · FINDINGS<span>6 · sev 3–5</span></li></ul></div>
+      </article>
+      <article class="ss">
+        <div class="ss-vis"><img class="still" data-still="2" src="../data/flare/patches/F44.webp" alt="Rust along a cladding seam of the flare stack" loading="lazy"></div>
+        <div><div class="idx">03 — FLARE STACK, 80 M</div><h2>Corrosion, mapped patch by patch.</h2><p>78 corrosion patches projected onto the textured model, each linked to its photo and mask.</p>
+          <ul><li>01 · TEXTURED MESH<span>80 m</span></li><li>02 · CORROSION PATCHES<span>78 · 77 moderate · 1 light</span></li><li>03 · PHOTO EVIDENCE<span>photo + class mask</span></li></ul></div>
+      </article>
+      <article class="ss">
+        <div class="ss-vis"><canvas data-still-diff aria-label="Cut and fill between the two stockpile surveys"></canvas><img class="still" data-still="3" alt="" hidden></div>
+        <div><div class="idx">04 — STOCKPILE YARD</div><h2>Time is the fourth dimension.</h2><p>Survey 1 and Survey 2, ten days apart, fused into one cut/fill surface.</p>
+          <ul><li>STOCKPILED VOLUME<span>76,199 → 63,402 m³</span></li><li>CUT<span>−22,598 m³</span></li><li>FILL<span>+1,227 m³</span></li></ul></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="sec" id="features">
+    <div class="wrap">
+      <div class="kicker" data-reveal><b>06</b> Capabilities</div>
+      <div class="sec-head" data-reveal data-stagger>
+        <h2 class="h2">Built for the whole job, <em>from flight to client hand-off.</em></h2>
+        <p>Every tool works on the same fused scene, so a finding, a photo and a volume change always point at the same place.</p>
+      </div>
+
+      <div class="bento" data-reveal data-stagger>
+        <div class="tile t-a"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>CORROSION · FLARE STACK, 80 M</div><h3>Every patch traced back to its photo</h3><p>Corrosion is segmented on the inspection photos, graded by class, then mapped onto the model. Hover to hold the mask.</p></div>
+          <div class="cor" id="mCor">
+            <div class="meta" id="corMeta"><span class="chip" id="corId">F44</span><span class="chip" id="corSev"><i style="background:var(--orange)"></i>MODERATE</span></div>
+            <div class="leg"><span class="chip"><i style="background:var(--yellow)"></i>LIGHT</span><span class="chip"><i style="background:var(--orange)"></i>MODERATE</span><span class="chip"><i style="background:var(--red)"></i>HEAVY</span><span class="chip"><i style="background:var(--t2)"></i>UNCERTAIN</span></div>
+            <div class="scan"></div>
+          </div>
+          <div class="cor-foot"><span id="corComp">Stack cladding / seam · Stack / access</span><span><b id="corCov">6.0 %</b> of frame</span></div>
+        </div></div>
+
+        <div class="tile t-b"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>FINDINGS · STORAGE TANK INTERIOR</div><h3>Findings with a grade, not a guess</h3><p>Pin a finding in 3D, grade it, and keep the photo that proves it.</p></div>
+          <div class="fd" id="mFind">
+            <div class="ph"><span class="chip sv" id="fdSev">SEV 5 / 5</span><span class="chip cnt" id="fdCnt">1 / 6</span></div>
+            <div class="bd"><div class="k"><span id="fdId">F01 · CRACK</span><span id="fdArea">BOTTOM PLATE</span></div><h4 id="fdT">Crack in bottom plate</h4><p id="fdD"></p>
+              <div class="sev5" id="fdScale"><i></i><i></i><i></i><i></i><i></i></div><div class="sev5-l"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div></div>
+          </div>
+        </div></div>
+
+        <div class="tile t-c"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>ORTHOMOSAIC</div><h3>Survey-grade imagery, on your disk</h3></div>
+          <div class="orth" id="mOrtho"><img src="../data/plant/ortho.jpg" alt="Orthomosaic crop of the tank terminal's storage tanks" loading="lazy"><div class="lp"></div><span class="chip ch" id="orthXY">X 0.0 · Z 0.0 m</span></div>
+          <div class="orth-foot"><span>4096 × 2451 px</span><span><b>53 cm</b> / px</span></div>
+        </div></div>
+
+        <div class="tile t-d"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>GPU</div><h3>About 20× faster photo matching</h3><p>Optional NVIDIA GPU processing for the same results.</p></div>
+          <div class="race" id="mRace">
+            <div class="lane"><div class="lane-h"><span>CPU</span><b data-v="cpu">0.0 s</b></div><div class="bar"><i data-b="cpu"></i></div></div>
+            <div class="lane gpu"><div class="lane-h"><span>NVIDIA GPU</span><b data-v="gpu">0.0 s</b></div><div class="bar"><i data-b="gpu"></i></div></div>
+            <div class="race-f"><span>PHOTO MATCHING · DEMO SET</span><b data-v="x">19.8×</b></div>
+          </div>
+        </div></div>
+
+        <div class="tile t-e"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>AGENT</div><h3>An agent in every window. Off by default.</h3><p>Uses your own key. Every tool step waits for your approval, and every step can be undone.</p></div>
+          <div class="agent" id="mAgent" aria-hidden="true">
+            <div class="ag-h"><span>Agent</span><span class="key">YOUR KEY</span><span class="sp"></span><span class="ag-st">OFF</span><span class="tog"></span></div>
+            <div class="ag-b">
+              <div class="msg">Show only severity 5 findings in the storage tank.</div>
+              <div class="step"><div class="s-h"><span>TOOL STEP</span><span>1 / 1</span></div><code></code><span class="caret"></span>
+                <div class="chips"><span class="chip ok">Approve</span><span class="chip">Undo</span></div>
+              </div>
+              <div class="res"><img src="../data/tank/photos/F01_109_0256.jpg" alt="" loading="lazy" width="1280" height="960"><span><i></i> Applied · 1 of 6 shown · F01 Crack in bottom plate</span></div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="tile t-g"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>TIME · STOCKPILE YARD</div><h3>Compare two surveys, surface to surface</h3><p>Survey 1 against Survey 2, ten days later. Red is material removed, blue is material added.</p></div>
+          <div class="dif" id="mDiff"><canvas aria-hidden="true"></canvas><div class="ld">COMPUTING CUT / FILL…</div><div class="wch"><span class="chip">SURVEY 1</span><span class="chip"><i style="background:var(--mint)"></i>SURVEY 2 · +10 DAYS</span></div></div>
+          <div class="dif-foot"><span class="c">CUT −22,598 m³</span><span class="f">FILL +1,227 m³</span><span>STOCKPILED <b>76,199 → 63,402 m³</b></span></div>
+        </div></div>
+
+        <div class="tile t-f"><div class="tile-in">
+          <div class="tile-head"><div class="tk"><i></i>.AIO · PLAYER</div><h3>Seal it for the client</h3><p>A read-only .aio package opens in the free Player.</p></div>
+          <div class="seal"><svg id="mSeal" viewBox="0 0 300 150" aria-hidden="true"></svg></div>
+        </div></div>
+      </div>
+
+      <div class="specs" data-reveal data-stagger>
+        <div>EXPORTS<b>Civil 3D · TBC · 12d</b></div>
+        <div>PLATFORM<b>Windows desktop</b></div>
+        <div>PROCESSING<b>CPU, or NVIDIA GPU</b></div>
+        <div>CLIENTS<b>Free read-only Player</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec trust" id="trust">
+    <div class="wrap grid">
+      <div class="airgap" data-reveal><svg id="airgap" role="img" aria-label="Data layers stacked inside a sealed boundary labelled no network required"></svg></div>
+      <div>
+        <div class="kicker" data-reveal><b>07</b> Air-gap</div>
+        <h2 class="h2" style="margin-top:26px" data-reveal>Built for restricted networks.</h2>
+        <p style="margin-top:20px;color:var(--t2);font-size:17px;max-width:480px" data-reveal>Many of our customers work where the network is part of the threat model. Every layer, every tool and every survey date lives inside the box.</p>
+        <div class="promises" data-reveal data-stagger>
+          <div class="pr"><div class="n">01</div><h4>Runs fully offline</h4><p>Maps, processing, measurement and reports all work with the cable unplugged.</p></div>
+          <div class="pr"><div class="n">02</div><h4>Data stays on your disks</h4><p>Projects live on drives you control. Nothing is uploaded.</p></div>
+          <div class="pr"><div class="n">03</div><h4>No telemetry. No account.</h4><p>No sign-in to open a project, and nothing phones home.</p></div>
+          <div class="pr"><div class="n">04</div><h4>AI off by default</h4><p>The agent stays off until you switch it on with your own key.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec cta" id="cta">
+    <svg class="cta-bg" id="ctaBg" viewBox="0 0 980 520" aria-hidden="true"></svg>
+    <div class="wrap">
+      <div class="kicker" data-reveal>Get started</div>
+      <h2 data-reveal>Put every layer of your next survey in one view.</h2>
+      <p data-reveal>See Quadrion on your own data, or send a client a package they can open for free.</p>
+      <div class="ctas" data-reveal>
+        <a class="btn btn-primary btn-lg magnet" href="#cta"><span class="lbl-in">Request a demo <svg class="arr" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg></span></a>
+        <a class="btn btn-ghost btn-lg" href="#cta">Download the free Player</a>
+      </div>
+      <small data-reveal>THE PLAYER OPENS .AIO PACKAGES READ-ONLY · NO ACCOUNT NEEDED</small>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="f-in">
+    <div><img src="../assets/quadrion-horizontal-on-dark.svg" alt="Quadrion AI" width="124" height="26"><p>The offline-first 4D workspace for drone inspection and survey teams. Made by Synapse Solutions.</p></div>
+    <div class="f-col"><h5>PRODUCT</h5><a href="#story">Scene</a><a href="#features">Issues</a><a href="#features">Time</a><a href="#features">Agent</a><a href="#cta">Player</a></div>
+    <div class="f-col"><h5>COMPANY</h5><a href="#">Synapse Solutions</a><a href="#">Contact</a><a href="#">Careers</a></div>
+    <div class="f-col"><h5>RESOURCES</h5><a href="#">Documentation</a><a href="#">Release notes</a><a href="#trust">Security</a></div>
+  </div>
+  <div class="f-bot"><span>© 2026 Synapse Solutions. Quadrion AI is made by Synapse Solutions.</span><span>OFFLINE-FIRST · NO TELEMETRY · NO ACCOUNT</span></div>
+</footer>
+
+<a class="badge" href="../index.html"><i></i>Direction B2 · Layer Stack</a>
+
+<script>
+/* If the story module never runs (blocked CDN, very old browser), fall back to the static layout. */
+setTimeout(function(){ if(!window.__qInit){ document.documentElement.classList.add('no-webgl','static'); } }, 7000);
+</script>
+<script type="module" src="./bento.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

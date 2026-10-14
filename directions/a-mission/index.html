@@ -1,0 +1,1942 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quadrion AI · Mission Control</title>
+<meta name="description" content="Quadrion AI is an offline workspace for drone inspection and survey. Four dimensions. One view.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  document.documentElement.classList.add('js');
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('flat', 'rm');
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+:root{
+  --bg0:#0B0F13; --bg1:#11161C; --bg2:#1E2630; --line:#2A3340;
+  --t0:#EEF2F5; --t1:#C5CDD6; --t2:#8E99A6; --mint:#5ED1B3;
+  --red:#E5484D; --orange:#F2994A; --yellow:#E8C547; --blue:#5B9BD5;
+  --sans:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --cond:'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --quart:cubic-bezier(.25,1,.5,1);
+  --in:cubic-bezier(.7,0,.84,0);
+  --gut:clamp(16px, 3.9vw, 56px);
+  --nav:64px;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{background:var(--bg0);-webkit-text-size-adjust:100%}
+html.lenis, html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto !important}
+.lenis.lenis-stopped{overflow:hidden}
+body{background:var(--bg0);color:var(--t1);font:400 16px/1.55 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow-x:clip;text-rendering:optimizeLegibility}
+img,svg,canvas{display:block}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+h1,h2,h3,h4,p,ul,ol,dl,dd,figure{margin:0;padding:0}
+ul,ol{list-style:none}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.tab{font-variant-numeric:tabular-nums}
+::selection{background:rgba(94,209,179,.28);color:var(--t0)}
+:focus-visible{outline:1px solid var(--mint);outline-offset:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- buttons ---------- */
+.btn{position:relative;isolation:isolate;display:inline-flex;align-items:center;gap:12px;height:46px;padding:0 18px 0 20px;border:1px solid var(--line);border-radius:2px;color:var(--t0);font:500 14px/1 var(--sans);letter-spacing:.005em;overflow:hidden;white-space:nowrap;transition:color .5s var(--ease),border-color .5s var(--ease)}
+.btn::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--t0);transform:scaleX(0);transform-origin:100% 50%;transition:transform .7s var(--ease)}
+.btn:hover::before,.btn:focus-visible::before{transform:scaleX(1);transform-origin:0 50%}
+.btn:hover,.btn:focus-visible{color:var(--bg0);border-color:var(--t0)}
+.btn .arr{width:14px;height:14px;flex:none;overflow:hidden;position:relative}
+.btn .arr svg{position:absolute;inset:0;transition:transform .6s var(--ease)}
+.btn .arr svg + svg{transform:translateX(-140%)}
+.btn:hover .arr svg:first-child,.btn:focus-visible .arr svg:first-child{transform:translateX(140%)}
+.btn:hover .arr svg + svg,.btn:focus-visible .arr svg + svg{transform:none}
+.btn-p{background:var(--mint);border-color:var(--mint);color:#07130F}
+.btn-sm{height:36px;padding:0 14px;font-size:13px}
+
+/* ---------- nav ---------- */
+.nav{position:fixed;inset:0 0 auto 0;z-index:60;height:var(--nav);display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 var(--gut);border-bottom:1px solid transparent;transition:background .5s var(--ease),border-color .5s var(--ease)}
+.nav.solid{background:rgba(11,15,19,.88);border-bottom-color:var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.brand{display:flex;align-items:center;height:40px}
+.brand svg{height:22px;width:auto}
+.links{display:flex;gap:32px;font-size:14px;color:var(--t1)}
+.links a{position:relative;padding:6px 0}
+.links a::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--mint);transform:scaleX(0);transform-origin:100% 50%;transition:transform .6s var(--ease)}
+.links a:hover{color:var(--t0)}
+.links a:hover::after{transform:scaleX(1);transform-origin:0 50%}
+.nav-r{display:flex;align-items:center;gap:20px}
+.nav-st{display:flex;align-items:center;gap:8px;font:500 11px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.lamp{width:7px;height:7px;border-radius:50%;background:var(--mint);flex:none;animation:lamp 2.6s var(--quart) infinite}
+@keyframes lamp{0%{box-shadow:0 0 0 0 rgba(94,209,179,.55)}70%{box-shadow:0 0 0 7px rgba(94,209,179,0)}100%{box-shadow:0 0 0 0 rgba(94,209,179,0)}}
+
+/* ---------- stage (hero + pinned flight) ---------- */
+#stage{position:relative;height:100vh;height:100svh;overflow:hidden;background:var(--bg0)}
+.view{position:absolute;inset:0;overflow:hidden;touch-action:pan-y}
+#gl{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 1.4s var(--ease)}
+.gl-ok #gl{opacity:1}
+.gl-fb{position:absolute;inset:0;background:radial-gradient(110% 80% at 70% 36%,#1E2630 0%,#11161C 40%,#0B0F13 74%);transition:opacity 1.4s var(--ease)}
+.gl-fb::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(42,51,64,.35) 0 1px,transparent 1px 96px),repeating-linear-gradient(0deg,rgba(42,51,64,.35) 0 1px,transparent 1px 96px);mask-image:radial-gradient(70% 60% at 68% 40%,#000,transparent);-webkit-mask-image:radial-gradient(70% 60% at 68% 40%,#000,transparent)}
+.gl-fb img{position:absolute;right:-3%;top:44%;width:min(1080px,70vw);height:auto;transform:translateY(-50%) perspective(1800px) rotateY(-16deg) rotateX(5deg);opacity:.42;border:1px solid var(--line);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 82%,transparent)}
+.gl-ok .gl-fb{opacity:0;pointer-events:none}
+.scrim-b{position:absolute;inset:auto 0 0 0;height:62%;background:linear-gradient(0deg,rgba(11,15,19,.94) 0%,rgba(11,15,19,.6) 40%,rgba(11,15,19,0) 100%);pointer-events:none;z-index:2}
+.scrim-l{position:absolute;inset:0 auto 0 0;width:min(760px,62%);background:linear-gradient(90deg,rgba(11,15,19,.94) 0%,rgba(11,15,19,.72) 46%,rgba(11,15,19,0) 100%);pointer-events:none;z-index:2;opacity:0}
+
+/* HUD */
+.hud{position:absolute;inset:0;z-index:4;pointer-events:none;font:400 11px/1.45 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.04em;color:var(--t2)}
+.brk{position:absolute;width:18px;height:18px;border-color:rgba(197,205,214,.55);border-style:solid;border-width:0}
+.brk.tl{left:20px;top:calc(var(--nav) + 12px);border-left-width:1px;border-top-width:1px}
+.brk.tr{right:20px;top:calc(var(--nav) + 12px);border-right-width:1px;border-top-width:1px}
+.brk.bl{left:20px;bottom:20px;border-left-width:1px;border-bottom-width:1px}
+.brk.br{right:20px;bottom:20px;border-right-width:1px;border-bottom-width:1px}
+.hud-tl{position:absolute;left:44px;top:calc(var(--nav) + 30px);display:grid;gap:2px}
+.hud-tl b{font-weight:500;color:var(--t1);letter-spacing:.12em}
+.hud-tl .mode{color:var(--mint)}
+.hud-tr{position:absolute;right:44px;top:calc(var(--nav) + 30px);display:grid;grid-template-columns:auto auto;column-gap:22px;row-gap:2px;text-align:right}
+.hud-tr .r{display:flex;justify-content:flex-end;gap:10px}
+.hud-tr .k{color:var(--t2)}
+.hud-tr .v{color:var(--t0);min-width:7ch;text-align:right}
+.hud-tr .w{grid-column:1 / -1}
+.hud-tr .w .v{min-width:0}
+.hud-br{position:absolute;right:44px;bottom:42px;display:flex;align-items:flex-end;gap:22px}
+.scale{display:grid;gap:6px;justify-items:start}
+.scale-bar{width:120px;height:6px;border:1px solid rgba(197,205,214,.6);border-top:0;transform-origin:0 50%}
+.compass{width:52px;height:52px;border:1px solid rgba(197,205,214,.35);border-radius:50%;position:relative}
+.compass::before{content:'';position:absolute;inset:6px;border-radius:50%;border:1px dashed rgba(142,153,166,.3)}
+.needle{position:absolute;inset:0}
+.needle i{position:absolute;left:50%;top:5px;width:1px;height:21px;background:var(--mint);transform:translateX(-50%)}
+.needle b{position:absolute;left:50%;top:-16px;transform:translateX(-50%);font-weight:500;color:var(--t1)}
+.ruler{position:absolute;left:20px;top:32%;width:8px;height:36%;background:repeating-linear-gradient(0deg,rgba(142,153,166,.45) 0 1px,transparent 1px 12px);-webkit-mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent);mask-image:linear-gradient(transparent,#000 20%,#000 80%,transparent)}
+.ruler::after{content:'';position:absolute;left:0;top:0;width:4px;height:100%;background:repeating-linear-gradient(0deg,transparent 0 59px,rgba(197,205,214,.7) 59px 60px)}
+.cue{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;letter-spacing:.18em;color:var(--t2)}
+.cue i{width:1px;height:40px;background:linear-gradient(var(--mint),transparent);transform-origin:50% 0;animation:cue 2.4s var(--ease) infinite}
+@keyframes cue{0%{transform:scaleY(0);opacity:1}60%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
+
+/* crosshair */
+.xh{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .5s var(--ease)}
+.xh.on{opacity:1}
+#stage:not([data-ch="-1"]) .xh.on{opacity:.55}
+.xh-h,.xh-v{position:absolute;left:0;top:0;background:rgba(197,205,214,.16)}
+.xh-h{width:100%;height:1px}
+.xh-v{width:1px;height:100%}
+.xh-c{position:absolute;left:-9px;top:-9px;width:18px;height:18px;border:1px solid rgba(238,242,245,.75)}
+.xh-c::after{content:'';position:absolute;left:7px;top:7px;width:2px;height:2px;background:var(--mint)}
+.xh-t{position:absolute;left:0;top:0;padding:4px 7px;font:400 10.5px/1.4 var(--mono);font-variant-numeric:tabular-nums;color:var(--t1);background:rgba(11,15,19,.78);border:1px solid var(--line);white-space:nowrap}
+
+/* projected labels */
+.labels{position:absolute;inset:0;z-index:3;pointer-events:none}
+.pl{position:absolute;left:0;top:0;width:0;height:0;will-change:transform}
+.pl.off{visibility:hidden}
+.callout{--sev:var(--orange);transition:opacity .7s var(--ease)}
+.c-dot{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--sev);box-shadow:0 0 0 3px rgba(11,15,19,.75)}
+.c-dot::after{content:'';position:absolute;inset:-7px;border-radius:50%;border:1px solid var(--sev);opacity:0;animation:ping 2.8s var(--quart) infinite}
+@keyframes ping{0%{transform:scale(.4);opacity:.9}80%,100%{transform:scale(1.5);opacity:0}}
+.c-lead{position:absolute;left:0;top:0;width:46px;height:1px;background:linear-gradient(90deg,var(--sev),rgba(197,205,214,.55));transform-origin:0 0;transform:rotate(-45deg)}
+.callout[data-dir="l"] .c-lead{transform:rotate(-135deg)}
+.callout[data-dir="ru"] .c-lead{width:84px;transform:rotate(-58deg)}
+.c-box{position:absolute;left:32px;bottom:32px;width:max-content;max-width:300px;pointer-events:auto;background:rgba(11,15,19,.86);border:1px solid var(--line);font:400 11px/1.4 var(--mono);font-variant-numeric:tabular-nums;color:var(--t1);cursor:default;transition:border-color .4s var(--ease),background .4s var(--ease)}
+.callout[data-dir="l"] .c-box{left:auto;right:32px}
+.callout[data-dir="ru"] .c-box{left:44px;bottom:71px}
+.c-head{display:flex;align-items:center;gap:8px;padding:6px 10px;white-space:nowrap}
+.c-head i{width:6px;height:6px;background:var(--sev);flex:none}
+.c-head b{font-weight:500;color:var(--t0)}
+.c-head em{font-style:normal;color:var(--sev)}
+.c-more{display:grid;grid-template-rows:0fr;transition:grid-template-rows .55s var(--ease);contain:inline-size}
+.c-more > div{overflow:hidden;min-height:0}
+.c-more p{padding:8px 10px 0;border-top:1px solid var(--line);font:400 12px/1.5 var(--sans);color:var(--t1);white-space:normal}
+.c-more dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;padding:8px 10px 9px;color:var(--t2)}
+.c-more dd{color:var(--t0);text-align:right}
+.callout:hover,.callout:focus-within{z-index:5}
+.callout:hover .c-box,.callout:focus-within .c-box{border-color:color-mix(in srgb,var(--sev) 70%,transparent);background:rgba(11,15,19,.95)}
+.callout:hover .c-more,.callout:focus-within .c-more{grid-template-rows:1fr}
+.callout:hover .c-box,.callout:focus-within .c-box{min-width:250px}
+.tag{font:400 10.5px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.06em;color:var(--t1);transition:opacity .6s var(--ease)}
+.tag span{position:absolute;left:10px;top:-6px;white-space:nowrap;padding:3px 6px;background:rgba(11,15,19,.7);border-left:1px solid var(--mint)}
+.tag.vid span{left:0;top:-22px;border-left:0;background:none;color:var(--mint)}
+.tag.vol span{left:-4px;top:-30px;border:1px solid var(--line);border-left:2px solid var(--c,var(--mint));background:rgba(11,15,19,.82);padding:5px 8px}
+.tag.vol::before{content:'';position:absolute;left:-3px;top:-3px;width:6px;height:6px;background:var(--c,var(--mint))}
+.tag.vol::after{content:'';position:absolute;left:0;top:-14px;width:1px;height:14px;background:rgba(197,205,214,.5)}
+
+/* chapter visibility */
+#stage .tag.vid,#stage .tag.vol{opacity:0}
+#stage[data-ch="1"] .tag.vid,#stage[data-ch="3"] .tag.vol{opacity:1}
+#stage[data-ch="2"] .tag.uav,#stage[data-ch="3"] .tag.uav{opacity:0}
+#stage[data-ch="0"] .callout,#stage[data-ch="1"] .callout,#stage[data-ch="3"] .callout{opacity:0}
+#stage[data-ch="0"] .callout .c-box,#stage[data-ch="1"] .callout .c-box,#stage[data-ch="3"] .callout .c-box{pointer-events:none}
+#stage[data-ch="2"] .c-box{border-color:color-mix(in srgb,var(--sev) 45%,var(--line))}
+
+/* hero copy */
+.hero{position:absolute;left:var(--gut);bottom:clamp(36px,8vh,88px);z-index:5;width:min(780px,calc(100% - 2 * var(--gut)));pointer-events:none;will-change:transform,opacity}
+.hero a{pointer-events:auto}
+.eyebrow{display:flex;align-items:center;gap:10px;font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--t2);text-transform:uppercase}
+.eyebrow .dash{width:24px;height:1px;background:var(--mint)}
+.hero h1{margin:22px 0 22px;font:500 clamp(44px,7.3vw,116px)/.94 var(--sans);letter-spacing:-.042em;color:var(--t0)}
+.hl{display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em}
+.hl > span{display:block}
+.hero h1 .pt{color:var(--mint)}
+.hero p.sub{max-width:540px;font-size:clamp(15px,1.25vw,18px);line-height:1.55;color:var(--t1)}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.js:not(.rm) .hero .hl > span{animation:rise 1.4s var(--ease) both;animation-delay:calc(.25s + var(--i,0) * .09s)}
+.js:not(.rm) .hero .fade{animation:fade 1.4s var(--ease) both;animation-delay:calc(.55s + var(--i,0) * .08s)}
+.js:not(.rm) .hud > *:not(.cue),.js:not(.rm) .cue > *{animation:fade 1.6s var(--ease) both;animation-delay:.9s}
+@keyframes rise{from{transform:translate3d(0,110%,0)}to{transform:none}}
+@keyframes fade{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:none}}
+
+/* chapters */
+.chapters{position:absolute;left:var(--gut);top:50%;transform:translateY(-46%);z-index:5;width:min(440px,40vw);opacity:0;pointer-events:none;transition:opacity .8s var(--ease)}
+#stage:not([data-ch="-1"]) .chapters{opacity:1}
+.ch-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;font:500 11px/1 var(--mono);letter-spacing:.14em;color:var(--t2)}
+.ch-idx{font:500 13px/1 var(--mono);color:var(--t2)}
+.ch-idx b{font-weight:500;color:var(--t0)}
+.rail{position:relative;height:1px;background:var(--line);margin:16px 0 10px}
+.rail i{position:absolute;inset:0;background:var(--mint);transform:scaleX(0);transform-origin:0 50%}
+.rail-l{display:grid;grid-template-columns:repeat(4,1fr);font:400 10px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.rail-l span{position:relative;padding-top:8px;transition:color .5s var(--ease)}
+.rail-l span::before{content:'';position:absolute;left:0;top:-11px;width:1px;height:7px;background:var(--line)}
+.rail-l span.on{color:var(--t0)}
+.rail-l span.on::before{background:var(--mint)}
+.chap-wrap{position:relative;min-height:440px;margin-top:44px}
+.chap{position:absolute;inset:0 0 auto 0;visibility:hidden;transition:visibility 0s linear .8s}
+.chap.is-active{visibility:visible;transition-delay:0s}
+.chap .ln{display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em}
+.chap .ln > *{display:block;transform:translate3d(0,112%,0);transition:transform .55s var(--in);transition-delay:calc(var(--i,0) * 16ms)}
+.chap.is-past .ln > *{transform:translate3d(0,-112%,0)}
+.chap.is-active .ln > *{transform:none;transition:transform 1.1s var(--ease);transition-delay:calc(260ms + var(--i,0) * 55ms)}
+.chap .k-ey{font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--mint);text-transform:uppercase}
+.chap h2{margin:16px 0 18px;font:500 clamp(28px,2.6vw,40px)/1.06 var(--sans);letter-spacing:-.028em;color:var(--t0)}
+.chap p{font-size:15.5px;line-height:1.6;color:var(--t1)}
+.chap dl{margin-top:26px;font:400 11.5px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:.05em}
+.chap dl .ln > div{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid var(--line)}
+.chap dt{color:var(--t2)}
+.chap dd{color:var(--t0)}
+.sv{display:inline-flex;align-items:center;gap:6px;margin-right:14px}
+.sv::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--c)}
+.cmp{margin-top:26px;border:1px solid var(--line);background:rgba(17,22,28,.75)}
+.cmp-d{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);font:500 11px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.cmp-d b{font-weight:500;padding:5px 8px;border:1px solid transparent;transition:color .4s,border-color .4s,background .4s}
+.cmp-d b.on{color:var(--t0);border-color:var(--line);background:var(--bg2)}
+.cmp-d i{font-style:normal;color:var(--mint)}
+.cmp-d .sp{margin-left:auto;font-weight:400;letter-spacing:.06em}
+.cmp-v{display:grid;grid-template-columns:1fr auto;align-items:end;gap:6px 16px;padding:14px 12px 12px}
+.cmp-v .big{font:500 44px/1 var(--cond);letter-spacing:-.01em;color:var(--t0);font-variant-numeric:tabular-nums}
+.cmp-v .big small{font:400 14px/1 var(--mono);color:var(--t2);margin-left:6px}
+.cmp-v .dl{font:500 13px/1 var(--mono);color:var(--orange);font-variant-numeric:tabular-nums;padding-bottom:6px}
+.cmp-p{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;padding:10px 12px 12px;border-top:1px solid var(--line);font:400 11px/1.2 var(--mono);font-variant-numeric:tabular-nums;color:var(--t2)}
+.cmp-p .v{color:var(--t0);text-align:right}
+.cmp-p .m{color:var(--mint)} .cmp-p .o{color:var(--orange)}
+
+/* ---------- generic sections ---------- */
+.sec{position:relative;padding:clamp(96px,13vw,180px) var(--gut);border-top:1px solid var(--line)}
+.sec-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px 64px;align-items:end;margin-bottom:clamp(48px,6vw,88px)}
+.idx{display:flex;align-items:center;gap:12px;font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--t2);text-transform:uppercase;margin-bottom:22px}
+.idx b{font-weight:500;color:var(--mint)}
+.idx::after{content:'';flex:0 0 48px;height:1px;background:var(--line)}
+.sec h2{font:500 clamp(34px,4.6vw,68px)/1.02 var(--sans);letter-spacing:-.034em;color:var(--t0)}
+.sec-head p{max-width:520px;font-size:17px;color:var(--t1)}
+[data-reveal]{transition:opacity 1.2s var(--ease),transform 1.2s var(--ease)}
+.js:not(.rm) [data-reveal]:not(.in){opacity:0;transform:translate3d(0,28px,0)}
+
+/* flat (reduced motion / no gsap / no webgl) */
+.flat #stage{height:auto;overflow:visible}
+.flat .view{position:relative;inset:auto;height:100vh;height:100svh}
+.flat .chapters{position:relative;left:auto;top:auto;transform:none;width:auto;opacity:1;pointer-events:auto;padding:clamp(80px,10vw,140px) var(--gut);border-top:1px solid var(--line)}
+.flat .ch-head,.flat .rail,.flat .rail-l{display:none}
+.flat .chap-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:72px 72px;min-height:0;margin:0}
+.flat .chap{position:relative;inset:auto;visibility:visible}
+.flat .chap .ln > *{transform:none !important;transition:none !important}
+.flat .scrim-l,.flat .cue{display:none}
+.no-gl .labels,.no-gl .xh,.no-gl .hud-br{display:none}
+
+/* ---------- product shot ---------- */
+.shot{position:relative;display:grid;grid-template-columns:200px minmax(0,1fr) 200px;gap:0 44px;align-items:center}
+.notes{display:flex;flex-direction:column;gap:44px}
+.notes-l{text-align:right}
+.note{position:relative;transition:opacity .4s var(--ease);cursor:default}
+.note .n{font:500 11px/1 var(--mono);letter-spacing:.12em;color:var(--mint)}
+.note h4{margin:8px 0 6px;font:500 15px/1.3 var(--sans);color:var(--t0)}
+.note p{font-size:13.5px;line-height:1.5;color:var(--t2);transition:color .4s}
+.note.hot p{color:var(--t1)}
+.frame{position:relative;border:1px solid var(--line);background:var(--bg1);padding:0}
+.frame::before,.frame::after{content:'';position:absolute;width:12px;height:12px;border:0 solid var(--mint);pointer-events:none}
+.frame::before{left:-7px;top:-7px;border-left-width:1px;border-top-width:1px}
+.frame::after{right:-7px;bottom:-7px;border-right-width:1px;border-bottom-width:1px}
+.frame-bar{display:flex;justify-content:space-between;gap:16px;padding:10px 14px;border-bottom:1px solid var(--line);font:400 10.5px/1.2 var(--mono);letter-spacing:.1em;color:var(--t2);text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.frame-bar b{font-weight:500;color:var(--t1)}
+.shot-img{position:relative}
+.shot-img img{width:100%;height:auto}
+.pin{position:absolute;left:var(--x);top:var(--y);width:24px;height:24px;margin:-12px 0 0 -12px;border:1px solid var(--mint);border-radius:50%;background:rgba(11,15,19,.35);transform:scale(0);transition:transform .7s var(--ease),box-shadow .4s}
+.pin::after{content:'';position:absolute;left:8px;top:8px;width:6px;height:6px;border-radius:50%;background:var(--mint)}
+.pin.on{transform:scale(1)}
+.pin.hot{box-shadow:0 0 0 6px rgba(94,209,179,.18)}
+.pin b{position:absolute;left:28px;top:4px;font:500 10px/1 var(--mono);color:var(--t0);background:rgba(11,15,19,.85);padding:3px 5px;display:none}
+.leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.leaders path{fill:none;stroke:rgba(197,205,214,.42);stroke-width:1;stroke-dasharray:1 1;stroke-dashoffset:1;vector-effect:non-scaling-stroke;transition:stroke .4s}
+.leaders path.hot{stroke:var(--mint)}
+.rm .leaders path,.flat .leaders path{stroke-dashoffset:0}
+.rm .pin,.flat .pin{transform:scale(1)}
+
+/* ---------- spec sheet ---------- */
+.spec{--cols:72px minmax(170px,1.05fr) minmax(0,1.9fr) 150px 136px;border-top:1px solid var(--line)}
+.spec-h{display:grid;grid-template-columns:var(--cols);gap:28px;padding:14px 0;border-bottom:1px solid var(--line);font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--t2);text-transform:uppercase}
+.row{position:relative;display:grid;grid-template-columns:var(--cols);gap:28px;align-items:center;padding:28px 0;border-bottom:1px solid var(--line);overflow:hidden;outline-offset:-1px}
+.row::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(30,38,48,.7),rgba(17,22,28,0) 80%);opacity:0;transition:opacity .6s var(--ease);pointer-events:none}
+.row::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(94,209,179,0) 82%,rgba(94,209,179,.10) 99.4%,rgba(94,209,179,.9) 99.5%,rgba(94,209,179,0) 100%);transform:translate3d(-101%,0,0);pointer-events:none}
+.row:hover::before,.row:focus-visible::before{opacity:1}
+.row:hover::after,.row:focus-visible::after{animation:sweep 1.25s var(--ease) both}
+@keyframes sweep{from{transform:translate3d(-101%,0,0)}to{transform:translate3d(101%,0,0)}}
+.row > *{position:relative;z-index:1}
+.r-idx{font:500 13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--t2);transition:color .4s}
+.r-idx::before{content:'';display:inline-block;width:6px;height:6px;margin-right:10px;vertical-align:1px;background:var(--line);transition:background .4s}
+.row:hover .r-idx,.row:focus-visible .r-idx{color:var(--t0)}
+.row:hover .r-idx::before,.row:focus-visible .r-idx::before{background:var(--mint)}
+.r-t{font:500 clamp(18px,1.6vw,22px)/1.2 var(--sans);letter-spacing:-.012em;color:var(--t0);transition:transform .7s var(--ease)}
+.row:hover .r-t,.row:focus-visible .r-t{transform:translateX(6px)}
+.r-d{font-size:14.5px;line-height:1.55;color:var(--t2);transition:color .5s}
+.row:hover .r-d,.row:focus-visible .r-d{color:var(--t1)}
+.r-s{display:grid;gap:6px;font:400 10.5px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.r-s b{font:500 22px/1 var(--cond);letter-spacing:0;color:var(--t1);font-variant-numeric:tabular-nums;transition:color .4s}
+.row:hover .r-s b,.row:focus-visible .r-s b{color:var(--mint)}
+.r-g{width:120px;height:64px;justify-self:end;overflow:visible}
+.r-g path{fill:none;stroke:rgba(142,153,166,.42);stroke-width:1;vector-effect:non-scaling-stroke;stroke-dasharray:1 1;stroke-dashoffset:0;stroke-linecap:square;transition:stroke .5s}
+.r-g path.a{stroke:rgba(94,209,179,.45)}
+.row:hover .r-g path,.row:focus-visible .r-g path{stroke:var(--t1);animation:draw 1s var(--ease) both;animation-delay:calc(var(--d,0) * 70ms)}
+.row:hover .r-g path.a,.row:focus-visible .r-g path.a{stroke:var(--mint)}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.spec .row{transition:opacity 1s var(--ease),transform 1s var(--ease)}
+.js:not(.rm) .spec:not(.in) .row{opacity:0;transform:translate3d(0,18px,0)}
+.spec.in .row{transition-delay:calc(var(--i,0) * 60ms)}
+
+/* ---------- trust ---------- */
+.link{border:1px solid var(--line);background:var(--bg1)}
+.link-h{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);font:500 11px/1 var(--mono);letter-spacing:.14em;color:var(--t2);font-variant-numeric:tabular-nums}
+.link-h .st{color:var(--mint)}
+.link-h .sp{margin-left:auto;font-weight:400}
+.link-b{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.lr li{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:6px 18px;align-items:center;padding:26px 24px;border-bottom:1px solid var(--line);transition:background .5s var(--ease)}
+.lr li:last-child{border-bottom:0}
+.lr li:hover{background:rgba(30,38,48,.55)}
+.lr .sq{width:10px;height:10px;border-radius:2px;background:var(--mint);transform:scale(.8);transition:transform .5s var(--ease)}
+.lr li:hover .sq{transform:scale(1.15)}
+.lr .nm{font:600 clamp(20px,2vw,28px)/1 var(--cond);letter-spacing:.03em;color:var(--t0);text-transform:uppercase}
+.lr .ds{grid-column:2;font-size:14px;color:var(--t2)}
+.lr .ok{grid-row:1 / span 2;grid-column:3;display:grid;justify-items:end;gap:6px;font:500 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mint);font-variant-numeric:tabular-nums}
+.lr .ok small{font-weight:400;color:var(--t2);letter-spacing:.06em}
+.net-w{border-left:1px solid var(--line);padding:28px;display:flex;flex-direction:column;justify-content:center;gap:18px;background:radial-gradient(80% 70% at 40% 50%,rgba(30,38,48,.55),transparent)}
+.net{width:100%;height:auto}
+.net text{font-family:var(--mono);font-size:11px;letter-spacing:.06em;fill:var(--t1)}
+.net text.s{font-size:9.5px;fill:var(--t2)}
+.net text.lb{font-size:9.5px;fill:var(--t2);letter-spacing:.12em}
+.net rect{fill:var(--bg0);stroke:var(--line)}
+.net rect.main{stroke:rgba(94,209,179,.6)}
+.net .lk{fill:none;stroke:#3A4656}
+.net .pk{fill:none;stroke:var(--mint);stroke-width:1.5;stroke-dasharray:3 14;animation:flow 1.4s linear infinite}
+.net .pk.r{animation-direction:reverse}
+.net .wan{fill:none;stroke:var(--t2);stroke-dasharray:2 4;opacity:.55}
+.net .cut{fill:none;stroke:var(--t1);stroke-width:1.2}
+.net .wc{fill:none;stroke:var(--t2);stroke-dasharray:2 3;opacity:.6}
+@keyframes flow{to{stroke-dashoffset:-17}}
+.net-k{display:flex;flex-wrap:wrap;gap:8px 22px;font:400 10.5px/1.2 var(--mono);letter-spacing:.08em;color:var(--t2);font-variant-numeric:tabular-nums}
+.net-k b{font-weight:500;color:var(--t0)}
+.link-f{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--line)}
+.link-f div{padding:16px 20px;font:400 11px/1.5 var(--mono);letter-spacing:.06em;color:var(--t2)}
+.link-f div + div{border-left:1px solid var(--line)}
+.link-f b{display:block;font-weight:500;color:var(--t1);letter-spacing:.12em;margin-bottom:4px}
+
+/* ---------- CTA ---------- */
+.cta{overflow:hidden;padding-top:clamp(120px,15vw,220px);padding-bottom:clamp(120px,15vw,220px)}
+.topo{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.topo path{fill:none;stroke:rgba(42,51,64,.9);stroke-width:1;vector-effect:non-scaling-stroke}
+.topo path.hi{stroke:rgba(94,209,179,.38)}
+.cta-in{position:relative;max-width:860px}
+.cta h2{font-size:clamp(40px,6.2vw,92px);letter-spacing:-.04em;line-height:.98}
+.cta p{margin-top:26px;max-width:520px;font-size:17px;color:var(--t1)}
+.cta .ctas{margin-top:38px}
+.cta-meta{margin-top:56px;display:flex;flex-wrap:wrap;gap:10px 28px;font:400 11px/1 var(--mono);letter-spacing:.12em;color:var(--t2)}
+.cta-meta span{display:flex;align-items:center;gap:8px}
+.cta-meta span::before{content:'';width:5px;height:5px;background:var(--mint)}
+
+/* ---------- footer ---------- */
+.foot{border-top:1px solid var(--line);padding:64px var(--gut) 88px;display:grid;grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,1fr));gap:40px}
+.foot .brand svg{height:22px}
+.foot p{margin-top:18px;max-width:320px;font-size:14px;color:var(--t2)}
+.foot h5{margin:0 0 16px;font:500 11px/1 var(--mono);letter-spacing:.14em;color:var(--t2);text-transform:uppercase}
+.foot li + li{margin-top:10px}
+.foot li a{font-size:14px;color:var(--t1);transition:color .3s}
+.foot li a:hover{color:var(--mint)}
+.foot-b{grid-column:1 / -1;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:28px;border-top:1px solid var(--line);font:400 11px/1.4 var(--mono);letter-spacing:.08em;color:var(--t2)}
+
+.badge{position:fixed;left:12px;bottom:12px;z-index:70;display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(17,22,28,.92);border:1px solid var(--line);font:500 10.5px/1 var(--mono);letter-spacing:.08em;color:var(--t1);transition:border-color .3s,color .3s}
+.badge::before{content:'';width:6px;height:6px;background:var(--mint)}
+.badge:hover{border-color:var(--mint);color:var(--t0)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1100px){
+  .shot{grid-template-columns:minmax(0,1fr);gap:28px}
+  .shot .frame{grid-row:1}
+  .notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 28px}
+  .notes-l{text-align:left}
+  .notes-l{grid-row:2}.notes-r{grid-row:3}
+  .leaders{display:none}
+  .pin b{display:block}
+  .spec{--cols:56px minmax(150px,1fr) minmax(0,1.6fr) 120px}
+  .r-g,.spec-h span:last-child{display:none}
+  .link-b{grid-template-columns:minmax(0,1fr)}
+  .net-w{border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:900px){
+  .links{display:none}
+  .sec-head{grid-template-columns:minmax(0,1fr)}
+  .hud-tl,.ruler{display:none}
+  .chapters{left:16px;right:16px;width:auto;top:auto;bottom:22px;transform:none}
+  .chap-wrap{min-height:300px;margin-top:26px}
+  .scrim-l{inset:auto 0 0 0;width:100%;height:78%;background:linear-gradient(0deg,rgba(11,15,19,.96) 0%,rgba(11,15,19,.86) 55%,rgba(11,15,19,0) 100%)}
+  .chap h2{font-size:26px;margin:12px 0 12px}
+  .chap p{font-size:14.5px}
+  .chap dl{margin-top:16px}
+  .cmp{margin-top:16px}
+  .cmp-v .big{font-size:34px}
+  .flat .chap-wrap{grid-template-columns:minmax(0,1fr);gap:56px}
+  .foot{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .foot > div:first-child{grid-column:1 / -1}
+}
+@media (max-width:640px){
+  :root{--nav:56px}
+  .nav-st{display:none}
+  .brand svg{height:19px}
+  .hud-tr{right:22px;top:calc(var(--nav) + 18px);column-gap:14px;font-size:10px}
+  .hud-tr .v{min-width:6ch}
+  .hud-tr .hide-s{display:none}
+  .hud-br{display:none}
+  .brk.tl,.brk.tr{top:calc(var(--nav) + 8px)}
+  .brk{width:12px;height:12px}
+  .brk.tl,.brk.bl{left:10px}.brk.tr,.brk.br{right:10px}.brk.bl,.brk.br{bottom:10px}
+  .cue{display:none}
+  .hero{bottom:64px}
+  .chap dl,.cmp-p,.rail-l{display:none}
+  .chap-wrap{min-height:250px;margin-top:18px}
+  .chap p{font-size:14px;line-height:1.5}
+  .chapters{bottom:56px}
+  .hero h1{margin:16px 0 16px}
+  .ctas{gap:10px}
+  .ctas .btn{flex:1 1 auto;justify-content:space-between}
+  .c-head span{display:none}
+  .c-lead{width:30px}
+  .c-box{left:21px;bottom:21px}
+  .callout[data-dir="l"] .c-box{right:21px}
+  .callout:hover .c-box,.callout:focus-within .c-box{min-width:220px}
+  .notes{grid-template-columns:minmax(0,1fr)}
+  .frame-bar span:last-child{display:none}
+  .spec{--cols:40px minmax(0,1fr)}
+  .spec-h{display:none}
+  .row{gap:10px 14px;padding:24px 0;grid-template-areas:"i t" "i d" "i s"}
+  .r-idx{grid-area:i;align-self:start;padding-top:5px}
+  .r-idx::before{display:none}
+  .r-t{grid-area:t}.r-d{grid-area:d}.r-s{grid-area:s;grid-template-columns:auto auto;justify-content:start;align-items:baseline;gap:10px}
+  .lr li{padding:22px 16px;gap:6px 14px}
+  .link-h{padding:12px 16px;flex-wrap:wrap}
+  .link-h .sp{margin-left:0;width:100%}
+  .net-w{padding:16px}
+  .link-f{grid-template-columns:minmax(0,1fr)}
+  .link-f div + div{border-left:0;border-top:1px solid var(--line)}
+  .foot{grid-template-columns:minmax(0,1fr)}
+}
+@media (pointer:coarse){ .xh{display:none} }
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
+  .xh{display:none}
+}
+</style>
+</head>
+<body id="top">
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Quadrion AI, back to top">
+    <svg viewBox="30 30 676 96" role="img" aria-label="Quadrion AI"><g transform="translate(34.15 34.15) scale(1.46)"><path d="M4.06 25.28A23 23 0 0 1 25.28 4.06A1.6 1.6 0 0 1 27 5.66L27 15.01A1.6 1.6 0 0 1 25.61 16.59A10.5 10.5 0 0 0 16.59 25.61A1.6 1.6 0 0 1 15.01 27L5.66 27A1.6 1.6 0 0 1 4.06 25.28Z" fill="#EEF2F5"/><path d="M32.72 4.06A23 23 0 0 1 53.94 25.28A1.6 1.6 0 0 1 52.34 27L42.99 27A1.6 1.6 0 0 1 41.41 25.61A10.5 10.5 0 0 0 32.39 16.59A1.6 1.6 0 0 1 31 15.01L31 5.66A1.6 1.6 0 0 1 32.72 4.06Z" fill="#EEF2F5"/><path d="M25.28 53.94A23 23 0 0 1 4.06 32.72A1.6 1.6 0 0 1 5.66 31L15.01 31A1.6 1.6 0 0 1 16.59 32.39A10.5 10.5 0 0 0 25.61 41.41A1.6 1.6 0 0 1 27 42.99L27 52.34A1.6 1.6 0 0 1 25.28 53.94Z" fill="#EEF2F5"/><path d="M36.6 35H54.4A1.6 1.6 0 0 1 56 36.6V54.4A1.6 1.6 0 0 1 54.4 56H36.6A1.6 1.6 0 0 1 35 54.4V36.6A1.6 1.6 0 0 1 36.6 35Z" fill="#5ED1B3"/></g><g transform="translate(147.92 58)"><path d="M51.84 47.58L38.66 47.58L31.08 40.64Q30.67 40.64 30.20 40.67Q29.74 40.70 29.27 40.70L29.27 40.70Q21.40 40.70 15.66 38.25Q9.91 35.80 6.76 31.17Q3.62 26.53 3.62 19.94L3.62 19.94Q3.62 13.35 6.76 8.72Q9.91 4.08 15.74 1.66Q21.57-0.76 29.62-0.76L29.62-0.76Q37.67-0.76 43.50 1.66Q49.33 4.08 52.48 8.72Q55.63 13.35 55.63 19.94L55.63 19.94Q55.63 27.06 51.98 31.87Q48.34 36.68 41.69 38.89L41.69 38.89L51.84 47.58ZM29.62 32.71L29.62 32.71Q33.06 32.71 35.92 31.92Q38.78 31.14 40.87 29.62Q42.97 28.10 44.11 25.83Q45.25 23.56 45.25 20.58L45.25 20.58L45.25 19.24Q45.25 16.27 44.11 14.02Q42.97 11.78 40.87 10.26Q38.78 8.75 35.92 7.96Q33.06 7.17 29.62 7.17L29.62 7.17Q26.18 7.17 23.32 7.96Q20.47 8.75 18.37 10.26Q16.27 11.78 15.13 14.02Q13.99 16.27 13.99 19.24L13.99 19.24L13.99 20.58Q13.99 23.56 15.13 25.83Q16.27 28.10 18.37 29.62Q20.47 31.14 23.32 31.92Q26.18 32.71 29.62 32.71ZM92.89 40.70L92.89 40.70Q85.19 40.70 80.15 38.37Q75.10 36.03 72.62 31.72Q70.15 27.41 70.15 21.46L70.15 21.46L70.15-0.06L80.23-0.06L80.23 20.99Q80.23 26.59 83.53 29.65Q86.82 32.71 92.89 32.71L92.89 32.71Q98.95 32.71 102.24 29.65Q105.54 26.59 105.54 20.99L105.54 20.99L105.54-0.06L115.57-0.06L115.57 21.46Q115.57 27.41 113.12 31.72Q110.67 36.03 105.63 38.37Q100.58 40.70 92.89 40.70ZM137.14 40L126.82 40L146.71-0.06L158.02-0.06L177.90 40L166.94 40L163.44 32.77L140.64 32.77L137.14 40ZM148.57 15.92L144.31 25.01L159.77 25.01L155.51 15.86Q155.28 15.28 154.75 14.11Q154.23 12.94 153.73 11.72Q153.24 10.50 152.83 9.50Q152.42 8.51 152.30 8.28L152.30 8.28L151.84 8.28Q151.37 9.45 150.73 10.90Q150.09 12.36 149.53 13.73Q148.98 15.10 148.57 15.92L148.57 15.92ZM212.07 40L190.32 40L190.32-0.06L212.07-0.06Q219.48-0.06 224.78 2.24Q230.09 4.55 232.94 9.01Q235.80 13.47 235.80 20L235.80 20Q235.80 26.47 232.94 30.93Q230.09 35.39 224.78 37.70Q219.48 40 212.07 40L212.07 40ZM200.41 7.87L200.41 32.01L211.55 32.01Q214.58 32.01 217.11 31.28Q219.65 30.55 221.52 29.13Q223.38 27.70 224.37 25.57Q225.36 23.44 225.36 20.64L225.36 20.64L225.36 19.30Q225.36 16.50 224.37 14.37Q223.38 12.24 221.52 10.82Q219.65 9.39 217.11 8.63Q214.58 7.87 211.55 7.87L211.55 7.87L200.41 7.87ZM260.70 40L250.61 40L250.61-0.06L282.97-0.06Q287.29-0.06 290.06 1.69Q292.83 3.44 294.23 6.30Q295.63 9.15 295.63 12.65L295.63 12.65Q295.63 16.27 293.79 19.39Q291.95 22.51 288.22 24.31L288.22 24.31L296.56 40L285.25 40L278.19 26.12L260.70 26.12L260.70 40ZM260.70 7.87L260.70 18.19L280.00 18.19Q282.45 18.19 283.88 16.71Q285.31 15.22 285.31 12.89L285.31 12.89Q285.31 11.25 284.66 10.15Q284.02 9.04 282.86 8.45Q281.69 7.87 280.00 7.87L280.00 7.87L260.70 7.87ZM320.47 40L310.38 40L310.38-0.06L320.47-0.06L320.47 40ZM361.28 40.70L361.28 40.70Q353.29 40.70 347.43 38.25Q341.57 35.80 338.43 31.17Q335.28 26.53 335.28 19.94L335.28 19.94Q335.28 13.35 338.43 8.72Q341.57 4.08 347.43 1.66Q353.29-0.76 361.28-0.76L361.28-0.76Q369.33-0.76 375.16 1.66Q380.99 4.08 384.14 8.72Q387.29 13.35 387.29 19.94L387.29 19.94Q387.29 26.53 384.14 31.17Q380.99 35.80 375.16 38.25Q369.33 40.70 361.28 40.70ZM361.28 32.71L361.28 32.71Q364.72 32.71 367.58 31.92Q370.44 31.14 372.54 29.62Q374.64 28.10 375.77 25.80Q376.91 23.50 376.91 20.58L376.91 20.58L376.91 19.24Q376.91 16.33 375.77 14.05Q374.64 11.78 372.54 10.26Q370.44 8.75 367.58 7.96Q364.72 7.17 361.28 7.17L361.28 7.17Q357.84 7.17 354.99 7.96Q352.13 8.75 350.03 10.26Q347.93 11.78 346.79 14.05Q345.66 16.33 345.66 19.24L345.66 19.24L345.66 20.58Q345.66 23.50 346.79 25.80Q347.93 28.10 350.03 29.62Q352.13 31.14 354.99 31.92Q357.84 32.71 361.28 32.71ZM411.72 40L402.10 40L402.10-0.06L411.37-0.06L432.83 20.06Q433.47 20.58 434.43 21.57Q435.39 22.57 436.44 23.64Q437.49 24.72 438.25 25.54L438.25 25.54L438.78 25.54Q438.72 24.37 438.63 22.62Q438.54 20.87 438.54 19.71L438.54 19.71L438.54-0.06L448.16-0.06L448.16 40L439.07 40L417.78 19.88Q416.27 18.48 414.64 16.79Q413.00 15.10 412.01 14.05L412.01 14.05L411.55 14.05Q411.60 14.81 411.66 16.62Q411.72 18.43 411.72 20.70L411.72 20.70L411.72 40Z" fill="#EEF2F5"/><path d="M489.56 40L479.24 40L499.13-0.06L510.44-0.06L530.32 40L519.36 40L515.86 32.77L493.06 32.77L489.56 40ZM500.99 15.92L496.73 25.01L512.19 25.01L507.93 15.86Q507.70 15.28 507.17 14.11Q506.65 12.94 506.15 11.72Q505.66 10.50 505.25 9.50Q504.84 8.51 504.72 8.28L504.72 8.28L504.26 8.28Q503.79 9.45 503.15 10.90Q502.51 12.36 501.95 13.73Q501.40 15.10 500.99 15.92L500.99 15.92ZM552.83 40L542.74 40L542.74-0.06L552.83-0.06L552.83 40Z" fill="#5ED1B3"/></g></svg>
+  </a>
+  <nav class="links" aria-label="Primary">
+    <a href="#flight">Platform</a>
+    <a href="#product">Workspace</a>
+    <a href="#capabilities">Capabilities</a>
+    <a href="#security">Security</a>
+    <a href="#cta">Player</a>
+  </nav>
+  <div class="nav-r">
+    <span class="nav-st" aria-hidden="true"><i class="lamp"></i>OFFLINE</span>
+    <a class="btn btn-p btn-sm" href="#cta">Request a demo</a>
+  </div>
+</header>
+
+<main>
+<!-- ===================== STAGE: hero + pinned flight ===================== -->
+<section id="stage" data-ch="-1" aria-label="Quadrion AI: four dimensions, one view">
+  <span id="flight" class="sr">Flight over a demo site</span>
+  <div class="view" id="view">
+    <div class="gl-fb" aria-hidden="true"><img src="../assets/app-scene-3d.png" alt="" width="1292" height="806"></div>
+    <canvas id="gl" aria-hidden="true"></canvas>
+
+    <div class="labels" id="labels">
+      <div class="pl callout" data-anchor="-20.8,7.2,-4.8" data-dir="l" style="--sev:var(--orange)">
+        <i class="c-dot"></i><i class="c-lead"></i>
+        <div class="c-box" tabindex="0">
+          <div class="c-head"><i></i><b>F04</b><span>Heavy corrosion</span><em>SEV 3</em></div>
+          <div class="c-more"><div><p>Tank T-101, shell course 2. Pitting at a nozzle weld; coating lost over roughly 0.4 m².</p><dl class="cc"></dl></div></div>
+        </div>
+      </div>
+      <div class="pl callout" data-anchor="9.5,16.9,-12.5" data-dir="r" style="--sev:var(--yellow)">
+        <i class="c-dot"></i><i class="c-lead"></i>
+        <div class="c-box" tabindex="0">
+          <div class="c-head"><i></i><b>F02</b><span>Roof coating failure</span><em>SEV 2</em></div>
+          <div class="c-more"><div><p>Tank T-102 fixed roof. Blistering along the radial seam, no visible section loss yet.</p><dl class="cc"></dl></div></div>
+        </div>
+      </div>
+      <div class="pl callout" data-anchor="8,7.3,-50" data-dir="ru" style="--sev:var(--red)">
+        <i class="c-dot"></i><i class="c-lead"></i>
+        <div class="c-box" tabindex="0">
+          <div class="c-head"><i></i><b>F05</b><span>Pipe support crack</span><em>SEV 4</em></div>
+          <div class="c-more"><div><p>Pipe rack, bent 19. Crack at the shoe weld under the 12-inch line. Flagged for immediate review.</p><dl class="cc"></dl></div></div>
+        </div>
+      </div>
+      <div class="pl callout" data-anchor="-6,1.9,38" data-dir="r" style="--sev:var(--blue)">
+        <i class="c-dot"></i><i class="c-lead"></i>
+        <div class="c-box" tabindex="0">
+          <div class="c-head"><i></i><b>F01</b><span>Bund wall spalling</span><em>SEV 1</em></div>
+          <div class="c-more"><div><p>South bund wall, panel 6. Surface spalling, rebar not exposed. Monitor at the next survey.</p><dl class="cc"></dl></div></div>
+        </div>
+      </div>
+      <div class="pl tag uav" id="tagUav"><span>UAV-01 · ORBIT</span></div>
+      <div class="pl tag vid" id="tagVid"><span>CAM 70° · FRAME <b id="vidF">0412</b> · SYNC LOCKED</span></div>
+      <div class="pl tag vol" id="tagP1" style="--c:var(--orange)"><span>P01 <b id="p1d">−0</b> m³</span></div>
+      <div class="pl tag vol" id="tagP2"><span>P02 <b id="p2d">+0</b> m³</span></div>
+    </div>
+
+    <div class="xh" id="xh" aria-hidden="true">
+      <div class="xh-h" id="xhH"></div><div class="xh-v" id="xhV"></div>
+      <div class="xh-c" id="xhC"></div><div class="xh-t" id="xhT">E — N —</div>
+    </div>
+
+    <div class="scrim-b" aria-hidden="true"></div>
+    <div class="scrim-l" id="scrimL" aria-hidden="true"></div>
+
+    <div class="hud" aria-hidden="true">
+      <i class="brk tl"></i><i class="brk tr"></i><i class="brk bl"></i><i class="brk br"></i>
+      <div class="ruler"></div>
+      <div class="hud-tl">
+        <b>OPS PICTURE</b>
+        <span>DEMO TANK FARM · FICTIONAL</span>
+        <span>SURVEY 2 OF 2 · UTM 40N · WGS 84</span>
+        <span>MODE <span class="mode" id="tMode">OVERVIEW</span></span>
+      </div>
+      <div class="hud-tr">
+        <span class="r"><span class="k">ALT</span><span class="v" id="tAlt">052.4 m</span></span>
+        <span class="r"><span class="k">HDG</span><span class="v" id="tHdg">058°</span></span>
+        <span class="r"><span class="k">GS</span><span class="v" id="tGs">06.2 m/s</span></span>
+        <span class="r"><span class="k">GMB</span><span class="v" id="tGmb">−48.2°</span></span>
+        <span class="r w"><span class="k">POS</span><span class="v" id="tPos">40N 412 386.2E 2 715 004.8N</span></span>
+        <span class="r w"><span class="k">UTC</span><span class="v" id="tUtc">13 APR 2026 09:20:00.0</span></span>
+      </div>
+      <div class="hud-br">
+        <div class="scale"><span id="scL">50 m</span><div class="scale-bar" id="scB"></div></div>
+        <div class="compass"><div class="needle" id="cmp"><b>N</b><i></i></div></div>
+      </div>
+      <div class="cue" id="cue"><span>SCROLL TO FLY</span><i></i></div>
+    </div>
+
+    <div class="hero" id="hero">
+      <div class="eyebrow fade" style="--i:0"><i class="dash"></i>Offline 4D workspace for drone data</div>
+      <h1><span class="hl"><span style="--i:0">Four dimensions.</span></span><span class="hl"><span style="--i:1">One view<span class="pt">.</span></span></span></h1>
+      <p class="sub fade" style="--i:1">Quadrion AI is an offline workspace for drone inspection and survey. Models, point clouds, video, panoramas and issues, fused into one georeferenced scene with one timeline.</p>
+      <div class="ctas fade" style="--i:2">
+        <a class="btn btn-p" href="#cta">Request a demo<span class="arr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M1 7h11M8 3l4 4-4 4"/></svg><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M1 7h11M8 3l4 4-4 4"/></svg></span></a>
+        <a class="btn" href="#cta">Download the free Player<span class="arr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 1v10M3 7l4 4 4-4M1 13h12"/></svg><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 1v10M3 7l4 4 4-4M1 13h12"/></svg></span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="chapters" id="chapters">
+    <div class="ch-head"><span class="ch-idx"><b id="chI">01</b> / 04</span><span>FLIGHT · DEMO JOB</span></div>
+    <div class="rail"><i id="railF"></i></div>
+    <div class="rail-l" id="railL"><span>CAPTURE</span><span>FUSE</span><span>INSPECT</span><span>COMPARE</span></div>
+    <div class="chap-wrap">
+      <article class="chap" data-c="0">
+        <div class="ln"><div class="k-ey">01 · Capture</div></div>
+        <h2 data-split>Fly it once. Keep every frame in place.</h2>
+        <p data-split>Bring in the job as it was flown. Photos, video, flight logs, models and point clouds land in one georeferenced scene, each on the same timeline.</p>
+        <dl>
+          <div class="ln"><div><dt>SOURCES</dt><dd>3D · CLOUD · ORTHO · VIDEO · 360</dd></div></div>
+          <div class="ln"><div><dt>CAPTURE STATIONS</dt><dd id="cCnt">0412</dd></div></div>
+          <div class="ln"><div><dt>CRS</dt><dd>UTM 40N · WGS 84</dd></div></div>
+        </dl>
+      </article>
+      <article class="chap" data-c="1">
+        <div class="ln"><div class="k-ey">02 · Fuse</div></div>
+        <h2 data-split>Video, on the model.</h2>
+        <p data-split>Drone video is synced to its flight log and projected onto the 3D model from the drone's own position. Scrub the clip and every frame lands where it was shot.</p>
+        <dl>
+          <div class="ln"><div><dt>PROJECTION</dt><dd>PINHOLE 70°</dd></div></div>
+          <div class="ln"><div><dt>POSE</dt><dd>FROM FLIGHT LOG, PER FRAME</dd></div></div>
+          <div class="ln"><div><dt>CLIP</dt><dd>ORBIT OF THE TANK FARM · 0:24</dd></div></div>
+        </dl>
+      </article>
+      <article class="chap" data-c="2">
+        <div class="ln"><div class="k-ey">03 · Inspect</div></div>
+        <h2 data-split>Mark it where it is. Grade it once.</h2>
+        <p data-split>Pin issues to the model, attach photos and video frames, and grade severity. The issue register, the scene and the report stay in lockstep.</p>
+        <dl>
+          <div class="ln"><div><dt>SEVERITY</dt><dd><span class="sv" style="--c:var(--blue)">1</span><span class="sv" style="--c:var(--yellow)">2</span><span class="sv" style="--c:var(--orange)">3</span><span class="sv" style="--c:var(--red)">4</span></dd></div></div>
+          <div class="ln"><div><dt>OPEN ISSUES</dt><dd>06 · 1 CRITICAL</dd></div></div>
+          <div class="ln"><div><dt>REPORT</dt><dd>PDF · CSV · CLIENT PACKAGE</dd></div></div>
+        </dl>
+      </article>
+      <article class="chap" data-c="3">
+        <div class="ln"><div class="k-ey">04 · Compare dates</div></div>
+        <h2 data-split>Come back. The fourth dimension is time.</h2>
+        <p data-split>Load a second survey and compare surface to surface. Cut, fill and stockpile volumes are measured between flights, then exported to Civil 3D, TBC or 12d.</p>
+        <div class="ln"><div class="cmp">
+          <div class="cmp-d"><b id="dA" class="on">02 MAR</b><i>→</i><b id="dB">13 APR</b><span class="sp">2 OF 2 SURVEYS</span></div>
+          <div class="cmp-v"><span class="big"><span id="vol">1,511</span><small>m³</small></span><span class="dl" id="volD">Δ 0 m³</span></div>
+          <div class="cmp-p"><span>P01</span><span class="o">cut</span><span class="v" id="vP1">1,198 m³</span><span>P02</span><span class="m">fill</span><span class="v" id="vP2">313 m³</span></div>
+        </div></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PRODUCT SHOT ===================== -->
+<section class="sec" id="product">
+  <div class="sec-head">
+    <div>
+      <div class="idx" data-reveal><b>02</b>Workspace</div>
+      <h2 data-reveal>The whole job,<br>in one window.</h2>
+    </div>
+    <p data-reveal>This is the real app on a fictional demo site. One scene holds the model, the drone video, its telemetry, graded issues, stockpile volumes and a timeline that runs across survey dates.</p>
+  </div>
+  <div class="shot" id="shot">
+    <ol class="notes notes-l">
+      <li class="note" data-n="1"><span class="n">01</span><h4>Telemetry</h4><p>Altitude, speed, heading and gimbal from the flight log, synced to the video frame.</p></li>
+      <li class="note" data-n="2"><span class="n">02</span><h4>Issues</h4><p>Severity-graded pins anchored to the model. F04 is a Sev 3 corrosion finding.</p></li>
+      <li class="note" data-n="3"><span class="n">03</span><h4>Timeline</h4><p>Clips, issues, photos and captures on one timeline, across every survey date.</p></li>
+    </ol>
+    <figure class="frame" data-reveal>
+      <div class="frame-bar"><span><b>Scene</b> · Demo tank farm (fictional)</span><span>13 Apr 2026 · 2 of 2 surveys</span></div>
+      <div class="shot-img">
+        <img src="../assets/app-scene-3d.png" width="1292" height="806" alt="Quadrion AI scene view: a 3D tank farm with a drone video panel, telemetry readout, issue pins, a timeline and stockpile volumes." loading="lazy">
+        <span class="pin" data-n="1" style="--x:40.4%;--y:36.6%"><b>01</b></span>
+        <span class="pin" data-n="2" style="--x:39.4%;--y:50.4%"><b>02</b></span>
+        <span class="pin" data-n="3" style="--x:43.6%;--y:88.6%"><b>03</b></span>
+        <span class="pin" data-n="4" style="--x:77.4%;--y:18.6%"><b>04</b></span>
+        <span class="pin" data-n="5" style="--x:72.4%;--y:91.8%"><b>05</b></span>
+      </div>
+    </figure>
+    <ol class="notes notes-r">
+      <li class="note" data-n="4"><span class="n">04</span><h4>Survey volumes</h4><p>Stockpile inventory between dates, measured surface to surface.</p></li>
+      <li class="note" data-n="5"><span class="n">05</span><h4>Agent</h4><p>An AI agent docked in every window. Off until you add your own key.</p></li>
+    </ol>
+    <svg class="leaders" id="leaders" aria-hidden="true"></svg>
+  </div>
+</section>
+
+<!-- ===================== CAPABILITIES ===================== -->
+<section class="sec" id="capabilities">
+  <div class="sec-head">
+    <div>
+      <div class="idx" data-reveal><b>03</b>Specification</div>
+      <h2 data-reveal>Capabilities,<br>to spec.</h2>
+    </div>
+    <p data-reveal>Everything a drone job produces, in one offline workspace. Hover a line to read it closely.</p>
+  </div>
+  <div class="spec" id="spec">
+    <div class="spec-h"><span>Idx</span><span>Capability</span><span>Detail</span><span>Spec</span><span>Diagram</span></div>
+
+    <div class="row" tabindex="0" data-n="1" style="--i:0">
+      <span class="r-idx">01</span>
+      <h3 class="r-t">Fused 3D scene</h3>
+      <p class="r-d">3D models, point clouds, orthomosaics, offline maps, 360 panoramas and photos in one georeferenced scene, on one timeline.</p>
+      <div class="r-s">DATA TYPES<b data-count="6">6</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M20 48L60 56L100 48L60 40Z"/><path pathLength="1" style="--d:1" d="M20 34L60 42L100 34L60 26Z"/><path class="a" pathLength="1" style="--d:2" d="M20 20L60 28L100 20L60 12Z"/><path pathLength="1" style="--d:3" d="M60 6V60"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="2" style="--i:1">
+      <span class="r-idx">02</span>
+      <h3 class="r-t">Video on the model</h3>
+      <p class="r-d">Drone video synced to its flight log and projected onto the model from the drone's own position, frame by frame.</p>
+      <div class="r-s">POSE<b>Per frame</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M30 6L12 54M30 6L74 54M30 6L60 38M30 6L22 38"/><path class="a" pathLength="1" style="--d:1" d="M12 54H74L60 38H22Z"/><path pathLength="1" style="--d:2" d="M82 56V36L96 30L110 36V56Z"/><path pathLength="1" style="--d:3" d="M26 4H34V9H26Z"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="3" style="--i:2">
+      <span class="r-idx">03</span>
+      <h3 class="r-t">Issues &amp; severity</h3>
+      <p class="r-d">Pin issues to the model with photos and video frames. Grade severity once; the register, scene and reports stay in sync.</p>
+      <div class="r-s">GRADES<b data-count="4">4</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M30 56C30 56 16 40 16 28A14 14 0 0 1 44 28C44 40 30 56 30 56Z"/><path pathLength="1" style="--d:1" d="M26 28H34M30 24V32"/><path pathLength="1" style="--d:2" d="M64 56V48M76 56V40M88 56V32"/><path class="a" pathLength="1" style="--d:3" d="M100 56V20"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="4" style="--i:3">
+      <span class="r-idx">04</span>
+      <h3 class="r-t">Compare dates</h3>
+      <p class="r-d">Load surveys from different dates into the same scene. Scrub between them and measure change surface to surface.</p>
+      <div class="r-s">SURVEYS<b data-count="2" data-pre="" data-suf="+">2+</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M6 52C28 52 40 14 60 14C80 14 92 52 114 52"/><path class="a" pathLength="1" style="--d:1" d="M6 52C32 52 46 30 62 30C78 30 90 52 114 52"/><path pathLength="1" style="--d:2" d="M6 60H114M20 57V60M60 57V60M100 57V60"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="5" style="--i:4">
+      <span class="r-idx">05</span>
+      <h3 class="r-t">Survey &amp; volumes</h3>
+      <p class="r-d">Stockpile volumes, cut and fill, profiles and contours. Export to Civil 3D, TBC and 12d.</p>
+      <div class="r-s">EXPORT TARGETS<b data-count="3">3</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M8 52L38 22L70 16L112 52"/><path pathLength="1" style="--d:1" d="M28 52V32M48 52V20M68 52V17M88 52V32"/><path class="a" pathLength="1" style="--d:2" d="M8 52H112"/><path pathLength="1" style="--d:3" d="M8 60H112M8 57V63M112 57V63"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="6" style="--i:5">
+      <span class="r-idx">06</span>
+      <h3 class="r-t">GPU photogrammetry</h3>
+      <p class="r-d">Optional NVIDIA GPU processing builds models from your photos on your own machine, with photo matching about 20× faster.</p>
+      <div class="r-s">PHOTO MATCHING<b data-count="20" data-pre="~" data-suf="×">~20×</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M8 18H24"/><path class="a" pathLength="1" style="--d:1" d="M8 40H112"/><path pathLength="1" style="--d:2" d="M8 10V58"/><path pathLength="1" style="--d:3" d="M8 26H6M8 48H6"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="7" style="--i:6">
+      <span class="r-idx">07</span>
+      <h3 class="r-t">AI agent in every window</h3>
+      <p class="r-d">An assistant docked in the scene, the register and the reports. It uses your own key and stays off by default.</p>
+      <div class="r-s">DEFAULT<b>Off</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M8 6H112V58H8Z"/><path pathLength="1" style="--d:1" d="M18 18L26 25L18 32"/><path pathLength="1" style="--d:2" d="M32 32H58"/><path class="a" pathLength="1" style="--d:3" d="M64 18V32"/><path pathLength="1" style="--d:4" d="M18 44H100M18 50H72"/></svg>
+    </div>
+
+    <div class="row" tabindex="0" data-n="8" style="--i:7">
+      <span class="r-idx">08</span>
+      <h3 class="r-t">Client packages + free Player</h3>
+      <p class="r-d">Hand clients a read-only .aio package. They open the scene, issues and timeline in the free Quadrion Player.</p>
+      <div class="r-s">PLAYER<b>Free</b></div>
+      <svg class="r-g" viewBox="0 0 120 64" aria-hidden="true"><path pathLength="1" style="--d:0" d="M10 22L36 12L62 22V48L36 58L10 48Z"/><path pathLength="1" style="--d:1" d="M10 22L36 32L62 22M36 32V58"/><path pathLength="1" style="--d:2" d="M70 35H88M84 31L88 35L84 39"/><path class="a" pathLength="1" style="--d:3" d="M96 24L112 35L96 46Z"/></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TRUST ===================== -->
+<section class="sec" id="security">
+  <div class="sec-head">
+    <div>
+      <div class="idx" data-reveal><b>04</b>Secure link</div>
+      <h2 data-reveal>Nothing leaves<br>the building.</h2>
+    </div>
+    <p data-reveal>Quadrion AI runs fully offline on Windows, built for teams on restricted networks. Your data stays on your disks. There is no telemetry and no account, and the AI agent stays off unless you switch it on with your own key.</p>
+  </div>
+  <div class="link" data-reveal>
+    <div class="link-h"><i class="lamp"></i><span class="st">LINK STATUS · AIR-GAP OK</span><span>LOCAL ONLY</span><span class="sp">SESSION <span id="upT">00:00:00</span></span></div>
+    <div class="link-b">
+      <ul class="lr">
+        <li><i class="sq"></i><span class="nm">Offline</span><span class="ok">VERIFIED<small>NO NETWORK REQUIRED</small></span><span class="ds">Every feature works with the cable unplugged, including processing and reports.</span></li>
+        <li><i class="sq"></i><span class="nm">No telemetry</span><span class="ok">VERIFIED<small>EGRESS 0 B</small></span><span class="ds">The app does not phone home. No usage analytics, no crash uploads.</span></li>
+        <li><i class="sq"></i><span class="nm">No account</span><span class="ok">VERIFIED<small>NO SIGN-IN</small></span><span class="ds">Install and work. No cloud login stands between you and your project.</span></li>
+        <li><i class="sq"></i><span class="nm">Data on your disks</span><span class="ok">VERIFIED<small>LOCAL STORAGE</small></span><span class="ds">Projects, imagery and models stay where you put them, on drives you control.</span></li>
+      </ul>
+      <div class="net-w">
+        <svg class="net" viewBox="0 0 520 290" role="img" aria-label="Network diagram: the workstation talks only to its local disks and an optional local GPU. The link to the wider network is cut. Client hand-off is a package file opened in the free Player.">
+          <path class="lk" d="M125 66V100"/><path class="lk" d="M125 176V220"/><path class="lk" d="M210 245H330"/>
+          <path class="pk" d="M125 66V100"/><path class="pk r" d="M125 176V220"/><path class="pk" d="M210 245H330"/>
+          <path class="wan" d="M210 138H286M314 138H398"/>
+          <path class="cut" d="M293 131L307 145M307 131L293 145"/>
+          <rect x="40" y="16" width="170" height="50"/><text x="56" y="38">GPU · NVIDIA</text><text class="s" x="56" y="54">OPTIONAL · ON THIS MACHINE</text>
+          <rect class="main" x="40" y="100" width="170" height="76"/><text x="56" y="126">WORKSTATION</text><text class="s" x="56" y="144">QUADRION AI · WINDOWS</text><text class="s" x="56" y="160">AGENT OFF · OWN KEY</text>
+          <rect x="40" y="220" width="170" height="50"/><text x="56" y="242">LOCAL DISKS</text><text class="s" x="56" y="258">D:\SURVEYS\DEMO</text>
+          <rect x="330" y="220" width="170" height="50"/><text x="346" y="242">CLIENT · PLAYER</text><text class="s" x="346" y="258">.AIO · READ-ONLY</text>
+          <circle class="wc" cx="440" cy="138" r="42"/><text x="440" y="136" text-anchor="middle">WAN</text><text class="s" x="440" y="152" text-anchor="middle">NO ROUTE</text>
+          <text class="lb" x="300" y="120" text-anchor="middle">EGRESS 0 B</text>
+          <text class="lb" x="270" y="236" text-anchor="middle">HAND-OFF</text>
+        </svg>
+        <div class="net-k"><span>LOCAL I/O <b id="io">412.6 MB/s</b></span><span>EGRESS <b>0 B</b></span><span>OUTBOUND HOSTS <b>0</b></span></div>
+      </div>
+    </div>
+    <div class="link-f">
+      <div><b>AI AGENT</b>Off by default. Uses your own key when enabled.</div>
+      <div><b>GPU</b>Optional local NVIDIA processing. Nothing is uploaded.</div>
+      <div><b>HAND-OFF</b>Read-only .aio packages for the free Player.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA ===================== -->
+<section class="sec cta" id="cta">
+  <svg class="topo" id="topo" viewBox="0 0 1440 720" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+  <div class="cta-in">
+    <div class="idx" data-reveal><b>05</b>Next</div>
+    <h2 data-reveal>Put your next site<br>in four dimensions.</h2>
+    <p data-reveal>See Quadrion AI on your own data, or hand a client a package and the free Player.</p>
+    <div class="ctas" data-reveal>
+      <a class="btn btn-p" href="#cta">Request a demo<span class="arr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M1 7h11M8 3l4 4-4 4"/></svg><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M1 7h11M8 3l4 4-4 4"/></svg></span></a>
+      <a class="btn" href="#cta">Download the free Player<span class="arr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 1v10M3 7l4 4 4-4M1 13h12"/></svg><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 1v10M3 7l4 4 4-4M1 13h12"/></svg></span></a>
+    </div>
+    <div class="cta-meta" data-reveal><span>WINDOWS</span><span>OFFLINE-FIRST</span><span>NVIDIA GPU OPTIONAL</span><span>CIVIL 3D · TBC · 12D</span></div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div>
+    <a class="brand" href="#top" aria-label="Quadrion AI, back to top"><svg viewBox="30 30 676 96" aria-hidden="true"></svg></a>
+    <p>Quadrion AI is made by Synapse Solutions. An offline workspace for drone inspection and survey teams.</p>
+  </div>
+  <div><h5>Product</h5><ul><li><a href="#product">Workspace</a></li><li><a href="#capabilities">Capabilities</a></li><li><a href="#cta">Free Player</a></li><li><a href="#security">Security</a></li></ul></div>
+  <div><h5>Resources</h5><ul><li><a href="#cta">Documentation</a></li><li><a href="#cta">Release notes</a></li><li><a href="#cta">Export formats</a></li></ul></div>
+  <div><h5>Company</h5><ul><li><a href="#cta">Synapse Solutions</a></li><li><a href="#cta">Contact</a></li><li><a href="#cta">Request a demo</a></li></ul></div>
+  <div class="foot-b"><span>© 2026 Synapse Solutions. All rights reserved.</span><span>FOUR DIMENSIONS · ONE VIEW</span></div>
+</footer>
+
+<a class="badge" href="../index.html">Direction A · Mission Control</a>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+
+<script type="module">
+/* ============================================================
+   Quadrion AI · Direction A · Mission Control
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const root = document.documentElement;
+
+const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HAS_GSAP = !!(window.gsap && window.ScrollTrigger);
+const CAN_GL = (() => {
+  try {
+    const c = document.createElement('canvas');
+    const g = c.getContext('webgl2') || c.getContext('webgl');
+    if (!g) return false;
+    const ext = g.getExtension('WEBGL_lose_context');
+    if (ext) ext.loseContext();
+    return true;
+  } catch (e) { return false; }
+})();
+let FLAT = RM || !HAS_GSAP || !CAN_GL;
+root.classList.toggle('flat', FLAT);
+if (!CAN_GL) root.classList.add('no-gl');
+
+/* ---------- noise ---------- */
+function hash(i, j) {
+  let h = (Math.imul(i | 0, 374761393) + Math.imul(j | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function vnoise(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
+  return (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) * 2 - 1;
+}
+function fbm(x, z) {
+  let s = 0, a = 0.5, f = 1;
+  for (let o = 0; o < 4; o++) { s += a * vnoise(x * f, z * f); f *= 2.03; a *= 0.5; }
+  return s;
+}
+function mulberry(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- site model (shared by scene + readouts) ---------- */
+const PAD = 0.2;
+const BUND = { x0: -58, x1: 36, z0: -38, z1: 38 };
+const TANKS = [
+  { x: -30, z: -14, r: 13, h: 14 },
+  { x: 6, z: -16, r: 11, h: 16 },
+  { x: -34, z: 20, r: 9, h: 11 },
+  { x: -6, z: 20, r: 9, h: 11 },
+  { x: 18, z: 18, r: 7, h: 9 },
+];
+const BLD = [
+  { x: -90, z: 56, w: 18, d: 11, h: 5.2 },
+  { x: 58, z: -84, w: 12, d: 9, h: 4 },
+];
+const RACK = [
+  { x0: -105, z0: -50, x1: 85, z1: -50 },
+  { x0: 85, z0: -50, x1: 85, z1: 0 },
+];
+const PILES = [
+  { x: 70, z: 42, ra: 18, ha: 8.6, xb: 73, zb: 40, rb: 16, hb: 5.2 },
+  { x: 40, z: 76, ra: 10, ha: 3.0, xb: 40, zb: 76, rb: 13.5, hb: 5.6 },
+];
+function rectDist(x, z, x0, x1, z0, z1) {
+  const dx = Math.max(x0 - x, 0, x - x1), dz = Math.max(z0 - z, 0, z - z1);
+  return Math.hypot(dx, dz);
+}
+function roadMask(x, z) {
+  let m = 0;
+  if (x > 30) { const zc = 6 + 4 * Math.sin(x * 0.03); m = Math.max(m, 1 - sstep(3, 5, Math.abs(z - zc))); }
+  m = Math.max(m, 1 - sstep(2.6, 4.4, Math.abs(x + 74)));
+  return m;
+}
+function terrainH(x, z) {
+  let h = fbm(x * 0.011 + 3.1, z * 0.011 - 1.7) * 3.4 + fbm(x * 0.06, z * 0.06) * 0.35 + x * 0.006 - z * 0.004;
+  const pad = 1 - sstep(0, 9, rectDist(x, z, BUND.x0 - 4, BUND.x1 + 4, BUND.z0 - 4, BUND.z1 + 4));
+  h = lerp(h, PAD, pad);
+  const rm = roadMask(x, z);
+  h = lerp(h, h * 0.6 - 0.15, rm);
+  return h;
+}
+function mound(x, z, cx, cz, r, h) {
+  const d = Math.hypot(x - cx, z - cz) / r;
+  if (d >= 1) return 0;
+  return h * Math.pow(1 - d * d, 1.5) * (1 + 0.07 * vnoise(x * 0.25, z * 0.25));
+}
+const pileA = (x, z) => PILES.reduce((s, p) => s + mound(x, z, p.x, p.z, p.ra, p.ha), 0);
+const pileB = (x, z) => PILES.reduce((s, p) => s + mound(x, z, p.xb, p.zb, p.rb, p.hb), 0);
+
+/* ---------- readout formatting ---------- */
+const E0 = 412000, N0 = 2715000;
+const grp = (v, dp = 1) => {
+  const [i, d] = Math.abs(v).toFixed(dp).split('.');
+  return (v < 0 ? '−' : '') + i.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (d ? '.' + d : '');
+};
+const pad = (v, w, dp = 1) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(dp).padStart(w, '0');
+const fmtInt = (v) => Math.round(v).toLocaleString('en-US');
+const signed = (v) => (v < 0 ? '−' : '+') + fmtInt(Math.abs(v));
+
+/* ---------- state ---------- */
+const S = {
+  p: 0, ps: 0, ch: -2,
+  mx: 0, my: 0, smx: 0, smy: 0,
+  px: 0, py: 0, spx: 0, spy: 0, over: false, xhInit: false,
+  tel: { alt: 52.4, hdg: 58, gs: 6.2, gmb: -48.2, e: E0 + 386.2, n: N0 + 4.8 },
+  t0: performance.now(),
+};
+const stage = $('#stage'), view = $('#view'), heroEl = $('#hero'), cue = $('#cue'), scrimL = $('#scrimL');
+const chaps = $$('.chap'), railF = $('#railF'), railL = $$('#railL span'), chI = $('#chI'), tMode = $('#tMode');
+const MODES = ['OVERVIEW', 'CAPTURE', 'FUSE', 'INSPECT', 'COMPARE'];
+const CH_START = [0.1, 0.35, 0.57, 0.79];
+
+/* ---------- line splitting for chapter copy ---------- */
+function splitLines() {
+  $$('[data-split]').forEach((el) => {
+    const text = el.dataset.src || (el.dataset.src = el.textContent.replace(/\s+/g, ' ').trim());
+    el.textContent = '';
+    const words = text.split(' ');
+    const spans = words.map((w, i) => {
+      const s = document.createElement('span');
+      s.textContent = i < words.length - 1 ? w + ' ' : w;
+      el.appendChild(s);
+      return s;
+    });
+    const tops = spans.map((s) => s.offsetTop);
+    const lines = [];
+    let cur = '', lt = tops[0];
+    spans.forEach((s, i) => {
+      if (Math.abs(tops[i] - lt) > 3) { lines.push(cur); cur = ''; lt = tops[i]; }
+      cur += s.textContent;
+    });
+    lines.push(cur);
+    el.textContent = '';
+    lines.forEach((l) => {
+      const o = document.createElement('span'); o.className = 'ln';
+      const n = document.createElement('span'); n.textContent = l;
+      o.appendChild(n); el.appendChild(o);
+    });
+  });
+  chaps.forEach((c) => $$('.ln > *', c).forEach((s, i) => s.style.setProperty('--i', i)));
+}
+
+/* ---------- chapter state ---------- */
+function setChapter(i) {
+  if (i === S.ch) return;
+  S.ch = i;
+  stage.dataset.ch = String(i);
+  chaps.forEach((c, k) => {
+    c.classList.toggle('is-active', k === i);
+    c.classList.toggle('is-past', i >= 0 && k < i);
+  });
+  railL.forEach((s, k) => s.classList.toggle('on', k === i));
+  if (i >= 0) chI.textContent = String(i + 1).padStart(2, '0');
+  tMode.textContent = MODES[i + 1] || MODES[0];
+}
+function chapterFor(p) {
+  if (p < CH_START[0]) return -1;
+  let c = 0;
+  for (let k = 0; k < 4; k++) if (p >= CH_START[k]) c = k;
+  return c;
+}
+function onProgress(p) {
+  S.p = p;
+  setChapter(chapterFor(p));
+  railF.style.transform = `scaleX(${clamp((p - CH_START[0]) / (1 - CH_START[0]), 0, 1).toFixed(4)})`;
+  const h = sstep(0, 0.07, p);
+  heroEl.style.opacity = (1 - h).toFixed(3);
+  heroEl.style.transform = `translate3d(0,${(-h * 60).toFixed(1)}px,0)`;
+  heroEl.style.visibility = h > 0.99 ? 'hidden' : 'visible';
+  cue.style.opacity = (1 - sstep(0, 0.02, p)).toFixed(3);
+  scrimL.style.opacity = sstep(0.06, 0.12, p).toFixed(3);
+}
+
+/* ---------- smooth scroll + pin ---------- */
+let lenis = null, pinST = null;
+function setupScroll() {
+  if (FLAT) {
+    chaps.forEach((c) => c.classList.add('is-active'));
+    return;
+  }
+  const { gsap, ScrollTrigger } = window;
+  gsap.registerPlugin(ScrollTrigger);
+  ScrollTrigger.config({ ignoreMobileResize: true });
+  if (window.Lenis) {
+    lenis = new window.Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
+  pinST = ScrollTrigger.create({
+    trigger: stage,
+    start: 'top top',
+    end: () => '+=' + Math.round(window.innerHeight * 5),
+    pin: true,
+    pinSpacing: true,
+    anticipatePin: 1,
+    invalidateOnRefresh: true,
+    onUpdate: (self) => onProgress(self.progress),
+  });
+  onProgress(pinST.progress);
+}
+function goFlat() {
+  if (FLAT) return;
+  FLAT = true;
+  root.classList.add('flat');
+  if (pinST) { pinST.kill(true); pinST = null; }
+  setChapter(-1);
+  chaps.forEach((c) => { c.classList.add('is-active'); c.classList.remove('is-past'); });
+  heroEl.style.opacity = ''; heroEl.style.transform = ''; heroEl.style.visibility = '';
+  lastVolKey = ''; writeVolumes(1);
+  if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+}
+
+/* ---------- anchors ---------- */
+$$('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
+  const id = a.getAttribute('href');
+  if (!id || id.length < 2) return;
+  const el = id === '#top' ? document.body : $(id);
+  if (!el) return;
+  e.preventDefault();
+  if (lenis) lenis.scrollTo(id === '#top' ? 0 : el, { offset: id === '#top' ? 0 : -40, duration: 1.6 });
+  else if (id === '#top') window.scrollTo({ top: 0, behavior: RM ? 'auto' : 'smooth' });
+  else el.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' });
+}));
+
+/* ---------- nav state ---------- */
+const nav = $('#nav');
+let navTick = false;
+const navUpdate = () => { navTick = false; nav.classList.toggle('solid', window.scrollY > 8); };
+window.addEventListener('scroll', () => { if (!navTick) { navTick = true; requestAnimationFrame(navUpdate); } }, { passive: true });
+navUpdate();
+
+/* ---------- reveals ---------- */
+const revealEls = $$('[data-reveal], #spec');
+if (RM || !('IntersectionObserver' in window)) revealEls.forEach((el) => el.classList.add('in'));
+else {
+  const io = new IntersectionObserver((ents) => ents.forEach((en) => {
+    if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+  }), { threshold: 0.15, rootMargin: '0px 0px -6% 0px' });
+  revealEls.forEach((el) => io.observe(el));
+}
+
+/* ---------- product shot leaders ---------- */
+const shot = $('#shot'), lsvg = $('#leaders');
+const notes = $$('.note', shot);
+let leadEls = [];
+let leadProg = (FLAT || RM) ? 1 : 0;
+function layoutLeaders() {
+  if (window.innerWidth < 1100) { lsvg.innerHTML = ''; leadEls = []; applyLeaders(); return; }
+  const wr = shot.getBoundingClientRect();
+  const parts = notes.map((n) => {
+    const pin = $(`.pin[data-n="${n.dataset.n}"]`, shot);
+    const nr = n.getBoundingClientRect(), pr = pin.getBoundingClientRect();
+    const left = !!n.closest('.notes-l');
+    const x0 = left ? nr.right - wr.left + 14 : nr.left - wr.left - 14;
+    const y0 = nr.top - wr.top + 6;
+    const xe = left ? x0 + 26 : x0 - 26;
+    const px = pr.left - wr.left + pr.width / 2, py = pr.top - wr.top + pr.height / 2;
+    return `<path pathLength="1" data-n="${n.dataset.n}" d="M${x0.toFixed(1)} ${y0.toFixed(1)}H${xe.toFixed(1)}L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+  });
+  lsvg.setAttribute('viewBox', `0 0 ${wr.width.toFixed(1)} ${wr.height.toFixed(1)}`);
+  lsvg.innerHTML = parts.join('');
+  leadEls = $$('path', lsvg);
+  applyLeaders();
+}
+function applyLeaders() {
+  const n = notes.length;
+  notes.forEach((note, i) => {
+    const a = clamp(leadProg * (n + 0.8) - i, 0, 1);
+    const path = leadEls[i];
+    if (path) path.style.strokeDashoffset = (1 - a).toFixed(3);
+    note.style.opacity = (0.18 + 0.82 * a).toFixed(3);
+    const pin = $(`.pin[data-n="${note.dataset.n}"]`, shot);
+    if (pin) pin.classList.toggle('on', a > 0.55);
+  });
+}
+notes.forEach((note) => {
+  const set = (on) => {
+    note.classList.toggle('hot', on);
+    const pin = $(`.pin[data-n="${note.dataset.n}"]`, shot); if (pin) pin.classList.toggle('hot', on);
+    const p = $(`path[data-n="${note.dataset.n}"]`, lsvg); if (p) p.classList.toggle('hot', on);
+  };
+  note.addEventListener('pointerenter', () => set(true));
+  note.addEventListener('pointerleave', () => set(false));
+});
+function setupLeaderScroll() {
+  if (FLAT || RM || !HAS_GSAP) { leadProg = 1; applyLeaders(); return; }
+  window.ScrollTrigger.create({
+    trigger: shot, start: 'top 78%', end: 'bottom 72%',
+    onUpdate: (self) => { leadProg = self.progress; applyLeaders(); },
+    onRefresh: (self) => { leadProg = self.progress; layoutLeaders(); },
+  });
+}
+const shotImg = $('img', shot);
+if (shotImg && !shotImg.complete) shotImg.addEventListener('load', () => { layoutLeaders(); if (window.ScrollTrigger) window.ScrollTrigger.refresh(); }, { once: true });
+
+/* ---------- spec rows: odometer + count-up ---------- */
+$$('.row').forEach((row) => {
+  const idx = $('.r-idx', row);
+  const n = Number(row.dataset.n);
+  const cnt = $('[data-count]', row);
+  let raf = 0;
+  const run = () => {
+    if (RM) return;
+    cancelAnimationFrame(raf);
+    const t0 = performance.now();
+    const to = cnt ? Number(cnt.dataset.count) : 0;
+    const pre = cnt ? (cnt.dataset.pre || '') : '';
+    const suf = cnt ? (cnt.dataset.suf || '') : '';
+    const step = (now) => {
+      const k = clamp((now - t0) / 750, 0, 1);
+      const e = 1 - Math.pow(1 - k, 4);
+      idx.textContent = String(Math.round(e * n)).padStart(2, '0');
+      if (cnt) cnt.textContent = pre + Math.round(e * to) + suf;
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+  };
+  row.addEventListener('pointerenter', run);
+  row.addEventListener('focus', run);
+});
+
+/* ---------- trust ticker ---------- */
+const ioEl = $('#io'), upT = $('#upT');
+let ioV = 412.6;
+function trustTick() {
+  const s = Math.floor((performance.now() - S.t0) / 1000);
+  upT.textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((v) => String(v).padStart(2, '0')).join(':');
+  ioV = clamp(ioV + (Math.random() - 0.5) * 38, 180, 690);
+  ioEl.textContent = ioV.toFixed(1).padStart(5, '0') + ' MB/s';
+}
+if (!RM) setInterval(trustTick, 700);
+
+/* ---------- CTA topography ---------- */
+(function topo() {
+  const svg = $('#topo');
+  let out = '';
+  const cx = 1080, cy = 380;
+  for (let k = 0; k < 17; k++) {
+    const r0 = 26 + k * 30;
+    let d = '';
+    for (let a = 0; a <= 120; a++) {
+      const th = (a / 120) * Math.PI * 2;
+      const n = fbm(Math.cos(th) * 1.3 + 4.2, Math.sin(th) * 1.3 + k * 0.05);
+      const r = r0 * (1 + 0.26 * n);
+      d += (a ? 'L' : 'M') + (cx + Math.cos(th) * r * 1.45).toFixed(1) + ' ' + (cy + Math.sin(th) * r * 0.82).toFixed(1);
+    }
+    out += `<path d="${d}Z"${k === 6 ? ' class="hi"' : ''}/>`;
+  }
+  svg.innerHTML = out;
+})();
+
+/* ---------- footer lockup (clone nav mark) ---------- */
+(function footMark() {
+  const src = $('.nav .brand svg');
+  const dst = $('.foot .brand svg');
+  if (src && dst) dst.innerHTML = src.innerHTML;
+})();
+
+/* ---------- callout coordinates ---------- */
+$$('.callout').forEach((c) => {
+  const [x, y, z] = c.dataset.anchor.split(',').map(Number);
+  const dl = $('.cc', c);
+  dl.innerHTML = `<dt>E</dt><dd>${grp(E0 + x)}</dd><dt>N</dt><dd>${grp(N0 - z)}</dd><dt>Z</dt><dd>${pad(y, 4)} m</dd>`;
+});
+
+/* ---------- HUD writer ---------- */
+const hud = { alt: $('#tAlt'), hdg: $('#tHdg'), gs: $('#tGs'), gmb: $('#tGmb'), pos: $('#tPos'), utc: $('#tUtc') };
+const BASE_S = 9 * 3600 + 20 * 60;
+function writeHUD() {
+  const T = S.tel;
+  hud.alt.textContent = pad(T.alt, 5) + ' m';
+  hud.hdg.textContent = String(Math.round(((T.hdg % 360) + 360) % 360)).padStart(3, '0') + '°';
+  hud.gs.textContent = pad(T.gs, 4) + ' m/s';
+  hud.gmb.textContent = pad(T.gmb, 4) + '°';
+  hud.pos.textContent = `40N ${grp(T.e)}E ${grp(T.n)}N`;
+  const el = RM ? 0 : (performance.now() - S.t0) / 1000;
+  const s = BASE_S + el;
+  const hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = s % 60;
+  hud.utc.textContent = `13 APR 2026 ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${ss.toFixed(1).padStart(4, '0')}`;
+}
+writeHUD();
+
+/* ---------- chapter 4 static values (flat) ---------- */
+const volEl = $('#vol'), volD = $('#volD'), vP1 = $('#vP1'), vP2 = $('#vP2'), dA = $('#dA'), dB = $('#dB');
+const p1d = $('#p1d'), p2d = $('#p2d');
+const VOL = { a: 1511, b: 1123, p1a: 1198, p1b: 654, p2a: 313, p2b: 469 };
+let lastVolKey = '';
+function writeVolumes(m) {
+  const tot = lerp(VOL.a, VOL.b, m), p1 = lerp(VOL.p1a, VOL.p1b, m), p2 = lerp(VOL.p2a, VOL.p2b, m);
+  const key = Math.round(tot) + '|' + Math.round(p1);
+  if (key === lastVolKey) return;
+  lastVolKey = key;
+  volEl.textContent = fmtInt(tot);
+  volD.textContent = 'Δ ' + signed(tot - VOL.a) + ' m³';
+  vP1.textContent = fmtInt(p1) + ' m³';
+  vP2.textContent = fmtInt(p2) + ' m³';
+  p1d.textContent = signed(p1 - VOL.p1a);
+  p2d.textContent = signed(p2 - VOL.p2a);
+  const b = m > 0.5;
+  dA.classList.toggle('on', !b);
+  dB.classList.toggle('on', b);
+}
+writeVolumes(FLAT ? 1 : 0);
+
+/* ---------- boot ---------- */
+splitLines();
+setupScroll();
+setupLeaderScroll();
+layoutLeaders();
+let rsT = 0, lastW = window.innerWidth;
+window.addEventListener('resize', () => {
+  clearTimeout(rsT);
+  rsT = setTimeout(() => {
+    if (window.innerWidth !== lastW) { lastW = window.innerWidth; splitLines(); }
+    layoutLeaders();
+  }, 180);
+});
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+  splitLines(); layoutLeaders();
+  if (window.ScrollTrigger && !FLAT) window.ScrollTrigger.refresh();
+});
+
+/* fallback telemetry when there is no WebGL */
+function fallbackTelemetry() {
+  if (RM) return;
+  setInterval(() => {
+    const t = (performance.now() - S.t0) / 1000;
+    const a = t * 0.06;
+    S.tel.alt = 50 + Math.sin(t * 0.4) * 1.6;
+    S.tel.hdg = (a * 180 / Math.PI + 90) % 360;
+    S.tel.gs = 6.1 + Math.sin(t * 1.3) * 0.2;
+    S.tel.gmb = -47 + Math.sin(t * 0.3) * 2;
+    S.tel.e = E0 + Math.cos(a) * 100;
+    S.tel.n = N0 + Math.sin(a) * 90;
+    writeHUD();
+  }, 100);
+}
+
+/* ============================================================
+   WebGL scene
+   ============================================================ */
+function glFail() {
+  root.classList.add('no-gl');
+  root.classList.remove('gl-ok');
+  goFlat();
+  fallbackTelemetry();
+}
+
+async function initScene() {
+  if (!CAN_GL) { fallbackTelemetry(); return; }
+  let THREE;
+  try { THREE = await import('three'); } catch (e) { glFail(); return; }
+  const canvas = $('#gl');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  } catch (e) { glFail(); return; }
+  renderer.setClearColor(0x0B0F13, 1);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); glFail(); }, { once: true });
+
+  const MINT = new THREE.Color('#5ED1B3');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 1600);
+  camera.layers.enable(1);
+  const HFOV = 70, ASPECT_V = 16 / 9;
+  const VFOV = 2 * Math.atan(Math.tan((HFOV / 2) * Math.PI / 180) / ASPECT_V) * 180 / Math.PI;
+  const droneCam = new THREE.PerspectiveCamera(VFOV, ASPECT_V, 2, 900);
+
+  /* ----- point cloud ----- */
+  const N = (window.innerWidth < 760 || (navigator.hardwareConcurrency || 8) <= 4) ? 120000 : 220000;
+  const R = mulberry(20260413);
+  const pos = new Float32Array(N * 3), posB = new Float32Array(N * 3), rnd = new Float32Array(N * 2);
+  let k = 0;
+  const put = (x, y, z, cls, yB) => {
+    if (k >= N) return;
+    const i = k * 3;
+    pos[i] = x; pos[i + 1] = y; pos[i + 2] = z;
+    posB[i] = x; posB[i + 1] = yB === undefined ? y : yB; posB[i + 2] = z;
+    rnd[k * 2] = R(); rnd[k * 2 + 1] = cls;
+    k++;
+  };
+  const roofH = (t, d) => (1 - (d / t.r) * (d / t.r)) * t.r * 0.11;
+
+  // tanks
+  const nT = Math.floor(N * 0.19);
+  const areas = TANKS.map((t) => 2 * Math.PI * t.r * t.h + Math.PI * t.r * t.r * 1.05);
+  const aSum = areas.reduce((a, b) => a + b, 0);
+  TANKS.forEach((t, ti) => {
+    const n = Math.floor(nT * areas[ti] / aSum);
+    const lat = (2 * Math.PI * t.r * t.h) / areas[ti];
+    for (let i = 0; i < n; i++) {
+      const q = R();
+      if (q < 0.03) {
+        const a = R() * Math.PI * 2, rr = t.r - 0.25;
+        put(t.x + Math.cos(a) * rr, PAD + t.h + 1.1 + roofH(t, rr), t.z + Math.sin(a) * rr, 1);
+      } else if (q < lat) {
+        const a = R() * Math.PI * 2;
+        let y = R() * t.h;
+        if (R() < 0.16) y = Math.round(y / 2.4) * 2.4;
+        const rr = t.r + (R() - 0.5) * 0.12;
+        put(t.x + Math.cos(a) * rr, PAD + y, t.z + Math.sin(a) * rr, 1);
+      } else {
+        const d = t.r * Math.sqrt(R()), a = R() * Math.PI * 2;
+        put(t.x + Math.cos(a) * d, PAD + t.h + roofH(t, d), t.z + Math.sin(a) * d, 1);
+      }
+    }
+  });
+
+  // pipe rack
+  const PIPES = [[7.0, -1.8, 0.34], [7.0, -0.6, 0.24], [7.0, 0.6, 0.44], [7.0, 1.8, 0.28], [5.0, -1.2, 0.5], [5.0, 1.0, 0.3]];
+  const rl = RACK.map((s) => Math.hypot(s.x1 - s.x0, s.z1 - s.z0));
+  const rlSum = rl[0] + rl[1];
+  const nR = Math.floor(N * 0.07);
+  for (let i = 0; i < nR; i++) {
+    let sv = R() * rlSum, si = 0;
+    if (sv > rl[0]) { si = 1; sv -= rl[0]; }
+    const s = RACK[si], L = rl[si];
+    const dx = (s.x1 - s.x0) / L, dz = (s.z1 - s.z0) / L, px = -dz, pz = dx;
+    if (R() < 0.66) {
+      const pp = PIPES[Math.floor(R() * PIPES.length)];
+      const a = R() * Math.PI * 2, o = pp[1] + Math.cos(a) * pp[2];
+      put(s.x0 + dx * sv + px * o, pp[0] + Math.sin(a) * pp[2], s.z0 + dz * sv + pz * o, 1);
+    } else {
+      const sb = Math.round(sv / 6) * 6;
+      const bx = s.x0 + dx * sb, bz = s.z0 + dz * sb, g = terrainH(bx, bz);
+      const j = (R() - 0.5) * 0.3, j2 = (R() - 0.5) * 0.3;
+      if (R() < 0.6) {
+        const side = R() < 0.5 ? -2.4 : 2.4;
+        put(bx + px * (side + j) + dx * j2, g + R() * (7.4 - g), bz + pz * (side + j) + dz * j2, 1);
+      } else {
+        const y = R() < 0.5 ? 4.6 : 6.6, o = (R() * 2 - 1) * 2.5;
+        put(bx + px * o + dx * j, y + (R() - 0.5) * 0.25, bz + pz * o + dz * j, 1);
+      }
+    }
+  }
+
+  // bund wall
+  const bw = BUND.x1 - BUND.x0, bh = BUND.z1 - BUND.z0, per = 2 * (bw + bh);
+  const nB = Math.floor(N * 0.035);
+  for (let i = 0; i < nB; i++) {
+    let s = R() * per, x, z, nx, nz;
+    if (s < bw) { x = BUND.x0 + s; z = BUND.z0; nx = 0; nz = -1; }
+    else if (s < bw + bh) { s -= bw; x = BUND.x1; z = BUND.z0 + s; nx = 1; nz = 0; }
+    else if (s < 2 * bw + bh) { s -= bw + bh; x = BUND.x1 - s; z = BUND.z1; nx = 0; nz = 1; }
+    else { s -= 2 * bw + bh; x = BUND.x0; z = BUND.z1 - s; nx = -1; nz = 0; }
+    const o = (R() * 2 - 1) * 1.7;
+    const prof = clamp((1.7 - Math.abs(o)) / 1.2, 0, 1);
+    const wx = x + nx * o, wz = z + nz * o;
+    put(wx, terrainH(wx, wz) + 1.7 * prof, wz, 1);
+  }
+
+  // buildings
+  const nBl = Math.floor(N * 0.01);
+  BLD.forEach((b) => {
+    const g = terrainH(b.x, b.z);
+    const wallA = 2 * (b.w + b.d) * b.h, roofA = b.w * b.d;
+    for (let i = 0; i < nBl; i++) {
+      if (R() < roofA / (wallA + roofA)) {
+        put(b.x + (R() - 0.5) * b.w, g + b.h, b.z + (R() - 0.5) * b.d, 1);
+      } else {
+        let s = R() * 2 * (b.w + b.d), x, z;
+        const hx = b.w / 2, hz = b.d / 2;
+        if (s < b.w) { x = b.x - hx + s; z = b.z - hz; }
+        else if (s < b.w + b.d) { x = b.x + hx; z = b.z - hz + (s - b.w); }
+        else if (s < 2 * b.w + b.d) { x = b.x + hx - (s - b.w - b.d); z = b.z + hz; }
+        else { x = b.x - hx; z = b.z + hz - (s - 2 * b.w - b.d); }
+        put(x, g + R() * b.h, z, 1);
+      }
+    }
+  });
+
+  // terrain + piles
+  const nPileExtra = Math.floor(N * 0.05);
+  const inTank = (x, z) => TANKS.some((t) => (x - t.x) * (x - t.x) + (z - t.z) * (z - t.z) < (t.r - 0.3) * (t.r - 0.3));
+  const inBld = (x, z) => BLD.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2);
+  let guard = 0;
+  while (k < N - nPileExtra && guard < N * 6) {
+    guard++;
+    const x = (R() * 2 - 1) * 136, z = (R() * 2 - 1) * 136, r = Math.hypot(x, z);
+    if (r > 136) continue;
+    if (r > 96 && R() < (r - 96) / 40) continue;
+    if (inTank(x, z) || inBld(x, z)) continue;
+    const g = terrainH(x, z), a = pileA(x, z), b = pileB(x, z);
+    const cls = (a > 0.01 || b > 0.01) ? 2 : (roadMask(x, z) > 0.5 ? 3 : 0);
+    put(x, g + a, z, cls, g + b);
+  }
+  guard = 0;
+  while (k < N && guard < N * 4) {
+    guard++;
+    const p = R() < 0.72 ? PILES[0] : PILES[1];
+    const rr = Math.max(p.ra, p.rb) * 1.08 * Math.sqrt(R()), a = R() * Math.PI * 2;
+    const x = p.x + Math.cos(a) * rr, z = p.z + Math.sin(a) * rr;
+    const g = terrainH(x, z);
+    put(x, g + pileA(x, z), z, 2, g + pileB(x, z));
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('aPosB', new THREE.BufferAttribute(posB, 3));
+  geo.setAttribute('aRnd', new THREE.BufferAttribute(rnd, 2));
+  geo.setDrawRange(0, k);
+  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 220);
+
+  const uniforms = {
+    uMorph: { value: 0 }, uDiff: { value: 0 }, uPR: { value: 1 }, uSize: { value: 2.6 },
+    uProj: { value: 0 }, uFoot: { value: 1 }, uScan: { value: -200 }, uScanAmt: { value: 1 }, uInRT: { value: 0 },
+    uDroneVP: { value: new THREE.Matrix4() }, uBg: { value: new THREE.Vector3(0.043, 0.059, 0.075) },
+  };
+  const ptsMat = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: true,
+    vertexShader: /* glsl */`
+      attribute vec3 aPosB;
+      attribute vec2 aRnd;
+      uniform float uMorph, uDiff, uPR, uSize, uProj, uFoot, uScan, uScanAmt, uInRT;
+      uniform mat4 uDroneVP;
+      uniform vec3 uBg;
+      varying vec3 vCol;
+      varying float vA;
+      const vec3 MINT = vec3(0.369, 0.820, 0.702);
+      vec3 ramp(float t){
+        vec3 c = mix(vec3(0.125, 0.153, 0.188), vec3(0.235, 0.282, 0.345), smoothstep(0.0, 0.30, t));
+        c = mix(c, vec3(0.557, 0.600, 0.651), smoothstep(0.25, 0.62, t));
+        c = mix(c, vec3(0.773, 0.804, 0.839), smoothstep(0.58, 0.88, t));
+        return c;
+      }
+      void main(){
+        vec3 p = mix(position, aPosB, uMorph);
+        float cls = aRnd.y;
+        float t = clamp((p.y + 1.2) / 18.0, 0.0, 1.0);
+        vec3 col = ramp(t);
+        col = mix(col, MINT, smoothstep(0.885, 0.915, t));
+        if (cls < 0.5 || (cls > 1.5 && cls < 2.5)) {
+          float ci = cls > 1.5 ? 0.5 : 1.0;
+          float f = fract(p.y / ci);
+          float cl = 1.0 - smoothstep(0.0, 0.06, min(f, 1.0 - f));
+          col += cl * 0.085;
+        }
+        if (cls > 2.5) col *= 0.72;
+        col *= 0.84 + aRnd.x * 0.3;
+        float dy = aPosB.y - position.y;
+        float dd = clamp(abs(dy) / 1.6, 0.0, 1.0) * uDiff;
+        vec3 dcol = dy < 0.0 ? vec3(0.949, 0.600, 0.290) : MINT;
+        col = mix(col, dcol, dd * 0.62);
+        float fx = 1.0 - uInRT;
+        vec3 img = (cls > 0.5 && cls < 1.5) ? vec3(0.86, 0.88, 0.89) : (cls > 2.5 ? vec3(0.46, 0.44, 0.40) : vec3(0.70, 0.63, 0.52));
+        img *= 0.78 + 0.35 * aRnd.x;
+        img *= 0.8 + 0.25 * clamp(p.y / 10.0, 0.0, 1.0);
+        col = mix(col, img, uInRT * 0.9);
+        vec4 dc = uDroneVP * vec4(p, 1.0);
+        if (dc.w > 0.0 && fx > 0.5) {
+          vec2 nd = dc.xy / dc.w;
+          float m = max(abs(nd.x), abs(nd.y));
+          if (m < 1.0) {
+            float edge = smoothstep(0.94, 0.995, m);
+            col = mix(col, col * 1.25 + 0.03, uFoot * 0.6);
+            col = mix(col, img * 1.15, uProj * 0.9);
+            col = mix(col, MINT, edge * max(uFoot * 0.55, uProj * 0.9));
+          }
+        }
+        col += (1.0 - smoothstep(0.0, 2.2, abs(p.x - uScan))) * 0.10 * uScanAmt * fx;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float dist = -mv.z;
+        gl_PointSize = clamp(uSize * uPR * 90.0 / dist, uPR, 3.2 * uPR);
+        float fog = smoothstep(220.0, 620.0, dist);
+        col = mix(col, uBg, fog * 0.8);
+        float r = length(p.xz);
+        vCol = col;
+        vA = (1.0 - smoothstep(98.0, 136.0, r)) * (1.0 - fog * 0.5);
+      }`,
+    fragmentShader: /* glsl */`
+      varying vec3 vCol;
+      varying float vA;
+      void main(){
+        if (vA < 0.02) discard;
+        vec2 c = gl_PointCoord - 0.5;
+        float d = dot(c, c);
+        if (d > 0.25) discard;
+        gl_FragColor = vec4(vCol, vA * (1.0 - smoothstep(0.12, 0.25, d)));
+      }`,
+  });
+  const points = new THREE.Points(geo, ptsMat);
+  points.frustumCulled = false;
+  scene.add(points);
+
+  /* ----- flight path ----- */
+  const path = new THREE.CatmullRomCurve3([
+    [-92, 48, -58], [-20, 52, -88], [62, 50, -74], [108, 46, -12],
+    [100, 50, 58], [34, 54, 98], [-48, 50, 84], [-108, 46, 22],
+  ].map((a) => new THREE.Vector3(a[0], a[1], a[2])), true, 'centripetal');
+  const pathLen = path.getLength();
+  const SPEED = 6.2;
+  const PERIOD = pathLen / SPEED;
+  const pathLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(path.getSpacedPoints(700)),
+    new THREE.LineDashedMaterial({ color: MINT, dashSize: 2.4, gapSize: 2.2, transparent: true, opacity: 0.7, depthWrite: false })
+  );
+  pathLine.computeLineDistances();
+  pathLine.layers.set(1);
+  scene.add(pathLine);
+
+  const stationsGeo = new THREE.BufferGeometry().setFromPoints(path.getSpacedPoints(96));
+  const stations = new THREE.Points(stationsGeo, new THREE.PointsMaterial({ color: MINT, size: 3, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false }));
+  stations.layers.set(1);
+  scene.add(stations);
+
+  /* ----- drone marker ----- */
+  const drone = new THREE.Group();
+  {
+    const s = [], arm = 2.2;
+    s.push(-arm, 0, -arm, arm, 0, arm, -arm, 0, arm, arm, 0, -arm);
+    [[arm, arm], [-arm, arm], [arm, -arm], [-arm, -arm]].forEach(([cx, cz]) => {
+      for (let i = 0; i < 16; i++) {
+        const a0 = (i / 16) * Math.PI * 2, a1 = ((i + 1) / 16) * Math.PI * 2;
+        s.push(cx + Math.cos(a0) * 1.1, 0.15, cz + Math.sin(a0) * 1.1, cx + Math.cos(a1) * 1.1, 0.15, cz + Math.sin(a1) * 1.1);
+      }
+    });
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(s, 3));
+    drone.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: MINT })));
+    drone.add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 2.0), new THREE.MeshBasicMaterial({ color: 0xEEF2F5 })));
+    drone.scale.setScalar(1.2);
+    drone.traverse((o) => o.layers.set(1));
+    scene.add(drone);
+  }
+  const dropGeo = new THREE.BufferGeometry();
+  dropGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  const dropLine = new THREE.Line(dropGeo, new THREE.LineBasicMaterial({ color: 0x8E99A6, transparent: true, opacity: 0.35, depthWrite: false }));
+  dropLine.frustumCulled = false;
+  dropLine.layers.set(1);
+  scene.add(dropLine);
+
+  /* ----- frustum + footprint ----- */
+  const frGeo = new THREE.BufferGeometry();
+  frGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(15), 3));
+  frGeo.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1]);
+  const frMat = new THREE.MeshBasicMaterial({ color: MINT, transparent: true, opacity: 0.03, side: THREE.DoubleSide, depthWrite: false });
+  const frMesh = new THREE.Mesh(frGeo, frMat);
+  const fpGeo = new THREE.BufferGeometry();
+  fpGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+  fpGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  const fpMat = new THREE.MeshBasicMaterial({ color: MINT, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false });
+  const fpMesh = new THREE.Mesh(fpGeo, fpMat);
+  const edGeo = new THREE.BufferGeometry();
+  edGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+  const edMat = new THREE.LineBasicMaterial({ color: MINT, transparent: true, opacity: 0.55, depthWrite: false });
+  const edLines = new THREE.LineSegments(edGeo, edMat);
+  [frMesh, fpMesh, edLines].forEach((o) => { o.frustumCulled = false; o.layers.set(1); scene.add(o); });
+
+  /* ----- video frame plane (live render from the drone camera) ----- */
+  const rt = new THREE.WebGLRenderTarget(640, 360, { depthBuffer: true });
+  const vMat = new THREE.ShaderMaterial({
+    uniforms: { uTex: { value: rt.texture }, uOp: { value: 0 } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */`
+      uniform sampler2D uTex;
+      uniform float uOp;
+      varying vec2 vUv;
+      void main(){
+        vec3 c = texture2D(uTex, vUv).rgb;
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        c = mix(vec3(l), c, 0.8) * 1.15 + 0.02;
+        vec2 q = vUv - 0.5;
+        c *= 1.0 - dot(q, q) * 1.1;
+        c *= 0.93 + 0.07 * sin(vUv.y * 540.0);
+        vec2 b = min(vUv, 1.0 - vUv);
+        float br = 1.0 - smoothstep(0.0, 0.008, min(b.x * 1.7778, b.y));
+        vec2 cq = abs(q * vec2(1.7778, 1.0));
+        float cr = step(cq.x, 0.003) * step(cq.y, 0.05) + step(cq.y, 0.003) * step(cq.x, 0.05);
+        c = mix(c, vec3(0.369, 0.820, 0.702), clamp(br + cr * 0.8, 0.0, 1.0));
+        gl_FragColor = vec4(c, uOp * 0.96);
+      }`,
+  });
+  const vPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), vMat);
+  vPlane.layers.set(1);
+  vPlane.frustumCulled = false;
+  vPlane.visible = false;
+  scene.add(vPlane);
+
+  /* ----- camera keyframes ----- */
+  const KEYS = [
+    { p: [205, 152, 222], t: [-34, -8, 22] },
+    { p: [-40, 95, 150], t: [0, 0, 0] },
+    { p: [-90, 70, 90], t: [-10, 0, 0] },
+    { p: [80, 68, 124], t: [-20, 4, 8], np: [96, 66, 118], nt: [-4, 4, 6] },
+    { p: [146, 76, 150], t: [50, 2, 62] },
+  ];
+  const C_CENTER = [0, 0.22, 0.46, 0.68, 0.9];
+  let posCurve, tgtCurve;
+  function buildCurves(aspect) {
+    const f = aspect < 0.9 ? 1.75 : aspect < 1.3 ? 1.3 : 1;
+    const ps = [], ts = [];
+    KEYS.forEach((kf, i) => {
+      const narrow = aspect < 1.3 && kf.np;
+      const t = new THREE.Vector3(...(narrow ? kf.nt : kf.t));
+      if (i === 0 && aspect < 1.3) t.set(0, 0, 10);
+      const p = new THREE.Vector3(...(narrow ? kf.np : kf.p)).sub(t).multiplyScalar(i === 0 ? f : Math.min(f, 1.45)).add(t);
+      ps.push(p); ts.push(t);
+    });
+    posCurve = new THREE.CatmullRomCurve3(ps, false, 'centripetal');
+    tgtCurve = new THREE.CatmullRomCurve3(ts, false, 'centripetal');
+  }
+  function curveU(p) {
+    if (p >= C_CENTER[4]) return 1;
+    for (let i = 0; i < 4; i++) {
+      if (p < C_CENTER[i + 1]) {
+        const t = clamp(((p - C_CENTER[i]) / (C_CENTER[i + 1] - C_CENTER[i]) - 0.12) / 0.76, 0, 1);
+        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        return (i + e) / 4;
+      }
+    }
+    return 1;
+  }
+
+  /* ----- projected labels ----- */
+  const labels = [];
+  $$('.callout').forEach((el) => {
+    const [x, y, z] = el.dataset.anchor.split(',').map(Number);
+    labels.push({ el, v: new THREE.Vector3(x, y, z), off: false });
+  });
+  const tagUav = { el: $('#tagUav'), v: new THREE.Vector3(), off: false };
+  const tagVid = { el: $('#tagVid'), v: new THREE.Vector3(), off: false };
+  const pk = PILES.map((p) => ({ a: terrainH(p.x, p.z) + pileA(p.x, p.z), b: terrainH(p.xb, p.zb) + pileB(p.xb, p.zb) }));
+  const tagP1 = { el: $('#tagP1'), v: new THREE.Vector3(PILES[0].x, pk[0].a, PILES[0].z), off: false };
+  const tagP2 = { el: $('#tagP2'), v: new THREE.Vector3(PILES[1].x, pk[1].a, PILES[1].z), off: false };
+  labels.push(tagUav, tagVid, tagP1, tagP2);
+  const vidF = $('#vidF'), cCnt = $('#cCnt');
+
+  /* ----- HUD bits ----- */
+  const scB = $('#scB'), scL = $('#scL'), cmp = $('#cmp');
+  const xh = $('#xh'), xhH = $('#xhH'), xhV = $('#xhV'), xhC = $('#xhC'), xhT = $('#xhT');
+  const NICE = [5, 10, 20, 25, 50, 100, 200];
+
+  /* ----- sizing ----- */
+  let W = 1, H = 1, lastOffX = NaN, lastOffY = NaN;
+  function resize() {
+    W = Math.max(1, view.clientWidth); H = Math.max(1, view.clientHeight);
+    const pr = Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(pr);
+    renderer.setSize(W, H, false);
+    camera.aspect = W / H;
+    camera.fov = camera.aspect < 0.9 ? 52 : 38;
+    camera.clearViewOffset();
+    lastOffX = NaN; lastOffY = NaN;
+    uniforms.uPR.value = pr;
+    buildCurves(camera.aspect);
+  }
+  resize();
+
+  /* ----- pointer ----- */
+  view.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return;
+    const r = view.getBoundingClientRect();
+    S.px = e.clientX - r.left; S.py = e.clientY - r.top;
+    S.mx = (S.px / r.width) * 2 - 1; S.my = (S.py / r.height) * 2 - 1;
+    if (!S.xhInit) { S.spx = S.px; S.spy = S.py; S.xhInit = true; }
+    S.over = true;
+  });
+  view.addEventListener('pointerleave', () => { S.over = false; S.mx = 0; S.my = 0; });
+
+  /* ----- per-frame temporaries ----- */
+  const D = new THREE.Vector3(), Ft = new THREE.Vector3(), F = new THREE.Vector3(), T = new THREE.Vector3();
+  const siteC = new THREE.Vector3(-6, 0, 2), out = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+  const sp = new THREE.Vector3(), st = new THREE.Vector3(), cp = new THREE.Vector3(), ctg = new THREE.Vector3();
+  const desP = new THREE.Vector3(), desT = new THREE.Vector3(), camP = new THREE.Vector3(), camT = new THREE.Vector3();
+  const ax = new THREE.Vector3(), ay = new THREE.Vector3(), az = new THREE.Vector3();
+  const tmp = new THREE.Vector3(), dir = new THREE.Vector3();
+  const corners = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const NDC = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+  let camInit = false, frameN = 0, tSim = 0, last = performance.now();
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!RM) tSim += dt;
+    const t = tSim;
+    frameN++;
+
+    S.ps += (S.p - S.ps) * (1 - Math.exp(-dt * 5.5));
+    if (Math.abs(S.p - S.ps) < 1e-4) S.ps = S.p;
+    const p = FLAT ? 0 : S.ps;
+    S.smx += (S.mx - S.smx) * (1 - Math.exp(-dt * 3));
+    S.smy += (S.my - S.smy) * (1 - Math.exp(-dt * 3));
+
+    /* chapter weights */
+    const heroW = 1 - sstep(0, 0.1, p);
+    const wChase = sstep(0.12, 0.21, p) * (1 - sstep(0.53, 0.62, p));
+    const wVid = sstep(0.37, 0.43, p) * (1 - sstep(0.54, 0.59, p));
+    const wCap = sstep(0.11, 0.17, p) * (1 - sstep(0.33, 0.38, p));
+    const late = sstep(0.56, 0.63, p);
+    const morph = sstep(0.86, 0.97, p);
+    const diff = sstep(0.8, 0.86, p);
+
+    /* shift the projection so the subject clears the chapter panel */
+    const panelW = FLAT ? 0 : sstep(0.05, 0.13, p);
+    const wide = camera.aspect > 1.3;
+    const offX = wide ? -W * 0.2 * panelW : 0;
+    const offY = wide ? 0 : H * 0.2 * panelW;
+    if (Math.abs(offX - lastOffX) > 0.3 || Math.abs(offY - lastOffY) > 0.3) {
+      camera.setViewOffset(W, H, offX, offY, W, H);
+      lastOffX = offX; lastOffY = offY;
+    }
+
+    /* drone */
+    const u = ((t / PERIOD) + 0.62) % 1;
+    path.getPointAt(u, D);
+    path.getTangentAt(u, Ft);
+    D.y += Math.sin(t * 1.3) * 0.35;
+    F.set(Ft.x, 0, Ft.z).normalize();
+    drone.position.copy(D);
+    drone.rotation.y = Math.atan2(F.x, F.z);
+    T.copy(D).addScaledVector(F, 14).lerp(siteC, 0.3); T.y = 0;
+    droneCam.position.copy(D);
+    droneCam.lookAt(T);
+    droneCam.updateMatrixWorld();
+    uniforms.uDroneVP.value.multiplyMatrices(droneCam.projectionMatrix, droneCam.matrixWorldInverse);
+
+    // footprint corners on the ground
+    for (let i = 0; i < 4; i++) {
+      tmp.set(NDC[i][0], NDC[i][1], 0.5).unproject(droneCam);
+      dir.copy(tmp).sub(D).normalize();
+      const tt = dir.y < -0.02 ? Math.min((0.6 - D.y) / dir.y, 260) : 260;
+      corners[i].copy(D).addScaledVector(dir, tt);
+    }
+    const fa = frGeo.attributes.position.array;
+    fa[0] = D.x; fa[1] = D.y; fa[2] = D.z;
+    for (let i = 0; i < 4; i++) { fa[3 + i * 3] = corners[i].x; fa[4 + i * 3] = corners[i].y; fa[5 + i * 3] = corners[i].z; }
+    frGeo.attributes.position.needsUpdate = true;
+    const fp = fpGeo.attributes.position.array;
+    for (let i = 0; i < 4; i++) { fp[i * 3] = corners[i].x; fp[i * 3 + 1] = corners[i].y; fp[i * 3 + 2] = corners[i].z; }
+    fpGeo.attributes.position.needsUpdate = true;
+    const ea = edGeo.attributes.position.array;
+    let q = 0;
+    for (let i = 0; i < 4; i++) {
+      ea[q++] = D.x; ea[q++] = D.y; ea[q++] = D.z;
+      ea[q++] = corners[i].x; ea[q++] = corners[i].y; ea[q++] = corners[i].z;
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = corners[i], b = corners[(i + 1) % 4];
+      ea[q++] = a.x; ea[q++] = a.y; ea[q++] = a.z;
+      ea[q++] = b.x; ea[q++] = b.y; ea[q++] = b.z;
+    }
+    edGeo.attributes.position.needsUpdate = true;
+    const da = dropGeo.attributes.position.array;
+    da[0] = D.x; da[1] = D.y - 1.5; da[2] = D.z; da[3] = D.x; da[4] = terrainH(D.x, D.z); da[5] = D.z;
+    dropGeo.attributes.position.needsUpdate = true;
+
+    /* camera */
+    const cu = curveU(p);
+    posCurve.getPoint(cu, sp);
+    tgtCurve.getPoint(cu, st);
+    out.set(D.x - siteC.x, 0, D.z - siteC.z).normalize();
+    cp.copy(D).addScaledVector(F, -62).addScaledVector(out, 74).addScaledVector(UP, 46);
+    ctg.copy(D).lerp(T, 0.62);
+    desP.lerpVectors(sp, cp, wChase);
+    desT.lerpVectors(st, ctg, wChase);
+    if (heroW > 0) {
+      const ang = Math.sin(t * 0.06) * 0.07 * heroW;
+      const ox = desP.x - desT.x, oz = desP.z - desT.z;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      desP.x = desT.x + ox * c - oz * s;
+      desP.z = desT.z + ox * s + oz * c;
+    }
+    camera.matrixWorld.extractBasis(ax, ay, az);
+    const par = 0.35 + 0.65 * heroW;
+    desP.addScaledVector(ax, S.smx * 9 * par).addScaledVector(ay, -S.smy * 5 * par);
+    if (!camInit) { camP.copy(desP); camT.copy(desT); camInit = true; }
+    const kk = 1 - Math.exp(-dt * 3.2);
+    camP.lerp(desP, RM ? 1 : kk);
+    camT.lerp(desT, RM ? 1 : kk);
+    camera.position.copy(camP);
+    camera.lookAt(camT);
+    camera.updateMatrixWorld();
+
+    /* uniforms + helper visibility */
+    uniforms.uMorph.value = morph;
+    uniforms.uDiff.value = diff;
+    uniforms.uProj.value = wVid;
+    uniforms.uFoot.value = 1 - late;
+    uniforms.uScan.value = -150 + ((t * 26) % 340);
+    uniforms.uScanAmt.value = heroW * (RM ? 0 : 1);
+    const footVis = 1 - late * 0.85;
+    frMat.opacity = 0.03 * footVis * (1 - wVid * 0.5);
+    fpMat.opacity = 0.06 * footVis * (1 - wVid * 0.8);
+    edMat.opacity = 0.45 * footVis;
+    pathLine.material.opacity = 0.7 * (1 - late * 0.7);
+    stations.material.opacity = 0.85 * wCap;
+    stations.visible = wCap > 0.01;
+    drone.visible = true;
+
+    // video plane
+    vPlane.visible = wVid > 0.005;
+    if (vPlane.visible) {
+      const dd = 22;
+      const hh = dd * Math.tan((VFOV / 2) * Math.PI / 180);
+      droneCam.matrixWorld.extractBasis(ax, ay, az);
+      vPlane.position.copy(D).addScaledVector(az, -dd);
+      vPlane.quaternion.copy(droneCam.quaternion);
+      vPlane.scale.set(hh * 2 * ASPECT_V, hh * 2, 1);
+      vMat.uniforms.uOp.value = wVid;
+      tagVid.v.copy(vPlane.position).addScaledVector(ax, -hh * ASPECT_V).addScaledVector(ay, hh);
+      uniforms.uInRT.value = 1;
+      uniforms.uPR.value = 1;
+      uniforms.uSize.value = 4.2;
+      renderer.setRenderTarget(rt);
+      renderer.render(scene, droneCam);
+      renderer.setRenderTarget(null);
+      uniforms.uInRT.value = 0;
+      uniforms.uPR.value = renderer.getPixelRatio();
+      uniforms.uSize.value = 2.6;
+    }
+    renderer.render(scene, camera);
+
+    /* projected labels */
+    tagUav.v.copy(D); tagUav.v.y += 5;
+    tagP1.v.y = lerp(pk[0].a, pk[0].b, morph) + 1.5;
+    tagP1.v.x = lerp(PILES[0].x, PILES[0].xb, morph); tagP1.v.z = lerp(PILES[0].z, PILES[0].zb, morph);
+    tagP2.v.y = lerp(pk[1].a, pk[1].b, morph) + 1.5;
+    for (const L of labels) {
+      tmp.copy(L.v).project(camera);
+      const off = tmp.z > 1 || tmp.z < -1 || Math.abs(tmp.x) > 1.08 || Math.abs(tmp.y) > 1.08;
+      if (off !== L.off) { L.off = off; L.el.classList.toggle('off', off); }
+      if (!off) {
+        const x = (tmp.x * 0.5 + 0.5) * W, y = (-tmp.y * 0.5 + 0.5) * H;
+        L.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+      }
+    }
+
+    /* telemetry */
+    if (frameN % 4 === 0 || RM) {
+      S.tel.alt = D.y - terrainH(D.x, D.z);
+      S.tel.hdg = (Math.atan2(F.x, -F.z) * 180 / Math.PI + 360) % 360;
+      S.tel.gs = SPEED + Math.sin(t * 1.7) * 0.18 + Math.sin(t * 4.1) * 0.05;
+      dir.copy(T).sub(D).normalize();
+      S.tel.gmb = Math.asin(dir.y) * 180 / Math.PI;
+      S.tel.e = E0 + D.x; S.tel.n = N0 - D.z;
+      writeHUD();
+      vidF.textContent = String(Math.floor(t * 30) % 10000).padStart(4, '0');
+      if (S.ch === 0) cCnt.textContent = String(Math.floor(u * 412)).padStart(4, '0');
+      if (!FLAT) writeVolumes(morph);
+      // scale bar + compass
+      const dist = camP.distanceTo(camT);
+      const mpp = (2 * dist * Math.tan((camera.fov / 2) * Math.PI / 180)) / H;
+      let nice = NICE[0];
+      for (const v of NICE) if (v / mpp <= 130) nice = v;
+      scB.style.transform = `scaleX(${clamp(nice / mpp / 120, 0.1, 1.2).toFixed(3)})`;
+      scL.textContent = nice + ' m';
+      const azm = Math.atan2(camT.x - camP.x, -(camT.z - camP.z)) * 180 / Math.PI;
+      cmp.style.transform = `rotate(${(-azm).toFixed(1)}deg)`;
+    }
+
+    /* crosshair */
+    if (!RM) {
+      const on = S.over && S.xhInit;
+      xh.classList.toggle('on', on);
+      if (on) {
+        const kx = 1 - Math.exp(-dt * 16);
+        S.spx += (S.px - S.spx) * kx; S.spy += (S.py - S.spy) * kx;
+        xhH.style.transform = `translate3d(0,${S.spy.toFixed(1)}px,0)`;
+        xhV.style.transform = `translate3d(${S.spx.toFixed(1)}px,0,0)`;
+        xhC.style.transform = `translate3d(${S.spx.toFixed(1)}px,${S.spy.toFixed(1)}px,0)`;
+        const tx = S.spx + 16 + 230 > W ? S.spx - 246 : S.spx + 16;
+        xhT.style.transform = `translate3d(${tx.toFixed(1)}px,${(S.spy + 14).toFixed(1)}px,0)`;
+        if (frameN % 3 === 0) {
+          ndc.set((S.spx / W) * 2 - 1, -(S.spy / H) * 2 + 1);
+          ray.setFromCamera(ndc, camera);
+          if (ray.ray.intersectPlane(ground, hit) && Math.hypot(hit.x, hit.z) < 400) {
+            xhT.textContent = `E ${grp(E0 + hit.x)}  N ${grp(N0 - hit.z)}  Z ${pad(terrainH(hit.x, hit.z), 4)}`;
+          } else {
+            xhT.textContent = 'E —  N —  NO GROUND';
+          }
+        }
+      }
+    }
+  }
+
+  /* ----- loop control ----- */
+  let running = false, visible = true;
+  function loop(now) {
+    if (!running) return;
+    frame(now);
+    requestAnimationFrame(loop);
+  }
+  function start() {
+    if (running || RM) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(loop);
+  }
+  function stop() { running = false; }
+
+  try {
+    frame(performance.now());
+  } catch (e) { console.error(e); glFail(); return; }
+  root.classList.add('gl-ok');
+
+  if (RM) {
+    const ro = new ResizeObserver(() => { resize(); frame(performance.now()); });
+    ro.observe(view);
+    return;
+  }
+  new ResizeObserver(() => resize()).observe(view);
+  new IntersectionObserver((ents) => {
+    visible = ents[0].isIntersecting;
+    if (visible && !document.hidden) start(); else stop();
+  }, { threshold: 0 }).observe(view);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop(); else if (visible) start();
+  });
+  start();
+}
+
+initScene();
+</script>
+</body>
+</html>

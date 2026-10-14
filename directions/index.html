@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quadrion AI · Visual directions</title>
+<link rel="icon" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg0:#0B0F13; --bg1:#11161C; --bg2:#1E2630; --line:#2A3340;
+    --t0:#EEF2F5; --t1:#C5CDD6; --t2:#8E99A6; --mint:#5ED1B3;
+    --ease: cubic-bezier(.16,1,.3,1);
+  }
+  * { box-sizing:border-box; margin:0; }
+  html { background:var(--bg0); color:var(--t0); }
+  body { font:400 15px/1.55 "IBM Plex Sans", system-ui, sans-serif; min-height:100vh; overflow-x:hidden; }
+  a { color:inherit; text-decoration:none; }
+  .wrap { max-width:1360px; margin:0 auto; padding:0 32px; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:28px 0; border-bottom:1px solid var(--line); }
+  header img { height:26px; display:block; }
+  .mono { font-family:"IBM Plex Mono", monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--t2); }
+  .intro { display:grid; grid-template-columns: 1.3fr 1fr; gap:48px; padding:72px 0 56px; align-items:end; }
+  h1 { font:600 clamp(40px,6vw,84px)/.95 "IBM Plex Sans Condensed", sans-serif; letter-spacing:-.02em; }
+  h1 span { color:var(--mint); }
+  .intro p { color:var(--t1); max-width:46ch; }
+  .intro p + p { margin-top:12px; color:var(--t2); }
+
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:64px; }
+  .card { background:var(--bg0); position:relative; display:flex; flex-direction:column; transition:background .5s var(--ease); }
+  .card:hover { background:var(--bg1); }
+  .thumb { position:relative; aspect-ratio:16/10; overflow:hidden; border-bottom:1px solid var(--line); background:var(--bg1); }
+  .thumb img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; transform:scale(1.001); transition:transform 1.2s var(--ease), filter .6s var(--ease); filter:saturate(.9) brightness(.92); }
+  .card:hover .thumb img { transform:scale(1.04); filter:none; }
+  .thumb .ph { position:absolute; inset:0; display:grid; place-items:center; }
+  .thumb .open { position:absolute; right:16px; bottom:16px; padding:10px 14px; background:var(--mint); color:var(--bg0); font:500 13px "IBM Plex Sans"; border-radius:4px;
+    transform:translateY(8px); opacity:0; transition:all .45s var(--ease); }
+  .card:hover .open, .card:focus-visible .open { transform:none; opacity:1; }
+  .body { padding:28px 28px 32px; display:grid; gap:18px; flex:1; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; gap:16px; }
+  h2 { font:600 32px/1 "IBM Plex Sans Condensed", sans-serif; letter-spacing:-.01em; }
+  .letter { font:500 13px "IBM Plex Mono"; color:var(--mint); }
+  .pitch { color:var(--t1); }
+  dl { display:grid; grid-template-columns:110px 1fr; gap:8px 16px; font-size:13.5px; border-top:1px solid var(--line); padding-top:18px; }
+  dt { font:500 11px/1.9 "IBM Plex Mono"; letter-spacing:.06em; text-transform:uppercase; color:var(--t2); }
+  dd { color:var(--t1); }
+  .sw { display:flex; gap:6px; align-items:center; }
+  .sw i { width:18px; height:18px; border-radius:3px; border:1px solid rgba(255,255,255,.12); display:block; }
+  .fit { display:flex; gap:8px; flex-wrap:wrap; }
+  .fit span { font:500 11px "IBM Plex Mono"; padding:4px 8px; border:1px solid var(--line); border-radius:3px; color:var(--t1); }
+  .fit span.risk { color:#F2994A; border-color:#4a3524; }
+  .card::after { content:""; position:absolute; left:0; top:0; height:2px; width:0; background:var(--mint); transition:width .7s var(--ease); }
+  .card:hover::after { width:100%; }
+  footer { padding:0 0 64px; color:var(--t2); font-size:13px; display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+  @media (max-width: 900px) {
+    .intro { grid-template-columns:1fr; padding:48px 0 32px; gap:20px; }
+    .grid { grid-template-columns:1fr; }
+    .wrap { padding:0 16px; }
+    .open { opacity:1 !important; transform:none !important; }
+    dl { grid-template-columns:1fr; gap:2px; } dd { margin-bottom:8px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::after { transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/quadrion-horizontal-on-dark.svg" alt="Quadrion AI">
+    <span class="mono">Website · Selected direction · The Quarter</span>
+  </header>
+
+  <section class="intro">
+    <h1>The Quarter.<br><span>Six real assets.</span></h1>
+    <div>
+      <p>Round 2 develops A, B and D on real survey data: a tank terminal point cloud, a storage tank LiDAR scan, an 80 m flare stack with mapped corrosion, and a stockpile yard surveyed twice. Each page moves from asset to asset with its own transitions. Scroll slowly.</p>
+      <p>No video and no client or site names. These are local prototypes; anything published later needs each client to sign off. Round 1 is archived below.</p>
+    </div>
+  </section>
+
+  <section class="grid" style="grid-template-columns:1fr">
+    <a class="card" href="d3-quarter/" style="display:grid;grid-template-columns:1.4fr 1fr">
+      <div class="thumb" style="border-bottom:0;border-right:1px solid var(--line)"><img src="thumbs/d3.jpg" alt="" onerror="this.remove()"><span class="open">Open D3 ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>The Quarter · D3</h2><span class="letter">Current</span></div>
+        <p class="pitch">The selected direction, refined. The four dimensions each get the asset that shows them best: X is the 7.55 km road, Y the terminal, Z the flare and the tower facade, T the stockpile. The tank interior is a fifth chapter. Each asset enters with a transition cut from the mark.</p>
+        <dl>
+          <dt>New</dt><dd>Road flight with PCI scan and defect close-ups. Tower facade with class-by-class reveal and an RGB / thermal wipe. Tour index, six-asset app window, road and facade chapters.</dd>
+          <dt>Previous</dt><dd>D2 stays live at /d2-quarter/ for comparison.</dd>
+        </dl>
+      </div>
+    </a>
+  </section>
+
+  <header style="border-top:1px solid var(--line);border-bottom:0;margin-top:24px"><span class="mono">Round 2 · explored directions</span></header>
+
+  <section class="grid">
+    <a class="card" href="a2-mission/">
+      <div class="thumb"><img src="thumbs/a2.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>Mission Control</h2><span class="letter">A2</span></div>
+        <p class="pitch">One continuous scroll mission. The camera flies from the terminal cloud into the tank, up the flare and over the stockpile, and a single 120k-particle system morphs between real assets.</p>
+        <dl>
+          <dt>Transitions</dt><dd>Curl lift-off and slice dive into the tank. Helix and scanline resolve with corrosion ignition on the flare. Dissolve and rain onto the yard, then the survey wipe. Finally all four gather into the live app.</dd>
+          <dt>Keeps</dt><dd>HUD telemetry, crosshair coordinates, leader callouts, spec-sheet rows.</dd>
+        </dl>
+      </div>
+    </a>
+    <a class="card" href="b2-layers/">
+      <div class="thumb"><img src="thumbs/b2.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>Layer Stack</h2><span class="letter">B2</span></div>
+        <p class="pitch">Every asset is its own exploded stack of real layers. The terminal stack fuses, shatters and re-forms as the tank, which separates ring by ring. The flare splits into mesh, corrosion and photo layers, and the stockpile surveys stack in time.</p>
+        <dl>
+          <dt>Transitions</dt><dd>A different handover between each pair of assets, with spring physics and raycast hover on every real layer.</dd>
+          <dt>Keeps</dt><dd>Fuse-on-scroll, leader labels, tilt and spotlight bento (now with real imagery).</dd>
+        </dl>
+      </div>
+    </a>
+    <a class="card" href="d2-quarter/">
+      <div class="thumb"><img src="thumbs/d2.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>The Quarter</h2><span class="letter">D2</span></div>
+        <p class="pitch">The 3D mark becomes a portal. Each quarter is a live window onto one real asset, the mint square flies you into the scenes, and the tour is cut with masks taken from the mark itself.</p>
+        <dl>
+          <dt>Transitions</dt><dd>Quarter-ring iris into the tank, a vertical rise up the flare, the mint-square time wipe across the stockpile, then a live app window.</dd>
+          <dt>Keeps</dt><dd>Sculpted 3D mark, X/Y/Z/T split, kinetic type, horizontal chapters.</dd>
+        </dl>
+      </div>
+    </a>
+    <div class="card" style="justify-content:center;padding:32px"><p class="mono" style="margin-bottom:12px">Shared data layer</p><p class="pitch" style="color:var(--t1)">All three use the same real datasets through <code>data/quadrion-data.js</code>, which loads and samples the terminal, tank, flare and stockpile, so any direction can borrow another's scenes.</p></div>
+  </section>
+
+  <header style="border-top:1px solid var(--line);border-bottom:0;margin-top:24px"><span class="mono">Round 1 · archive (procedural + demo data)</span></header>
+
+  <section class="grid">
+    <a class="card" href="a-mission/">
+      <div class="thumb"><img src="thumbs/a.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>Mission Control</h2><span class="letter">A</span></div>
+        <p class="pitch">An operations picture you fly through. A point-cloud site with a live drone flight, leader-line callouts and instrument-grade HUD telemetry. Scrolling flies the camera through Capture, Fuse, Inspect and Compare.</p>
+        <dl>
+          <dt>Mood</dt><dd>Defence-grade, calm, technical. Anduril / Palantir / flight instruments.</dd>
+          <dt>Palette</dt><dd class="sw"><i style="background:#0B0F13"></i><i style="background:#1E2630"></i><i style="background:#8E99A6"></i><i style="background:#5ED1B3"></i></dd>
+          <dt>Signature</dt><dd>Scroll-driven camera flight on a WebGL point cloud, a cursor crosshair with coordinates, spec-sheet rows with a scanline on hover.</dd>
+          <dt>Fit</dt><dd class="fit"><span>Matches app UI 1:1</span><span>O&amp;G / gov trust</span><span class="risk">Can feel cold</span></dd>
+        </dl>
+      </div>
+    </a>
+
+    <a class="card" href="b-layers/">
+      <div class="thumb"><img src="thumbs/b.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>Layer Stack</h2><span class="letter">B</span></div>
+        <p class="pitch">The product idea, made literal. Six exploded data layers (map, ortho, contours, mesh, cloud, issues) fuse into one plane as you scroll. Time then extends them into dated slabs, and the stack becomes the real app.</p>
+        <dl>
+          <dt>Mood</dt><dd>Premium product storytelling at Linear / Stripe level of craft, grounded in geospatial data.</dd>
+          <dt>Palette</dt><dd class="sw"><i style="background:#0B0F13"></i><i style="background:#11161C"></i><i style="background:#C5CDD6"></i><i style="background:#5ED1B3"></i><i style="background:#E8C547"></i></dd>
+          <dt>Signature</dt><dd>Raycast hover on 3D layers, a fuse-on-scroll moment, tilt and spotlight bento tiles with micro-animations.</dd>
+          <dt>Fit</dt><dd class="fit"><span>Explains "fusion" instantly</span><span>Broad appeal</span><span class="risk">Familiar SaaS rhythm</span></dd>
+        </dl>
+      </div>
+    </a>
+
+    <a class="card" href="c-field/">
+      <div class="thumb"><img src="thumbs/c.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>Field Document</h2><span class="letter">C</span></div>
+        <p class="pitch">A light, editorial site set like a survey drawing. It has a parallax topographic contour map, huge condensed type, figure plates, a drawing-sheet title block and a crosshair cursor. Ink-line animations measure stockpiles as you scroll.</p>
+        <dl>
+          <dt>Mood</dt><dd>Swiss editorial, cartographic, engineered. Stands out against every dark AI site.</dd>
+          <dt>Palette</dt><dd class="sw"><i style="background:#F1F4F5"></i><i style="background:#FFFFFF"></i><i style="background:#11161C"></i><i style="background:#1A8C70"></i><i style="background:#5ED1B3"></i></dd>
+          <dt>Signature</dt><dd>Multi-depth contour parallax, SVG line drawings that draw themselves, loupe-zoom screenshot plates.</dd>
+          <dt>Fit</dt><dd class="fit"><span>Most distinctive</span><span>Speaks to engineers</span><span class="risk">App is dark-first</span></dd>
+        </dl>
+      </div>
+    </a>
+
+    <a class="card" href="d-quarter/">
+      <div class="thumb"><img src="thumbs/d.jpg" alt="" onerror="this.remove()"><span class="open">Open prototype ↗</span></div>
+      <div class="body">
+        <div class="top"><h2>The Quarter</h2><span class="letter">D</span></div>
+        <p class="pitch">A cinematic, keynote-style launch. The Quadrion mark becomes a sculpted 3D object. Its four pieces split into X, Y, Z and T, then the mint square wipes the screen to reveal the app tilting into place.</p>
+        <dl>
+          <dt>Mood</dt><dd>Apple-style launch: sculptural, confident, lots of negative space.</dd>
+          <dt>Palette</dt><dd class="sw"><i style="background:#0B0F13"></i><i style="background:#EEF2F5"></i><i style="background:#8E99A6"></i><i style="background:#5ED1B3"></i></dd>
+          <dt>Signature</dt><dd>3D extruded logo with studio lighting, mint wipe transition, word-by-word scroll highlight, horizontal feature chapters.</dd>
+          <dt>Fit</dt><dd class="fit"><span>Strong brand recall</span><span>Launch-ready</span><span class="risk">Less product-first</span></dd>
+        </dl>
+      </div>
+    </a>
+  </section>
+
+  <footer>
+    <span>Prototypes only. Copy, data and numbers are placeholders drawn from the product docs.</span>
+    <span class="mono">Synapse Solutions · Quadrion AI</span>
+  </footer>
+</div>
+</body>
+</html>

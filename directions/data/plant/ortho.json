@@ -1,0 +1,27 @@
+{
+ "file": "ortho.jpg",
+ "size_px": [
+  4096,
+  2451
+ ],
+ "pixel_size_m": 0.5327,
+ "placement_xz": {
+  "top_left": [
+   -1030.75,
+   -212.79
+  ],
+  "top_right": [
+   1044.35,
+   -886.99
+  ],
+  "bottom_right": [
+   1447.85,
+   354.92
+  ],
+  "bottom_left": [
+   -627.25,
+   1029.13
+  ]
+ },
+ "note": "Corners in site.glb x/z (y up). top_left = image (0,0), top_right = (W,0), bottom_right = (W,H), bottom_left = (0,H)."
+}

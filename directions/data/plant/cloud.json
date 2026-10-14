@@ -1,0 +1,17 @@
+{
+ "count": 378789,
+ "layout": "cloud.xyz: float32 x,y,z interleaved, little-endian. cloud.rgb: uint8 r,g,b per point.",
+ "frame": "Same frame as site.glb (x east-ish, y up, z south-ish, metres).",
+ "bbox_m": {
+  "min": [
+   -940.7203979492188,
+   -12,
+   -605.8582153320312
+  ],
+  "max": [
+   1184.5172119140625,
+   75.62879943847656,
+   414.4768371582031
+  ]
+ }
+}

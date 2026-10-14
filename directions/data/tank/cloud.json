@@ -1,0 +1,42 @@
+{
+ "description": "Interior LiDAR scan of a storage tank, shell and roof passes, voxel-thinned to 2 cm.",
+ "file": "cloud.bin",
+ "point_count": 280000,
+ "byte_length": 1960000,
+ "layout": "Block A: N x 3 int16 little-endian, interleaved x,y,z per point (bytes 0 .. N*6-1). Block B: N uint8 intensity (bytes N*6 .. N*7-1). No header.",
+ "position_decode": "metres = int16 * scale + offset",
+ "scale": 0.001,
+ "offset": [
+  0,
+  0,
+  0
+ ],
+ "units": "millimetres stored, metres decoded",
+ "intensity_decode": "0-255, LiDAR return intensity stretched between the 2nd and 98th percentile of each flight",
+ "frame": "Tank model frame, same as tank.glb: X = plant north, Y = up, Z = plant east, metres; origin on the shell axis at the bottom-plate underside (datum)",
+ "bbox_m": {
+  "min": [
+   -2.458,
+   -0.172,
+   -2.127
+  ],
+  "max": [
+   2.382,
+   9.381,
+   2.596
+  ]
+ },
+ "parts": [
+  {
+   "flight": "101",
+   "first_point": 0,
+   "count": 140000
+  },
+  {
+   "flight": "108",
+   "first_point": 140000,
+   "count": 140000
+  }
+ ],
+ "three_js": "const buf=await (await fetch('cloud.bin')).arrayBuffer(); const N=280000; const q=new Int16Array(buf,0,N*3); const pos=new Float32Array(N*3); for(let k=0;k<N*3;k++) pos[k]=q[k]*0.001; const inten=new Uint8Array(buf,N*6,N); // geometry.setAttribute('position',new THREE.BufferAttribute(pos,3))"
+}

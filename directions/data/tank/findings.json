@@ -1,0 +1,289 @@
+{
+ "frame": "tank.glb model frame (X north, Y up, Z east, metres; origin shell axis at bottom-plate underside). bearing clockwise from plant north.",
+ "note": "No pixel masks/boxes exist in the source package for tank; findings are located in 3D (pos_m) not in image space.",
+ "findings_total_in_report": 11,
+ "photos": [
+  {
+   "file": "photos/F01_109_0256.jpg",
+   "finding_id": "F01",
+   "title": "Crack in bottom plate",
+   "severity": 5,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Crack",
+   "area": "Bottom plate",
+   "description": "A crack in the bottom plate of the storage tank has led to a leak, compromising the integrity and safety of its contents.",
+   "report_page": 7,
+   "location": {
+    "pos_m": [
+     1.165,
+     0.035,
+     -0.38
+    ],
+    "height_m": 0.04,
+    "bearing_deg": 342.0,
+    "radius_m": 1.23
+   },
+   "photo": {
+    "source_image": "109_0256",
+    "flight": "109",
+    "flight_video_t_s": 221.34,
+    "poi": "POI-17",
+    "camera_pos_m": [
+     1.178,
+     0.42,
+     -0.095
+    ],
+    "view_dir": [
+     -0.0268,
+     -0.8033,
+     -0.595
+    ],
+    "target_m": [
+     1.165,
+     0.035,
+     -0.38
+    ],
+    "distance_m": 0.48,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  },
+  {
+   "file": "photos/F02_106_0172.jpg",
+   "finding_id": "F02",
+   "title": "Top plate patch damage",
+   "severity": 4,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Patch damage",
+   "area": "Roof",
+   "description": "Patch damage. Severity 4 was assigned due to damage and potential expansion of the selected area.",
+   "report_page": 8,
+   "location": {
+    "pos_m": [
+     1.564,
+     8.477,
+     -0.342
+    ],
+    "height_m": 8.48,
+    "bearing_deg": 348.0,
+    "radius_m": 1.6
+   },
+   "photo": {
+    "source_image": "106_0172",
+    "flight": "106",
+    "flight_video_t_s": 186.62,
+    "poi": "POI-25",
+    "camera_pos_m": [
+     1.242,
+     7.866,
+     0.291
+    ],
+    "view_dir": [
+     0.4004,
+     0.587,
+     -0.7037
+    ],
+    "target_m": [
+     1.635,
+     8.441,
+     -0.398
+    ],
+    "distance_m": 0.98,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  },
+  {
+   "file": "photos/F04_101_0035.jpg",
+   "finding_id": "F04",
+   "title": "Top plate blisters",
+   "severity": 3,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Coating blister",
+   "area": "Roof",
+   "description": "Coating blisters at the top plate. Blisters can compromise the protective layer, leading to potential corrosion and weakening of the structure.",
+   "report_page": 10,
+   "location": {
+    "pos_m": [
+     -0.131,
+     8.693,
+     -0.029
+    ],
+    "height_m": 8.69,
+    "bearing_deg": 193.0,
+    "radius_m": 0.13
+   },
+   "photo": {
+    "source_image": "101_0035",
+    "flight": "101",
+    "flight_video_t_s": 332.59,
+    "poi": "POI-33",
+    "camera_pos_m": [
+     0.916,
+     8.023,
+     -0.409
+    ],
+    "view_dir": [
+     0.0798,
+     0.9011,
+     0.4262
+    ],
+    "target_m": [
+     0.975,
+     8.69,
+     -0.094
+    ],
+    "distance_m": 0.74,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  },
+  {
+   "file": "photos/F05_108_0220.jpg",
+   "finding_id": "F05",
+   "title": "Top plate corrosion",
+   "severity": 3,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Corrosion",
+   "area": "Roof",
+   "description": "Small corrosion detected around the patches on the top plate.",
+   "report_page": 11,
+   "location": {
+    "pos_m": [
+     -0.759,
+     8.559,
+     0.393
+    ],
+    "height_m": 8.56,
+    "bearing_deg": 153.0,
+    "radius_m": 0.85
+   },
+   "photo": {
+    "source_image": "108_0220",
+    "flight": "108",
+    "flight_video_t_s": 105.13,
+    "poi": "POI-02",
+    "camera_pos_m": [
+     -0.617,
+     8.063,
+     1.001
+    ],
+    "view_dir": [
+     -0.179,
+     0.6532,
+     0.7357
+    ],
+    "target_m": [
+     -0.727,
+     8.465,
+     1.454
+    ],
+    "distance_m": 0.61,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  },
+  {
+   "file": "photos/F06_107_0186.jpg",
+   "finding_id": "F06",
+   "title": "Top ring joint blisters",
+   "severity": 3,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Coating blister",
+   "area": "Roof to shell joint",
+   "description": "Coating blisters at multiple locations along the top ring joint.",
+   "report_page": 12,
+   "location": {
+    "pos_m": [
+     -1.067,
+     8.282,
+     1.332
+    ],
+    "height_m": 8.28,
+    "bearing_deg": 129.0,
+    "radius_m": 1.71
+   },
+   "photo": {
+    "source_image": "107_0186",
+    "flight": "107",
+    "flight_video_t_s": 97.08,
+    "poi": "POI-10",
+    "camera_pos_m": [
+     -1.35,
+     7.971,
+     0.378
+    ],
+    "view_dir": [
+     -0.8166,
+     0.5709,
+     0.0848
+    ],
+    "target_m": [
+     -1.84,
+     8.313,
+     0.429
+    ],
+    "distance_m": 0.6,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  },
+  {
+   "file": "photos/F09_105_0144.jpg",
+   "finding_id": "F09",
+   "title": "Vertical joint 3 o'clock",
+   "severity": 3,
+   "severity_scale": "1-5, 5 = most severe (client report scale)",
+   "class": "Coating blister",
+   "area": "Shell",
+   "description": "Coating blisters along the vertical joint at 3 o'clock.",
+   "report_page": 15,
+   "location": {
+    "pos_m": [
+     1.972,
+     4.738,
+     0.26
+    ],
+    "height_m": 4.74,
+    "bearing_deg": 8.0,
+    "radius_m": 1.99
+   },
+   "photo": {
+    "source_image": "105_0144",
+    "flight": "105",
+    "flight_video_t_s": 137.0,
+    "poi": "POI-15",
+    "camera_pos_m": [
+     1.481,
+     5.041,
+     0.436
+    ],
+    "view_dir": [
+     0.9976,
+     0.016,
+     0.0675
+    ],
+    "target_m": [
+     1.945,
+     5.048,
+     0.468
+    ],
+    "distance_m": 0.46,
+    "size_px": [
+     1280,
+     960
+    ]
+   }
+  }
+ ]
+}
