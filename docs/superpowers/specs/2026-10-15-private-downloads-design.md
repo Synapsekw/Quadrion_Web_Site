@@ -16,7 +16,7 @@ Tiers are cumulative. They govern the online distribution library; they do not c
 
 Published installers and processing modules require at least T1. Basic .aio datasets require T2 or T3. Oil-and-gas and other restricted datasets require T3. New projects begin as unpublished T3 drafts until an administrator classifies them deliberately. Oil-and-gas classification cannot be saved with a lower minimum tier.
 
-The proposed project audience model offers **Tier library**, available to active users meeting the minimum tier, and **Selected users**, available only to named users who also meet that tier. An assignment never bypasses a tier requirement. T3 is eligible for every project category but does not bypass a selected-users restriction. The owner has been asked to confirm this model; this document enables no actual project access.
+The owner confirmed **Tier library + optional private assignments** on 15 October 2026. Each project offers **Tier library**, available to active users meeting the minimum tier, or **Selected users**, available only to named users who also meet that tier. An assignment never bypasses a tier requirement. T3 is eligible for every project category but does not bypass a selected-users restriction. New projects stay unpublished until an administrator explicitly publishes the selected audience; this design document enables no actual project access.
 
 Account status and expiry apply before tier or assignment. A suspended, revoked or expired account receives no content, including metadata and previews. Missing permission records deny access.
 
