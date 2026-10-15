@@ -15,4 +15,4 @@ One live enquiry was submitted through the connected widget at `http://127.0.0.1
 
 Quori displayed **Request submitted**. Reloading the page and reopening Quori restored the same receipt and reference without resubmitting the enquiry. No browser warnings or errors were reported. Existing chat history was preserved. No production deployment or configuration change was made.
 
-Owner notification receipt is awaiting confirmation. The owner was asked to check the usual Grokbot chat for the test name, marker and reference. Until that confirmation is recorded, this verifies webhook acceptance and receipt persistence, not final owner delivery.
+The owner confirmed receipt in the usual Grokbot chat on October 15, 2026: “Yes, it arrived.” This verifies the complete local widget → backend → shared Grokbot routine → owner notification path for Quori, alongside receipt persistence after reload. Production deployment remains separate.
