@@ -25,8 +25,14 @@ The supplied Lighthouse 9.6.8 report found performance 25, approximately 39 MB t
 
 ## Remaining SEO and device validation
 
-A perfect Lighthouse SEO score is a technical checklist, not a measure of GCC rankings. Search Console indexing/sitemap submission, real visitor Core Web Vitals, actual iOS/Android installation and field-device GPU performance still need observation. All six full scenes remain substantial if the visitor explores the entire tour.
+A perfect Lighthouse SEO score is a technical checklist, not a measure of GCC rankings. The quadrion.ai Domain property is verified in Google Search Console through a Netlify DNS TXT record. Google processed https://quadrion.ai/sitemap.xml successfully and discovered the canonical homepage. Its live URL inspection on 15 October 2026 reports "URL is available to Google" and "Page can be indexed". The manual Request indexing action failed because Google's reCAPTCHA service could not connect; indexing itself is not yet confirmed. Keep the verification TXT record in place.
+
+Real visitor Core Web Vitals, actual iOS/Android installation and field-device GPU performance still need observation. All six full scenes remain substantial if the visitor explores the entire tour.
 
 The owner's confirmed direction is English-only GCC SEO; an Arabic version is out of scope. For stronger regional discovery, develop useful English industry pages and genuine regional case studies. Add local business/office data only for locations the company actually operates. Do not create six duplicate keyword pages.
 
 Installation is browser-dependent: supported Chromium browsers expose Install Quadrion when available; iOS users can add the site through Safari's Add to Home Screen. The web app offers a launch shortcut and offline fallback, not offline chat or the full desktop application.
+
+## Private portal — local implementation, production pending
+
+Login, member/admin interfaces, MFA, T1–T3, private assignments, manually created tester passwords and a 100 GB per-project limit are implemented on `codex/client-portal`. 121 automated tests and three real PostgreSQL concurrency scenarios pass. Desktop and 360px preview checks passed. Supabase migrations 001–006 and both private buckets are live, with the hosted permission audit passing. Auth URLs, the TOTP provider and the global 100,000,000,000-byte Storage limit are configured. Production function settings are saved with portal access disabled, except for the verifier credential still awaiting the account holder. The public website readiness measurements above do not establish portal readiness: activation/deployment, Owner MFA and real user/file acceptance remain pending. See `portal-operations.md`.

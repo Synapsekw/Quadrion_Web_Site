@@ -120,6 +120,7 @@ test('API, chat, session, auth, cross-origin, asset, POST and other navigations 
   const requests = [
     ['/api/quori'], ['/api/quori/session'], ['/.netlify/functions/quori'], ['/auth/callback'],
     ['/session'], ['/chat'], ['/quori/'], ['/private'], ['/data/model.glb'],
+    ['/portal/'], ['/portal/account/?code=private'], ['/admin/'], ['/api/portal'], ['/api/portal-admin'],
     ['/d3-quarter/demo.js'], ['/offline.html'], ['https://elsewhere.example/d3-quarter/'],
     ['/d3-quarter/', { method: 'POST' }], ['/d3-quarter/', { mode: 'cors' }],
     ['/d3-quarter/', { mode: 'no-cors' }], ['/d3-quarter/', { method: 'HEAD' }],
