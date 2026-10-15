@@ -42,10 +42,10 @@ test('fresh membership and assignment changes deny the same session immediately'
   f.remove();const missing=await f.handler(req('download',{artifactId}),production);assert.equal(missing.status,404);assert.deepEqual(await missing.json(),{error:'not_found',message:'This item is unavailable.'});
   f.revoke();assert.equal((await f.handler(req('projects'),production)).status,403);assert.equal(f.signed(),1);
 });
-test('MFA is enforced for privileged members; unconfirmed identities are denied',async()=>{
+test('password sign-in grants active owners access; unconfirmed identities are denied',async()=>{
   const f=fixture();f.backend.account=async()=>({user_id:'user',role:'owner',tier:null,status:'active',expires_at:null});
-  assert.equal((await f.handler(req('releases'),production)).status,403);
-  assert.equal((await f.handler(req('me'),production)).status,200);
+  assert.equal((await f.handler(req('releases'),production)).status,200);
+  assert.equal((await (await f.handler(req('me'),production)).json()).requiresMfa,false);
   f.backend.verifyUser=async()=>({userId:'user',emailConfirmed:false,aal:'aal1'});
   assert.equal((await f.handler(req('me'),production)).status,401);
 });

@@ -7,9 +7,12 @@ function fixture(role='owner',aal='aal2'){
   return {calls,backend,handler:createAdminHandler({config,backend})};
 }
 const req=(action,body)=>new Request('https://quadrion.ai/api/portal-admin?action='+action,{method:body?'POST':'GET',headers:{authorization:'Bearer valid',origin:config.origin,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
-test('T3 members and administrators without MFA cannot execute any admin action',async()=>{
-  for(const [role,aal] of [['member','aal2'],['admin','aal1'],['owner','aal1']]){
+test('T3 members cannot administer; password-authenticated admins and owners can',async()=>{
+  for(const [role,aal] of [['member','aal2'],['member','aal1']]){
     const f=fixture(role,aal);assert.equal((await f.handler(req('users'),context)).status,403);assert.equal(f.calls.length,0);
+  }
+  for(const role of ['admin','owner']){
+    const f=fixture(role,'aal1');assert.equal((await f.handler(req('users'),context)).status,200);assert.equal(f.calls.length,1);
   }
 });
 test('admin mutations derive actor from Auth and reject privilege/payload injection',async()=>{
@@ -34,12 +37,12 @@ test('definite invite errors are persisted; unknown delivery is reconciled witho
   const f=fixture();assert.equal((await f.handler(req('inviteRecovery',{id:'10000000-0000-4000-8000-000000000009',action:'failed'}),context)).status,400);
 });
 
-test('only an MFA-verified owner can create an immediately usable member without email',async()=>{
+test('only an owner can create an immediately usable member without email after password sign-in',async()=>{
   const body={email:'manual@example.com',password:'A local test password 123!',tier:2,expiresAt:null,idempotencyKey:'10000000-0000-4000-8000-000000000008'};
-  for(const [role,aal] of [['member','aal2'],['admin','aal2'],['owner','aal1']]){
+  for(const [role,aal] of [['member','aal2'],['admin','aal2'],['admin','aal1']]){
     const denied=fixture(role,aal);assert.equal((await denied.handler(req('createUser',body),context)).status,403);assert.equal(denied.calls.length,0);
   }
-  const f=fixture();let created=0;
+  const f=fixture('owner','aal1');let created=0;
   f.backend.rpc=async(name,args)=>{f.calls.push({name,args});return name==='portal_create_user_begin'?{id:body.idempotencyKey,dispatch:created===0}:{status:'created',email:body.email};};
   f.backend.service={auth:{admin:{createUser:async input=>{created++;assert.equal(input.email_confirm,true);assert.equal(input.password,body.password);assert.equal(input.app_metadata.quadrion_creation_id,body.idempotencyKey);return {data:{user:{id:'10000000-0000-4000-8000-000000000009'}},error:null};},inviteUserByEmail:async()=>assert.fail('Manual users must not receive invitations')}}};
   const response=await f.handler(req('createUser',body),context);assert.equal(response.status,200);

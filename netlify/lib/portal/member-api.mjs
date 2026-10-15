@@ -1,5 +1,5 @@
 import {available} from './config.mjs';
-import {activeMember,canAdminister} from './policy.mjs';
+import {activeMember} from './policy.mjs';
 import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
 export function createMemberHandler({config,backend,clock=Date.now}){
   return async(request,context)=>{try{
@@ -11,9 +11,7 @@ export function createMemberHandler({config,backend,clock=Date.now}){
     if(action==='config')return json({enabled:true,url:config.url,publishableKey:config.publishableKey});
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
     if(!activeMember(member,clock()))fail('forbidden');
-    if(action==='me')return json({member,email:user.email,aal:user.aal,requiresMfa:(member.role!=='member'||user.mfaEnrolled)&&user.aal!=='aal2'});
-    if(user.mfaEnrolled&&user.aal!=='aal2')fail('mfa_required');
-    if(member.role!=='member'&&!canAdminister({member,aal:user.aal,now:clock()}))fail('mfa_required');
+    if(action==='me')return json({member,email:user.email,aal:user.aal,requiresMfa:false});
     if(action==='releases'||action==='projects'){
       const search=string(url.searchParams.get('search')||'',160),offset=Number(url.searchParams.get('offset')||0);
       if(!Number.isSafeInteger(offset)||offset<0||offset>100000)fail('invalid');

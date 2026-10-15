@@ -5,14 +5,15 @@ let db;
 before(async()=>{db=await portalDb();});
 after(async()=>{await db?.close();});
 const change=(actor,aal,target,revision,role,tier,status='active')=>rpc(db,'portal_member_change',[actor,aal,target,revision,role,tier,status,null]);
-test('MFA and current role gate mutations; T3 and admins cannot grant privileged roles',async()=>{
-  await assert.rejects(change(ids.owner,'aal1',ids.t1,1,'member',2),/portal:mfa_required/);
+test('current role gates password-session mutations; T3 and admins cannot grant privileged roles',async()=>{
+  assert.equal((await db.query("select (public.portal_require_admin($1,'aal1')).role as role",[ids.owner])).rows[0].role,'owner');
+  for(const aal of [null,'','forged'])await assert.rejects(rpc(db,'portal_require_admin',[ids.owner,aal]),/portal:unauthorized/);
   await assert.rejects(change(ids.t3,'aal2',ids.t1,1,'member',2),/portal:forbidden/);
   await assert.rejects(change(ids.admin,'aal2',ids.t1,1,'owner',null),/portal:forbidden/);
   await assert.rejects(change(ids.admin,'aal2',ids.owner,1,'member',1),/portal:forbidden/);
 });
 test('member updates are revision checked and audited atomically',async()=>{
-  const result=await change(ids.admin,'aal2',ids.t1,1,'member',2);
+  const result=await change(ids.admin,'aal1',ids.t1,1,'member',2);
   assert.equal(result.tier,2);assert.equal(result.revision,2);
   await assert.rejects(change(ids.admin,'aal2',ids.t1,1,'member',3),/portal:conflict/);
   await db.exec("alter table public.portal_events add constraint fail_test check(action <> 'member_changed') not valid");
@@ -36,7 +37,8 @@ test('project classification, assignments and metadata enforce tier intersection
   await rpc(db,'portal_publish',[ids.owner,'aal2','project',project.id,2,version.id]);
   assert.equal(await rpc(db,'portal_project_visible',[ids.t2,project.id,'aal1']),false);
   assert.equal(await rpc(db,'portal_project_visible',[ids.t3,project.id,'aal1']),true);
-  assert.equal(await rpc(db,'portal_project_visible',[ids.owner,project.id,'aal1']),false);
+  assert.equal(await rpc(db,'portal_project_visible',[ids.owner,project.id,'aal1']),true);
+  assert.equal((await rpc(db,'portal_catalog',[ids.owner,'aal1','projects','',0])).items.length,1);
   const t2=await rpc(db,'portal_catalog',[ids.t2,'aal1','projects','',0]);assert.equal(t2.items.length,0);
   const t3=await rpc(db,'portal_catalog',[ids.t3,'aal1','projects','',0]);assert.equal(t3.items[0].title,'Private site');
   await rpc(db,'portal_set_assignments',[ids.owner,'aal2',project.id,3,[]]);
@@ -58,6 +60,7 @@ test('release download reservation enforces live status, quota and immutable fil
   const f=(await db.query("insert into public.artifact_files(release_id,kind,bucket,object_path,filename,bytes,sha256,state) values ($1,'binary','quadrion-software','fixture/app.exe','app.exe',20,$2,'verified') returning id",[r.id,'b'.repeat(64)])).rows[0];
   await assert.rejects(rpc(db,'portal_download',[ids.t1,'aal1',f.id]),/portal:not_found/);
   await rpc(db,'portal_publish',[ids.owner,'aal2','release',r.id,1,null]);
+  assert.equal((await rpc(db,'portal_download',[ids.owner,'aal1',f.id])).filename,'app.exe');
   const download=await rpc(db,'portal_download',[ids.t1,'aal1',f.id]); assert.equal(download.object_path,'fixture/app.exe');
   await assert.rejects(db.query("update public.artifact_files set object_path='changed.exe' where id=$1",[f.id]),/portal:immutable_artifact/);
   for(let n=1;n<30;n++) await rpc(db,'portal_download',[ids.t1,'aal1',f.id]);
@@ -94,5 +97,5 @@ test('project previews require the same current assignment and tier as the datas
   const f=(await db.query("insert into public.artifact_files(project_version_id,kind,bucket,object_path,filename,bytes,sha256,state) values ($1,'preview','quadrion-projects','fixture/cover.png','cover.png',20,$2,'verified') returning id",[p.current_version_id,'c'.repeat(64)])).rows[0];
   await assert.rejects(rpc(db,'portal_preview',[ids.t3,'aal1',f.id]),/portal:not_found/);
   assert.equal((await rpc(db,'portal_preview',[ids.owner,'aal2',f.id])).filename,'cover.png');
-  await assert.rejects(rpc(db,'portal_preview',[ids.owner,'aal1',f.id]),/portal:not_found/);
+  assert.equal((await rpc(db,'portal_preview',[ids.owner,'aal1',f.id])).filename,'cover.png');
 });

@@ -13,7 +13,7 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
   return async(request,context)=>{try{
     if(!available(config,request,context))fail('unavailable');checkOrigin(request,config);
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
-    if(!canAdminister({member,aal:user.aal,now:clock()}))fail(member.role==='member'?'forbidden':'mfa_required');
+    if(!canAdminister({member,aal:user.aal,now:clock()}))fail('forbidden');
     const url=new URL(request.url),action=url.searchParams.get('action'),base={p_actor:user.userId,p_aal:user.aal};
     if(action==='creations'){
       if(member.role!=='owner')fail('forbidden');if(request.method!=='GET')fail('method');

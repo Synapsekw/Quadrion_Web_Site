@@ -6,12 +6,12 @@ let db;
 before(async()=>{db=await portalDb();});
 after(async()=>{await db?.close();});
 const input=(email='manual@example.com')=>({email,tier:2,expiresAt:null,idempotencyKey:randomUUID()});
-const begin=(data,actor=ids.owner,aal='aal2')=>rpc(db,'portal_create_user_begin',[actor,aal,data]);
+const begin=(data,actor=ids.owner,aal='aal1')=>rpc(db,'portal_create_user_begin',[actor,aal,data]);
 const resolve=(id,action='reconcile',actor=ids.owner)=>rpc(db,'portal_create_user_resolve',[actor,'aal2',id,action]);
 
-test('manual creation is owner-only, MFA-protected, and denies existing accounts',async()=>{
+test('manual creation is owner-only with password sessions and denies existing accounts',async()=>{
   await assert.rejects(begin(input(),ids.admin),/portal:forbidden/);
-  await assert.rejects(begin(input(),ids.owner,'aal1'),/portal:mfa_required/);
+  await assert.rejects(begin(input(),ids.owner,null),/portal:unauthorized/);
   await assert.rejects(begin(input('t3@example.com')),/portal:account_exists/);
   await assert.rejects(begin({...input(),role:'owner'}),/portal:invalid/);
   await assert.rejects(begin({...input(),tier:4}),/portal:invalid/);

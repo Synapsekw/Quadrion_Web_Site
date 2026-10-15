@@ -6,7 +6,7 @@ export function activeMember(member, now) {
       : ['admin','owner'].includes(member.role) && member.tier === null);
 }
 export function canAdminister({ member, aal, now }) {
-  return activeMember(member,now) && ['admin','owner'].includes(member.role) && aal === 'aal2';
+  return activeMember(member,now) && ['admin','owner'].includes(member.role) && ['aal1','aal2'].includes(aal);
 }
 export function canReadSoftware({ member, aal, status, verified, now }) {
   return status === 'published' && verified === true && activeMember(member,now)
