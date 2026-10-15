@@ -27,6 +27,6 @@ The supplied Lighthouse 9.6.8 report found performance 25, approximately 39 MB t
 
 A perfect Lighthouse SEO score is a technical checklist, not a measure of GCC rankings. Search Console indexing/sitemap submission, real visitor Core Web Vitals, actual iOS/Android installation and field-device GPU performance still need observation. All six full scenes remain substantial if the visitor explores the entire tour.
 
-For stronger regional discovery, develop useful country/industry pages and genuine case studies, then a professionally translated Arabic experience with correct RTL and hreflang. Add local business/office data only for locations the company actually operates. Do not create six duplicate keyword pages.
+The owner's confirmed direction is English-only GCC SEO; an Arabic version is out of scope. For stronger regional discovery, develop useful English industry pages and genuine regional case studies. Add local business/office data only for locations the company actually operates. Do not create six duplicate keyword pages.
 
 Installation is browser-dependent: supported Chromium browsers expose Install Quadrion when available; iOS users can add the site through Safari's Add to Home Screen. The web app offers a launch shortcut and offline fallback, not offline chat or the full desktop application.
