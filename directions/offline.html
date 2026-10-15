@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0B0F13">
+  <meta name="robots" content="noindex">
+  <title>You're offline · Quadrion AI</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0B0F13; color: #EEF2F5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: 32px 24px; }
+    main { width: min(100%, 540px); }
+    .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 64px; font-size: 18px; font-weight: 600; letter-spacing: -.03em; }
+    .brand svg { width: 40px; height: 40px; }
+    .eyebrow { color: #5ED1B3; font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 16px 0; font-size: clamp(36px, 8vw, 52px); font-weight: 500; line-height: 1.1; letter-spacing: -.04em; }
+    p { color: #C5CDD6; line-height: 1.7; max-width: 46ch; }
+    .retry { display: inline-flex; min-height: 48px; align-items: center; margin-top: 20px; padding: 12px 24px; border-radius: 999px; background: #EEF2F5; color: #0B0F13; font-weight: 600; text-decoration: none; }
+    .retry:hover { background: #5ED1B3; }
+    .retry:focus-visible { outline: 2px solid #5ED1B3; outline-offset: 5px; }
+    .note { margin-top: 48px; padding-top: 24px; border-top: 1px solid #2A3340; font-size: 14px; color: #8E99A6; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" aria-hidden="true"><path d="M4.06 25.28A23 23 0 0 1 25.28 4.06A1.6 1.6 0 0 1 27 5.66L27 15.01A1.6 1.6 0 0 1 25.61 16.59A10.5 10.5 0 0 0 16.59 25.61A1.6 1.6 0 0 1 15.01 27L5.66 27A1.6 1.6 0 0 1 4.06 25.28ZM32.72 4.06A23 23 0 0 1 53.94 25.28A1.6 1.6 0 0 1 52.34 27L42.99 27A1.6 1.6 0 0 1 41.41 25.61A10.5 10.5 0 0 0 32.39 16.59A1.6 1.6 0 0 1 31 15.01L31 5.66A1.6 1.6 0 0 1 32.72 4.06ZM25.28 53.94A23 23 0 0 1 4.06 32.72A1.6 1.6 0 0 1 5.66 31L15.01 31A1.6 1.6 0 0 1 16.59 32.39A10.5 10.5 0 0 0 25.61 41.41A1.6 1.6 0 0 1 27 42.99L27 52.34A1.6 1.6 0 0 1 25.28 53.94Z" fill="#EEF2F5"/><path d="M36.6 35H54.4A1.6 1.6 0 0 1 56 36.6V54.4A1.6 1.6 0 0 1 54.4 56H36.6A1.6 1.6 0 0 1 35 54.4V36.6A1.6 1.6 0 0 1 36.6 35Z" fill="#5ED1B3"/></svg>
+      <span>Quadrion AI</span>
+    </div>
+    <p class="eyebrow">Connection unavailable</p>
+    <h1>Pick up where<br>you left off.</h1>
+    <p>This website needs an internet connection to load the interactive demo, talk with Quori, and send a demo request.</p>
+    <p>Reconnect, then open Quadrion again.</p>
+    <a class="retry" href="/d3-quarter/">Try again <span aria-hidden="true">&nbsp;↗</span></a>
+    <p class="note">The Quadrion desktop workspace is designed for offline fieldwork. Installing this website gives you a shortcut to the online experience.</p>
+  </main>
+</body>
+</html>

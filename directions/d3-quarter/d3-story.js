@@ -85,8 +85,7 @@
       return true;
     } catch (e) { return false; }
   }
-  if (!hasGL()) html.classList.add('no-webgl');
-  else setTimeout(function () { if (!window.__qglReady) html.classList.add('no-webgl'); }, 9000);
+  if (!html.classList.contains('gl-pending') && !hasGL()) html.classList.add('no-webgl');
 
   /* ---------- Layout vars ---------- */
   var pin = $('.stage-pin');
@@ -135,11 +134,15 @@
   function loadImgs(scope) { if (!scope) return; $$('img[data-src]', scope).forEach(function (im) { if (!im.getAttribute('src')) { im.decoding = 'async'; im.src = im.getAttribute('data-src'); } }); }
   var nextImgs = { road: '.shot-tank', tank: '.shot-flare', flare: '.shot-facade' };
   window.addEventListener('d3:asset', function (e) {
+    if (e.detail.name === 'road' && e.detail.state === 'loading') loadImgs($('.shot-road'));
     if (e.detail.state !== 'ready') return;
     if (nextImgs[e.detail.name]) loadImgs($(nextImgs[e.detail.name]));
   });
   if (!motion) { $$('img[data-src]').forEach(function (im) { im.loading = 'lazy'; }); loadImgs(document); }
-  else setTimeout(function () { loadImgs($('.shot-road')); }, 2500);
+  // The road's photos follow the tour's demand, rather than a page-load timer.
+  window.addEventListener('d3:fallback', function () {
+    $$('img[data-src]').forEach(function (im) { im.loading = 'lazy'; }); loadImgs(document);
+  });
 
   /* ---------- Real overlays: road outline polygons, facade class boxes, PCI strip ---------- */
   var roadJson = window.fetch ? fetch(DATA_URL + 'road/road.json').then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null);
@@ -539,9 +542,7 @@
   }
 
   /* =================== Hero intro =================== */
-  gsap.fromTo('.hero-h .line > span', { y: 0, yPercent: 112 }, { yPercent: 0, duration: 1.6, ease: 'expo.out', stagger: 0.13, delay: 0.55 });
-  gsap.fromTo('.h-anim', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1.4, ease: 'expo.out', stagger: 0.09, delay: 0.85 });
-  gsap.from('.nav', { autoAlpha: 0, y: -14, duration: 1.2, ease: 'expo.out', delay: 0.25 });
+  // Keep headline and actions visible from the first paint, even on slow phones.
   gsap.from('.cue, .hero-hud', { autoAlpha: 0, duration: 1.2, ease: 'power2.out', delay: 1.4 });
 
   /* =================== The cinema: one scrubbed timeline =================== */
@@ -700,7 +701,7 @@
   var fb = $('#fbStage'), fbG = $$('.fbp', fb), fbKey = '';
   var CEN = [[15.53, 15.53], [42.47, 15.53], [15.53, 42.47], [45.5, 45.5]], DIR = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
   gsap.ticker.add(function () {
-    if (!html.classList.contains('no-webgl')) return;
+    if (!html.classList.contains('no-webgl') && !html.classList.contains('gl-pending')) return;
     var key = S.hero.toFixed(4) + S.sep.toFixed(4) + S.spin.toFixed(4) + S.zoom.toFixed(4) + S.W + 'x' + S.H;
     if (key === fbKey) return; fbKey = key;
     var L = window.QLayout(S.W, S.H), e = S.hero;

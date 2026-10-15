@@ -19,7 +19,7 @@
 [[redirects]]
   from = "/"
   to = "/d3-quarter/"
-  status = 302
+  status = 301
   force = true
 
 # Overview of all directions.
@@ -39,3 +39,27 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
     Access-Control-Allow-Origin = "*"
+
+# The install manifest and worker must be checked for updates on every visit.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/assets/fonts/*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
+
+[[redirects]]
+  from = "https://quadrionai.netlify.app/*"
+  to = "https://quadrion.ai/:splat"
+  status = 301
+  force = true

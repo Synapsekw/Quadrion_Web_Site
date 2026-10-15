@@ -4,6 +4,7 @@
 // Six real assets, each in its own scene; only the scene(s) on screen are rendered.
 import * as THREE from 'three';
 import { sceneTravel, aimCamera, moveTravelCamera } from './scene-travel.mjs';
+import { createSceneLoader, sceneDemand, datasetName, canCaptureStill } from './scene-loading.mjs';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -634,6 +635,17 @@ function boot() {
   const rtB = new THREE.WebGLRenderTarget(4, 4, rtOpts);
   const winRT = [0, 1, 2, 3].map(() => new THREE.WebGLRenderTarget(Q.win, Q.win, rtOpts));
   pieces.forEach((pc, i) => { pc.pane.material.uniforms.tMap.value = winRT[i].texture; });
+  // Baked from these same camera views. Tiny previews keep all four quarters
+  // alive without downloading four complete inspection projects for thumbnails.
+  const winPosters = [], posterNames = ['road', 'plant', 'flare', 'stockpile'];
+  let postersRequested = false;
+  function requestPosters() {
+    if (postersRequested) return;
+    postersRequested = true;
+    const textures = new THREE.TextureLoader();
+    posterNames.forEach((name, i) => textures.load(new URL('./previews/' + name + '.webp', import.meta.url).href,
+      texture => { texture.colorSpace = THREE.SRGBColorSpace; winPosters[i] = texture; }, undefined, () => {}));
+  }
   const compMat = new THREE.ShaderMaterial({
     toneMapped: false, depthTest: false, depthWrite: false,
     uniforms: { tA: { value: null }, tB: { value: null }, uMode: { value: 1 }, uP: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uMint: { value: MINT.clone() } },
@@ -647,6 +659,12 @@ function boot() {
 
   // ================= HOSTING =================
   let host = null, W = 1, H = 1;
+  const loadingNote = document.createElement('div');
+  loadingNote.className = 'scene-loading';
+  loadingNote.setAttribute('role', 'status');
+  loadingNote.setAttribute('aria-live', 'polite');
+  loadingNote.style.cssText = 'position:absolute;left:24px;right:24px;bottom:10%;z-index:5;text-align:center;color:#E9EDF0;font:500 13px/1.5 sans-serif;pointer-events:none;text-shadow:0 1px 6px #0B0F13';
+  loadingNote.hidden = true;
   const dbs = new THREE.Vector2();
   const ro = new ResizeObserver(() => resize());
   function resize() {
@@ -669,7 +687,7 @@ function boot() {
   }
   function attach(h) {
     if (host === h) return;
-    host = h; h.appendChild(canvas);
+    host = h; h.append(canvas, loadingNote);
     ro.disconnect(); ro.observe(h);
     resize();
   }
@@ -732,6 +750,7 @@ function boot() {
     const m = vis.stage ? 'stage' : vis.app ? 'app' : vis.cta ? 'cta' : 'none';
     if (m === mode) return;
     const prev = mode; mode = m;
+    updateDemand();
     if (m === 'stage') { attach(hostStage); if (prev === 'cta') asmT0 = -100; }
     if (m === 'app') attach(hostApp);
     if (m === 'cta') { attach(hostCta); asmT0 = performance.now() / 1000 + 0.1; }
@@ -805,8 +824,11 @@ function boot() {
       const u = p.pane.material.uniforms;
       const rdy = WIN_ASSETS[i].ready;
       const winK = mode === 'cta' ? 0 : (i === 3 ? S.win : S.winq);
-      u.uHasMap.value = rdy ? 1 : 0;
-      u.uReveal.value = Math.max(winK * (rdy ? 1 : 0.0), i === 3 ? smooth(0, 0.25, zoom) * (road.ready ? 1 : 0) : 0);
+      if (winK > 0.001) requestPosters();
+      const hasPreview = rdy || !!winPosters[i];
+      u.tMap.value = rdy ? winRT[i].texture : (winPosters[i] || winRT[i].texture);
+      u.uHasMap.value = hasPreview ? 1 : 0;
+      u.uReveal.value = Math.max(winK * (hasPreview ? 1 : 0), i === 3 ? smooth(0, 0.25, zoom) * (road.ready ? 1 : 0) : 0);
       if (i === 3) u.uScreen.value = smooth(0.02, 0.3, zoom);
       p.pane.visible = u.uReveal.value > 0.002;
     }
@@ -871,6 +893,7 @@ function boot() {
 
   // ================= RENDER HELPERS =================
   const mobileFrame = () => W < 761 && mode === 'stage';
+  let lastVisibleAsset = null;
   function drawScene(name, cam, target, opts = {}) {
     const h = target ? target.height : dbs.y;
     cam.aspect = W / H;
@@ -891,6 +914,7 @@ function boot() {
       if (name === 'tank') { sectionTank(cam); tankLook(mode === 'stage' && !opts.still ? smooth(0.45, 0.95, S.tank) : 1); }
       renderer.render(SCN[name].scene, cam);
     }
+    if (!target && !opts.still) lastVisibleAsset = name;
   }
   function flyBetween(nameA, cameraA, nameB, cameraB, progress) {
     const travel = sceneTravel(progress);
@@ -906,8 +930,9 @@ function boot() {
     compMat.uniforms.uMode.value = modeId; compMat.uniforms.uP.value = p;
     renderer.setRenderTarget(null);
     renderer.render(compScene, compCam);
+    lastVisibleAsset = p < 0.5 ? nameA : nameB;
   }
-  const ready = (n) => (n === 'stock1' || n === 'stock2' ? stock.ready : SCN[n] ? SCN[n].ready : false);
+  const ready = (n) => (datasetName(n) === 'stockpile' ? stock.ready : SCN[n] ? SCN[n].ready : false);
 
   // ================= HUD =================
   const hudCam = document.getElementById('hudCam');
@@ -1003,52 +1028,52 @@ function boot() {
     kmRead(roadKm >= 0 ? roadKm : 7.55 * S.pci);
     if (sw <= 0.0005) {
       setDivider(0, false);
-      if (!road.ready) return clearBg();
+      if (!road.ready) return loadingFrame(['road'], t);
       setRoadCam(camA, rd, 0, aspect); rS(null); drawScene('road', camA, null); placeCallouts('road', camA); hudRoad();
     } else if (sw < 0.9995) {
       setDivider(0, false);
-      if (!road.ready || !plant.ready) return clearBg();
+      if (!road.ready || !plant.ready) return loadingFrame(['road', 'plant'], t);
       setRoadCam(camA, rd, 0, aspect); rS(rtA); setPlantCam(camB, pl, 0, aspect);
       flyBetween('road', camA, 'plant', camB, sw); hud(camB);
     } else if (ir <= 0.0005) {
       setDivider(0, false);
-      if (!plant.ready) return clearBg();
+      if (!plant.ready) return loadingFrame(['plant'], t);
       setPlantCam(camA, pl, 0, aspect); drawScene('plant', camA, null); hud(camA);
     } else if (ir < 0.9995) {
       setDivider(0, false);
-      if (!plant.ready || !tank.ready) return clearBg();
+      if (!plant.ready || !tank.ready) return loadingFrame(['plant', 'tank'], t);
       setPlantCam(camA, pl, 0, aspect); setTankCam(camB, tk, 0, aspect);
       flyBetween('plant', camA, 'tank', camB, ir); hud(camB);
     } else if (ri <= 0.0005) {
       setDivider(0, false);
-      if (!tank.ready) return clearBg();
+      if (!tank.ready) return loadingFrame(['tank'], t);
       setTankCam(camA, tk, 0, aspect); drawScene('tank', camA, null); placeCallouts('tank', camA); hud(camA);
     } else if (ri < 0.9995) {
       setDivider(0, false);
-      if (!tank.ready || !flare.ready) return clearBg();
+      if (!tank.ready || !flare.ready) return loadingFrame(['tank', 'flare'], t);
       setTankCam(camA, tk, 0, aspect); setFlareCam(camB, fl, 0, aspect); fS();
       flyBetween('tank', camA, 'flare', camB, ri); hud(camB);
     } else if (sp <= 0.0005) {
       setDivider(0, false);
-      if (!flare.ready) return clearBg();
+      if (!flare.ready) return loadingFrame(['flare'], t);
       setFlareCam(camA, fl, 0, aspect); fS(); drawScene('flare', camA, null); placeCallouts('flare', camA); hud(camA, 4);
     } else if (sp < 0.9995) {
       setDivider(0, false);
-      if (!flare.ready || !facade.ready) return clearBg();
+      if (!flare.ready || !facade.ready) return loadingFrame(['flare', 'facade'], t);
       setFlareCam(camA, fl, 0, aspect); fS(); setFacadeCam(camB, fa, 0, aspect); fxS();
       flyBetween('flare', camA, 'facade', camB, sp); hud(camB);
     } else if (w1 <= 0.0005) {
       setDivider(0, false);
-      if (!facade.ready) return clearBg();
+      if (!facade.ready) return loadingFrame(['facade'], t);
       setFacadeCam(camA, fa, 0, aspect); fxS(); drawScene('facade', camA, null); placeCallouts('facade', camA); hud(camA);
       facadeHover(camA);
     } else if (w1 < 0.9995) {
-      if (!facade.ready || !stock.ready) return clearBg();
+      if (!facade.ready || !stock.ready) return loadingFrame(['facade', 'stock1'], t);
       setDivider(0, false);
       setFacadeCam(camA, fa, 0, aspect); fxS(); setStockCam(camB, st, 0, aspect);
       flyBetween('facade', camA, 'stock1', camB, w1); hud(camB);
     } else {
-      if (!stock.ready) return clearBg();
+      if (!stock.ready) return loadingFrame(['stock2'], t);
       setStockCam(camA, st, 0, aspect);
       if (w2 <= 0.0005) { drawScene('stock1', camA, null); setDivider(0, false); }
       else if (w2 >= 0.9995) { drawScene('stock2', camA, null); setDivider(1, false); }
@@ -1057,16 +1082,34 @@ function boot() {
     }
   }
   function clearBg() { renderer.setRenderTarget(null); renderer.setClearColor(BG, 1); renderer.clear(); }
+  function loadingFrame(candidates, t) {
+    // Keep a ready world visible during a slow handoff. If this was a direct
+    // jump, keep the last rendered asset behind the explicit loading message.
+    const name = candidates.find(ready) || (ready(lastVisibleAsset) ? lastVisibleAsset : null);
+    if (!name) return clearBg();
+    const aspect = W / H, o = { noOffset: mode === 'app' };
+    if (name === 'road') { setRoadCam(camA, S.road, 0, aspect); roadState(9, 1, -9, roadAlt, dbs.y / H); }
+    else if (name === 'plant') setPlantCam(camA, S.plant, 0, aspect);
+    else if (name === 'tank') setTankCam(camA, S.tank, 0, aspect);
+    else if (name === 'flare') { setFlareCam(camA, S.flare, 0, aspect); flareState(1, 1, t); }
+    else if (name === 'facade') { setFacadeCam(camA, S.facade, 0, aspect); facadeState(9, 0.3); }
+    else setStockCam(camA, S.stock, 0, aspect);
+    drawScene(name, camA, null, o);
+  }
 
   // ================= APP FRAME =================
-  let appDs = 'flare';
-  window.addEventListener('d3:dataset', (e) => { appDs = e.detail; if (reduced && mode === 'app') renderOnce(); });
+  let appDs = document.querySelector('[data-ds].on')?.dataset.ds || 'flare';
+  window.addEventListener('d3:dataset', (e) => {
+    if (!Object.hasOwn(SCN, e.detail)) return;
+    appDs = e.detail; updateDemand();
+    if (reduced && mode === 'app') renderOnce();
+  });
   function appFrame(t) {
     setDpr(heavyCap);
     const aspect = W / H, k = reduced ? 0 : t * 0.05;
     tilt.x += (ptr.y * 0.15 - tilt.x) * 0.05; tilt.y += (ptr.x * 0.2 - tilt.y) * 0.05;
     const need = appDs === 'stock' ? 'stock2' : appDs;
-    if (!ready(need)) return clearBg();
+    if (!ready(need)) return loadingFrame([need], t);
     const o = { noOffset: true };
     if (appDs === 'road') { setRoadAppCam(camApp, t * (reduced ? 0 : 1) + tilt.y * 8); camApp.fov = aspect < 1 ? 52 : 38; roadState(9, 1, -9, roadAlt, dbs.y / H); drawScene('road', camApp, null, o); }
     else if (appDs === 'plant') { setPlantCam(camApp, 0.7, k + tilt.y * 0.4, aspect); drawScene('plant', camApp, null, o); }
@@ -1085,10 +1128,11 @@ function boot() {
   const fpsLog = { n: 0, t0: 0, slow: 0 };
   function frame(now) {
     raf = requestAnimationFrame(frame);
+    if (MOBILE && now / 1000 - last < 1 / 30 - 0.001) return;
     const t = now / 1000, dt = Math.min(0.05, Math.max(0.001, t - last)); last = t;
     // adaptive quality: if frames stay slow in heavy scenes, step the pixel ratio down (never below 1)
     if (DPR > 1.01 && mode !== 'cta' && (S.zoom >= 0.999 || mode === 'app')) {
-      fpsLog.slow = dt > 0.024 ? fpsLog.slow + 1 : Math.max(0, fpsLog.slow - 2);
+      fpsLog.slow = dt > (MOBILE ? 0.044 : 0.024) ? fpsLog.slow + 1 : Math.max(0, fpsLog.slow - 2);
       if (fpsLog.slow > 90) { heavyCap = Math.max(1, heavyCap - 0.25); fpsLog.slow = 0; }
     }
     render(t, dt);
@@ -1096,6 +1140,9 @@ function boot() {
   let lastMs = 0;
   function render(t, dt) {
     const t0 = performance.now();
+    const demand = updateDemand();
+    const visibleNeeds = mode === 'stage' && S.zoom > 0.02 && S.zoom < 0.999 ? ['road'] : demand.active;
+    showLoading(visibleNeeds.filter(name => !ready(name)));
     pumpUploads(renderer, reduced ? 64 : 1);
     if (texQueue.length) { const tx = texQueue.shift(); try { renderer.initTexture(tx); } catch (e) { /* ignore */ } }
     if (mode === 'stage') stageFrame(t, dt);
@@ -1104,8 +1151,9 @@ function boot() {
     lastMs = lastMs * 0.9 + (performance.now() - t0) * 0.1;
   }
   function renderOnce() { render(performance.now() / 1000, 0.016); }
-  function start() { if (reduced) { renderOnce(); return; } if (!raf) { last = performance.now() / 1000; raf = requestAnimationFrame(frame); } }
+  function start() { if (document.hidden) return; if (reduced) { renderOnce(); return; } if (!raf) { last = performance.now() / 1000; raf = requestAnimationFrame(frame); } }
   function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (mode !== 'none') start(); });
 
   window.__qglReady = true;
   html.classList.add('gl-ready');
@@ -1131,11 +1179,16 @@ function boot() {
   };
   const texQueue = [];
 
-  let D = null;
-  async function loadAll() {
-    try { D = await import('../data/quadrion-data.js'); } catch (e) { console.warn('[D3] data module unavailable', e); return; }
-    if (D.ASSETS) window.dispatchEvent(new CustomEvent('d3:assets', { detail: D.ASSETS }));
-    const steps = [
+  let D = null, dataModule = null;
+  function ensureData() {
+    if (!dataModule) dataModule = import('../data/quadrion-data.js').then(module => {
+      D = module;
+      if (D.ASSETS) window.dispatchEvent(new CustomEvent('d3:assets', { detail: D.ASSETS }));
+      return module;
+    });
+    return dataModule;
+  }
+  const steps = new Map([
       ['road', async () => {
         const a = await D.loadRoad();
         road.cl = a.road.centreline; road.km = a.road.chainageKm;
@@ -1330,57 +1383,127 @@ function boot() {
         facade.ready = true;
         setFacadeCam(camA, 0.8, 0, 1.6); warm(facade.scene, camA);
       }]
-    ];
-    for (const [name, fn] of steps) {
-      status(name, 'loading');
-      try { await fn(); status(name, 'ready'); }
-      catch (e) { console.warn('[D3] ' + name + ' failed', e); status(name, 'error'); }
-      await new Promise((r) => setTimeout(r, 30));
-    }
+  ]);
+  const loader = createSceneLoader(Object.fromEntries([...steps].map(([name, build]) => [name, async () => {
+    await ensureData();
+    try { await build(); }
+    catch (error) { console.warn('[D3] ' + name + ' failed', error); throw error; }
     measureCallouts();
-    // the detailed road tiles: after everything else, and only once the viewer is near the tour
-    const more = () => { if (road.sets.z6) requestTiles(road.sets.z6); if (road.sets.z4) requestTiles(road.sets.z4); };
-    if (reduced) more();
-    else { const chk = () => { if (S.sep > 0.05 || S.zoom > 0 || mode !== 'stage') more(); else setTimeout(chk, 400); }; chk(); }
-    if (reduced) { await waitTiles(road.sets.z2); renderStills(); }
-    idle(() => buildSilhouettes());
+  }])), { onState(name, state) {
+    status(name, state === 'queued' ? 'loading' : state);
+    if (state === 'ready' || state === 'error') {
+      if (reduced) {
+        const done = name === 'road' && road.ready ? waitTiles(road.sets.z2, Infinity) : Promise.resolve();
+        done.then(() => { renderStills(); if (mode !== 'none') renderOnce(); });
+      }
+      if (state === 'ready') queueSilhouettes();
+    }
+  } });
+  const LABELS = { road: 'ring road', plant: 'tank terminal', tank: 'tank interior', flare: 'flare stack', facade: 'tower facade', stockpile: 'stockpile yard' };
+  let demandKey = '';
+  function updateDemand() {
+    const demand = sceneDemand(S, mode, appDs);
+    const active = demand.active.slice(), preload = demand.preload.slice();
+    if (reduced) {
+      const ordered = [...nearStills].map(cv => ({ cv, rect: cv.getBoundingClientRect() }))
+        .sort((a, b) => Math.abs(a.rect.top) - Math.abs(b.rect.top));
+      for (const { cv, rect } of ordered) {
+        if (stillDone.has(cv)) continue;
+        (rect.top < innerHeight && rect.bottom > 0 ? active : preload).push(datasetName(cv.dataset.still));
+      }
+    }
+    const key = active.join(',') + '|' + preload.join(',');
+    if (key !== demandKey) { demandKey = key; loader.setDemand(active, preload); }
+    // Only request close-up tiles while the road chapter is approaching or on
+    // screen; small quarter windows and the app overview need the base tiles.
+    if (road.ready && mode === 'stage' && !reduced && S.zoom > 0.1 && S.sweep < 0.9995) {
+      if (road.sets.z6) requestTiles(road.sets.z6);
+      if (road.sets.z4) requestTiles(road.sets.z4);
+    }
+    return demand;
   }
-  const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
-  function waitTiles(set) {
+  function loadingText(names) {
+    return names.some(name => loader.state(name) === 'error')
+      ? 'This scene could not load. Refresh the page to try again.'
+      : 'Loading ' + names.map(name => LABELS[datasetName(name)]).join(' and ') + '… You can keep scrolling.';
+  }
+  function showLoading(names) {
+    const text = names.length ? loadingText(names) : '';
+    if (loadingNote.textContent !== text) loadingNote.textContent = text;
+    loadingNote.hidden = !text;
+  }
+  function waitTiles(set, timeout = 8000) {
     return new Promise((res) => {
       const t0 = performance.now();
-      const tick = () => { pumpUploads(renderer, 64); const u = set.userData; if (u.loaded + u.tiles.filter((t) => t.state < 0).length >= u.tiles.length || performance.now() - t0 > 8000) res(); else setTimeout(tick, 60); };
+      const tick = () => { pumpUploads(renderer, 64); const u = set.userData; if (u.loaded + u.tiles.filter((t) => t.state < 0).length >= u.tiles.length || performance.now() - t0 > timeout) res(); else setTimeout(tick, 60); };
       tick();
     });
   }
 
   // ================= STATEMENT: six assets as tiny drifting silhouettes (2D canvas, cheap) =================
+  let silhouetteVisible = false, silhouetteStarted = false, silhouetteQueued = false;
+  let refreshSilhouettes = () => {};
+  function queueSilhouettes() {
+    if (!silhouetteVisible || document.hidden || silhouetteQueued || !D) return;
+    silhouetteQueued = true;
+    const build = () => {
+      silhouetteQueued = false;
+      if (!silhouetteVisible || document.hidden) return;
+      if (silhouetteStarted) refreshSilhouettes();
+      else { silhouetteStarted = true; buildSilhouettes(); }
+    };
+    if (window.requestIdleCallback) requestIdleCallback(build, { timeout: 1200 }); else setTimeout(build, 100);
+  }
+  const silCanvas = document.getElementById('silCanvas');
+  if (silCanvas) {
+    const statementObserver = new IntersectionObserver(entries => {
+      silhouetteVisible = entries[0].isIntersecting;
+      if (silhouetteVisible) queueSilhouettes();
+    });
+    statementObserver.observe(silCanvas);
+  }
   async function buildSilhouettes() {
     const cv = document.getElementById('silCanvas');
     if (!cv || !D) return;
     const names = ['road', 'plant', 'tank', 'flare', 'facade', 'stockpile'];
-    const sets = [];
-    for (const n of names) {
-      try {
-        const s = await D.samplePoints(n, Q.sil, 1);
-        const col = new Uint8Array(Q.sil * 3);
-        for (let i = 0; i < Q.sil; i++) {
-          const r = Math.pow(Math.min(1, s.colors[i * 3]), 1 / 2.2), g = Math.pow(Math.min(1, s.colors[i * 3 + 1]), 1 / 2.2), b = Math.pow(Math.min(1, s.colors[i * 3 + 2]), 1 / 2.2), l = 0.3 * r + 0.59 * g + 0.11 * b;
-          // muted: half-way to grey so no asset shouts
-          col[i * 3] = Math.round(255 * (0.3 * r + 0.7 * l)); col[i * 3 + 1] = Math.round(255 * (0.3 * g + 0.7 * l)); col[i * 3 + 2] = Math.round(255 * Math.min(1, 0.3 * b + 0.7 * l + 0.03));
-        }
-        sets.push({ n, p: s.positions, c: col });
-      } catch (e) { sets.push(null); }
-      await new Promise((r) => setTimeout(r, 16));
-    }
+    const sets = names.map(() => null);
+    let sampling = false, sampleAgain = false;
+    refreshSilhouettes = async () => {
+      if (sampling) { sampleAgain = true; return; }
+      sampling = true;
+      for (const [index, n] of names.entries()) {
+        if (!silhouetteVisible || document.hidden) break;
+        // samplePoints() can fetch its source. A jump to the statement must never
+        // use these decorative silhouettes as a back door into all six datasets.
+        if (sets[index] || !ready(n)) continue;
+        try {
+          const s = await D.samplePoints(n, Q.sil, 1);
+          const col = new Uint8Array(Q.sil * 3);
+          for (let i = 0; i < Q.sil; i++) {
+            const r = Math.pow(Math.min(1, s.colors[i * 3]), 1 / 2.2), g = Math.pow(Math.min(1, s.colors[i * 3 + 1]), 1 / 2.2), b = Math.pow(Math.min(1, s.colors[i * 3 + 2]), 1 / 2.2), l = 0.3 * r + 0.59 * g + 0.11 * b;
+            // muted: half-way to grey so no asset shouts
+            col[i * 3] = Math.round(255 * (0.3 * r + 0.7 * l)); col[i * 3 + 1] = Math.round(255 * (0.3 * g + 0.7 * l)); col[i * 3 + 2] = Math.round(255 * Math.min(1, 0.3 * b + 0.7 * l + 0.03));
+          }
+          sets[index] = { n, p: s.positions, c: col };
+        } catch (e) { /* A decorative silhouette must not block the story. */ }
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      sampling = false;
+      if (on && !document.hidden && !rafS) rafS = requestAnimationFrame(draw);
+      if (sampleAgain) { sampleAgain = false; queueSilhouettes(); }
+    };
     const ctx = cv.getContext('2d');
     let on = false, rafS = 0;
-    const ioS = new IntersectionObserver((es) => { on = es[0].isIntersecting; if (on && !rafS) rafS = requestAnimationFrame(draw); }, { rootMargin: '60px 0px' });
+    const ioS = new IntersectionObserver((es) => { on = es[0].isIntersecting; if (on && !document.hidden && !rafS) rafS = requestAnimationFrame(draw); });
     ioS.observe(cv);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && on) { queueSilhouettes(); if (!rafS) rafS = requestAnimationFrame(draw); } });
     const tilt = [0.95, 0.75, 0.32, 0.28, 0.3, 0.75];
     const SIL_LABELS = ['ROAD', 'TERMINAL', 'TANK', 'FLARE', 'FACADE', 'STOCKPILE'];
+    let lastSilFrame = 0;
     function draw(now) {
-      rafS = on && !reduced ? requestAnimationFrame(draw) : 0;
+      rafS = on && !reduced && !document.hidden ? requestAnimationFrame(draw) : 0;
+      if (document.hidden || (MOBILE && now - lastSilFrame < 1000 / 30 - 1)) return;
+      lastSilFrame = now;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = cv.clientWidth, h = cv.clientHeight;
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
@@ -1409,19 +1532,34 @@ function boot() {
         }
       });
     }
-    rafS = requestAnimationFrame(draw);
+    await refreshSilhouettes();
+    if (!rafS) rafS = requestAnimationFrame(draw);
   }
 
   // ================= STILLS (reduced motion) =================
   const stillDone = new Set();
+  const nearStills = new Set();
+  const stillNotes = new Map();
   function renderStills() {
     const prevHost = host;
+    const previousAsset = lastVisibleAsset;
+    const previousSize = { w: W, h: H };
     pumpUploads(renderer, 512);
-    document.querySelectorAll('canvas[data-still]').forEach((cv) => {
+    nearStills.forEach((cv) => {
       const kind = cv.dataset.still;
       if (stillDone.has(cv)) return;
       const need = kind === 'stock' ? 'stock' : kind;
-      if (!ready(need)) return;
+      if (!canCaptureStill(need, ready(need), road.sets.z2?.userData)) {
+        let note = stillNotes.get(cv);
+        if (!note) {
+          note = document.createElement('span'); note.setAttribute('role', 'status');
+          note.style.cssText = 'position:absolute;inset:auto 18px 18px;color:#E9EDF0;font:500 12px/1.5 sans-serif';
+          cv.parentElement.style.position = 'relative'; cv.parentElement.appendChild(note); stillNotes.set(cv, note);
+        }
+        note.textContent = loadingText([need]);
+        return;
+      }
+      stillNotes.get(cv)?.remove(); stillNotes.delete(cv);
       const r = cv.getBoundingClientRect();
       const w = Math.max(200, Math.round(r.width || 640)), h = Math.max(120, Math.round(r.height || 400));
       renderer.setSize(w, h, false); W = w; H = h; renderer.getDrawingBufferSize(dbs);
@@ -1441,15 +1579,30 @@ function boot() {
       cv.classList.add('is-ready');
       stillDone.add(cv);
     });
-    host = null; if (prevHost) attach(prevHost); else { W = 1; H = 1; }
+    lastVisibleAsset = previousAsset;
+    // Snapshot rendering temporarily borrows the renderer, never its live host.
+    // Restore the real host size/targets so the app and CTA remain intact.
+    if (prevHost) resize();
+    else {
+      W = previousSize.w; H = previousSize.h; renderer.setSize(W, H, false);
+      renderer.getDrawingBufferSize(dbs);
+      rtA.setSize(Math.round(dbs.x * Q.rt), Math.round(dbs.y * Q.rt));
+      rtB.setSize(Math.round(dbs.x * Q.rt), Math.round(dbs.y * Q.rt));
+    }
   }
 
-  const go = () => loadAll();
-  if (document.readyState === 'complete') setTimeout(go, 60); else addEventListener('load', () => setTimeout(go, 60));
+  if (reduced) {
+    const stillObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => { if (entry.isIntersecting) nearStills.add(entry.target); else nearStills.delete(entry.target); });
+      updateDemand(); renderStills();
+    }, { rootMargin: '300px 0px' });
+    document.querySelectorAll('canvas[data-still]').forEach(cv => stillObserver.observe(cv));
+  }
   window.__d3 = {
     S, ready: () => ({ road: road.ready, plant: plant.ready, tank: tank.ready, flare: flare.ready, facade: facade.ready, stock: stock.ready }),
     tiles: () => Object.fromEntries(Object.entries(road.sets).map(([k, s]) => [k, s.userData.loaded + '/' + s.userData.tiles.length])),
     mode: () => mode, dpr: () => DPR,
+    loading: () => Object.fromEntries([...steps.keys()].map(name => [name, loader.state(name)])),
     info: () => ({ ms: lastMs, dpr: DPR, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, pts: renderer.info.render.points, programs: renderer.info.programs.length })
   };
 }

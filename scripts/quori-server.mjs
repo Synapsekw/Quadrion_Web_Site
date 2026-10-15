@@ -34,7 +34,7 @@ const fake=async(url,options)=>{
   return Response.json({choices:[{message:{content:JSON.stringify({reply,topic:'product',source_ids:['S1'],analysis:{intent:'product',urgency:'normal',summary:'Test',next_step:'Explore'},contact_request:/contact|call|demo/i.test(message)?{name:'',phone:'',email:'',company:'',reason:'Discuss a Quadrion walkthrough',preferred_time:'',timezone:''}:null})}}]});
 };
 const handler=createQuoriHandler({config,store,knowledge:await readFile(resolve(root,'server/knowledge.txt'),'utf8'),...(mock?{fetch:fake}:{})});
-const types={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2','.json':'application/json','.mp4':'video/mp4'};
+const types={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2','.json':'application/json','.webmanifest':'application/manifest+json','.mp4':'video/mp4'};
 const server=createServer(async(req,res)=>{
   try{
     const origin='http://'+req.headers.host,address=req.socket.remoteAddress;
