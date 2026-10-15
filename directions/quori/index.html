@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0f13"><title>Meet Quori · Quadrion</title>
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="preview.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="../overview" aria-label="Quadrion design overview"><img src="../assets/quadrion-symbol-on-dark.svg" alt="" width="30" height="30"><span>Quadrion<span class="brand-sub">Character studio</span></span></a>
+    <nav aria-label="Preview settings">
+      <button id="reference-open" class="quiet">Original concept</button>
+      <button id="theme" class="icon-button" aria-label="Switch to light background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg></button>
+      <button id="motion" class="quiet motion-button" aria-pressed="false"><span class="pause-icon" aria-hidden="true">Ⅱ</span><span id="motion-text">Pause motion</span></button>
+    </nav>
+  </header>
+  <main class="studio">
+    <section class="character" aria-labelledby="title">
+      <div class="introduction"><div><h1 id="title">Meet Quori.</h1><p>A familiar mark. A personality of his own.</p></div><span class="preview-tag"><i></i>Animated preview</span></div>
+      <div class="stage-wrap">
+        <div id="stage" class="quori-host" tabindex="0" role="img" aria-label="Animated Quori. Drag or use arrow keys to turn. Click or press Enter to say hello."><img class="artwork-fallback" src="assets/approved-quori.png" alt="Approved Quori concept"></div>
+        <span class="stage-hint"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M4 7 1 10l3 3M16 7l3 3-3 3M2 10h16"/></svg>Drag to turn. Tap to say hello.</span>
+        <span id="render-note" class="render-note" hidden>Showing the original artwork. 3D rendering is unavailable.</span>
+      </div>
+      <div class="caption"><div><span class="status-dot"></span><strong id="current-name">At ease</strong><p id="current-description">A gentle float, a curious glance, and the occasional blink.</p></div><button id="demo" class="demo-button">Chat with Quori <span aria-hidden="true">↗</span></button></div>
+    </section>
+    <aside class="library" aria-label="Quori animation library">
+      <div class="library-heading"><h2>Give him a moment.</h2><p>Choose an expression or let him show you around.</p></div>
+      <div class="group"><h3>Expressions <span>11</span></h3><div id="states" class="button-grid"></div></div>
+      <div class="group"><h3>A little character <span>12 moves</span></h3><div id="gestures" class="button-grid"></div></div>
+      <button id="showcase" class="showcase-button"><span class="play-icon" aria-hidden="true">▷</span><span>Play the showcase</span><span class="showcase-length">~1 min</span></button>
+      <p id="showcase-note" class="showcase-note">A tour of every expression and move.</p>
+    </aside>
+  </main>
+  <footer><span>Quori <span class="muted">/ Quadrion’s AI companion</span></span><span class="muted">Pearl. Graphite. A little mint.</span>
+  </footer>
+  <dialog id="reference" aria-labelledby="reference-title"><div class="reference-top"><div><h2 id="reference-title">The approved Quori</h2><p>The reference for his silhouette, materials, and expression.</p></div><button id="reference-close" class="icon-button" aria-label="Close original concept">×</button></div><img src="assets/approved-quori.png" alt="Quori with three pearl arcs, a graphite face, a mint square, and warm expressive eyes. Original concept sheet."></dialog>
+  <script type="module" src="preview.js"></script>
+</body></html>

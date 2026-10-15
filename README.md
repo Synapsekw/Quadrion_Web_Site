@@ -2,6 +2,8 @@
 
 Marketing site prototypes for Quadrion AI, the offline drone inspection and survey workspace by Synapse Solutions.
 
+The animated **Quori character and connected chat preview** is at `/quori/`. Run `npm ci` then `npm run dev` and open `http://127.0.0.1:5186/quori/`. See [Quori chat setup](docs/quori-chat.md) for the private backend, Grokbot handoff, embedding and production activation. The animation studio retains 11 expressions and 12 gestures.
+
 The selected direction is **The Quarter** (`directions/d3-quarter/`). The other folders under `directions/` are earlier explorations, kept for comparison.
 
 ## Run locally

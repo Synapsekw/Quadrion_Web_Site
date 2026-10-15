@@ -1,7 +1,15 @@
 # The site is plain static files in directions/ (no build step).
 [build]
   publish = "directions"
-  command = ""
+  command = "npm run check:public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["server/knowledge.txt"]
 
 # Home goes to the current page. A redirect (not a rewrite) keeps its relative paths working.
 [[redirects]]

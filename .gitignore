@@ -2,6 +2,11 @@
 .claude/settings.local.json
 .playwright-mcp/
 node_modules/
+.env*
+!.env.example
+.netlify/
+.quori-data/
+*.local.json
 
 # OS
 .DS_Store
