@@ -81,4 +81,4 @@ Developer verification: `npm test`, `npm run build:portal`, `npm run check:publi
 
 ## Password login rollout — 15 October 2026
 
-Owner explicitly requested password-only sign-in and one public login button. Code and migration 007 are prepared; apply the reviewed migration before publishing the matching frontend and function changes. Existing credentials, user IDs, tiers and assignments are preserved. The original six migrations remain historical and unchanged. Production application and signed-in acceptance of this follow-up are not yet recorded.
+Owner explicitly requested password-only sign-in and one public login button. After action-time confirmation, migration 007 was applied successfully to production on 15 October 2026. Its live audit returned Owner access at `aal1`, zero anonymous/authenticated portal RPC grants, ten forced-RLS tables, two private buckets and a working Owner project catalog. Existing credentials, user IDs, tiers and assignments are preserved. The original six migrations remain historical and unchanged. The matching frontend and function deployment is prepared in PR #6; production signed-in acceptance is not yet recorded.
