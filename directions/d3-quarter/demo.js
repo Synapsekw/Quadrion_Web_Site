@@ -16,6 +16,10 @@ for (const link of document.querySelectorAll('[data-demo]')) {
   });
 }
 for (const button of dialog.querySelectorAll('[data-demo-close]')) button.addEventListener('click', () => dialog.close());
+dialog.addEventListener('keydown', (event) => {
+  // Let the native modal cancel without closing an underlying Quori panel.
+  if (event.key === 'Escape') event.stopPropagation();
+});
 dialog.addEventListener('click', (event) => {
   if (event.target !== dialog) return;
   const rect = dialog.getBoundingClientRect();

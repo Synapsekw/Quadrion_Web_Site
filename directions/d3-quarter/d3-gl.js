@@ -3,7 +3,7 @@
 // Reads scroll state from window.QS (written by the GSAP timeline in d3-story.js) every frame.
 // Six real assets, each in its own scene; only the scene(s) on screen are rendered.
 import * as THREE from 'three';
-import { sceneTravel } from './scene-travel.mjs';
+import { sceneTravel, aimCamera, moveTravelCamera } from './scene-travel.mjs';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -484,26 +484,6 @@ function boot() {
     return kmv;
   }
   let roadKm = 0, roadAlt = 9999;
-  // Remember the shot's focus so travel follows the real 3D scene scale.
-  function aimCamera(cam, x, y, z) {
-    const target = cam.userData.travelTarget || (cam.userData.travelTarget = V());
-    if (x && x.isVector3) target.copy(x); else target.set(x, y, z);
-    cam.lookAt(target);
-  }
-  const travelOffset = V();
-  function moveTravelCamera(cam, amount, direction) {
-    if (!amount || reduced) return;
-    const target = cam.userData.travelTarget;
-    travelOffset.subVectors(cam.position, target);
-    const distance = travelOffset.length();
-    const strength = MOBILE ? 0.72 : 1;
-    travelOffset.applyAxisAngle(UPV, direction * amount * 0.16 * strength);
-    travelOffset.multiplyScalar(1 + amount * 1.55 * strength);
-    travelOffset.y += distance * amount * 0.22 * strength;
-    cam.position.copy(target).add(travelOffset);
-    cam.far += distance * amount * 3;
-    cam.lookAt(target);
-  }
   function setRoadCam(cam, p, t = 0, aspect = 1) {
     cam.fov = 40;
     if (p <= 0.4) {
@@ -914,8 +894,9 @@ function boot() {
   }
   function flyBetween(nameA, cameraA, nameB, cameraB, progress) {
     const travel = sceneTravel(progress);
-    moveTravelCamera(cameraA, travel.outgoing, 1);
-    moveTravelCamera(cameraB, travel.incoming, -1);
+    const strength = reduced ? 0 : MOBILE ? 0.72 : 1;
+    moveTravelCamera(cameraA, travel.outgoing, 1, strength);
+    moveTravelCamera(cameraB, travel.incoming, -1, strength);
     composite(nameA, cameraA, nameB, cameraB, 0, travel.blend);
   }
   function composite(nameA, camA_, nameB, camB_, modeId, p) {
