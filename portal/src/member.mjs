@@ -6,7 +6,7 @@ const root=document.querySelector('#app');let auth,api,member,content,sequence=0
 function navigate(path){history.pushState(null,'',path);render();}
 document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/portal/')&&!e.ctrlKey&&!e.metaKey){e.preventDefault();navigate(a.pathname+a.search);}});
 window.addEventListener('popstate',()=>render());
-function clear(){sequence++;member=null;content?.replaceChildren();}
+function clear(){sequence++;member=null;content?.replaceChildren(notice('Your workspace access needs to be checked. Reload to continue.','error'),button('Reload workspace',render,true),button('Sign out',()=>auth.signOut(),true));}
 async function download(file,event){await runButton(event.currentTarget,async()=>{try{const result=await api.post('download',{artifactId:file.artifact_id||file.id});const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='oxjrkodcmflxejdwsuac.supabase.co')throw new Error('The download link could not be verified.');const a=el('a',{href:url.href,download:result.filename,rel:'noreferrer'});document.body.append(a);a.click();a.remove();}catch(error){content.prepend(notice(error.message,'error'));}});}
 function shell(){
   const path=location.pathname;const items=[['Overview','/portal/','◈'],['Downloads','/portal/downloads/','↓'],['Projects','/portal/projects/','▦'],['Account','/portal/account/','◎']];

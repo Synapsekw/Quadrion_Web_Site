@@ -111,8 +111,6 @@ begin
   -- Cancellation is irreversible; stale cleanup results can never name a published file.
   for candidate in select s.id,f.id artifact_id,f.bucket,f.object_path from public.upload_sessions s join public.artifact_files f on f.id=s.artifact_id
     where s.state in ('pending','failed','cancelled') and f.state in ('pending','failed','abandoned') and s.cleaned_at is null and s.expires_at<now()-interval '7 days'
-      and not exists(select 1 from public.software_releases r where r.id=f.release_id and r.status='published')
-      and not exists(select 1 from public.projects p where p.current_version_id=f.project_version_id and p.status='published')
     limit 20 for update of s,f skip locked loop
     update public.upload_sessions set state='cancelled',lease_id=null,lease_until=null where id=candidate.id;
     update public.artifact_files set state='abandoned' where id=candidate.artifact_id;

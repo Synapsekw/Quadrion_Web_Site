@@ -78,7 +78,12 @@ async function assignments(p){
 }
 function uploadPanel(file,options){
   if(file?.state==='verified')return el('div',{},stateLabel('verified'),el('p',{},file.filename+' · '+bytes(file.bytes)));
-  return uploadControl({api,...options,existing:file,onVerified:render});
+  const panel=el('div');
+  const completed=state=>{
+    if(state==='abandoned'){panel.replaceChildren(uploadControl({api,...options,onVerified:completed}));return;}
+    panel.replaceChildren(stateLabel('verified'),notice('Stored size and checksum verified. Finish any other uploads, then refresh details to publish.'),button('Refresh details',render,true));
+  };
+  panel.append(uploadControl({api,...options,existing:file,onVerified:completed}));return panel;
 }
 function projectDetail(p){
   const body=el('div',{},el('div',{class:'actions'},button('Edit project',()=>{d.close();projectEditor(p);},true),button('Assignments',()=>{d.close();assignments(p).catch(e=>content.prepend(notice(e.message,'error')));},true),button('Add version',()=>{d.close();versionEditor(p);},true)),el('p',{class:'muted'},'T'+p.minimum_tier+' · '+(p.audience==='tier'?'Tier library':'Selected users only')));

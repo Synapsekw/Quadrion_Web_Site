@@ -64,5 +64,9 @@ test('expired or invalid uploads can be abandoned and replaced without losing th
     const job=await rpc(db,'portal_verify_claim',[next.id]);
     await rpc(db,'portal_verify_checkpoint',[next.id,job.lease_id,100,null,'v1','a'.repeat(64)]);
     await assert.rejects(rpc(db,'portal_upload_command',[ids.admin,'aal2',next.id,'abandon']),/portal:conflict/);
+    await rpc(db,'portal_publish',[ids.admin,'aal2','release',r.id,1,null]);
+    await db.query("update public.upload_sessions set expires_at=now()-interval '9 days' where id=$1",[s.id]);
+    const cleanup=await rpc(db,'portal_cleanup',[null]);assert.deepEqual(cleanup.map(c=>c.id),[s.id]);
+    assert.equal((await rpc(db,'portal_upload_command',[ids.admin,'aal2',next.id,'status'])).state,'verified');
   }finally{await db.close();}
 });

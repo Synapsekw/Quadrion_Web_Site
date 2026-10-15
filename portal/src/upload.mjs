@@ -18,7 +18,7 @@ export function uploadControl({api,releaseId=null,projectVersionId=null,kind='bi
     if(cancelled||!sessionId)return;
     try{const result=await api.post('uploadStatus',{id:sessionId});progress.value=result.bytes?result.verifiedBytes/result.bytes*100:0;
       status.textContent='Verifying stored file · '+Math.round(progress.value)+'%';
-      if(result.state==='verified'){status.textContent='Verified. Ready for publication.';progress.value=100;feedback.replaceChildren(notice('Size and SHA-256 match the source file.'));sessionStorage.removeItem(key);await onVerified();return;}
+      if(result.state==='verified'){status.textContent='Verified. Ready for publication.';progress.value=100;feedback.replaceChildren(notice('Size and SHA-256 match the source file.'));sessionStorage.removeItem(key);await onVerified('verified');return;}
       if(result.state==='pending'){status.textContent='Upload incomplete. Select the same file to resume, or check a completed upload.';return;}
       if(result.state==='cancelled'){status.textContent='This upload was abandoned. Reopen the project or release to select a replacement.';return;}
       if(result.state==='failed'){status.textContent='Verification needs attention: '+(result.error||'interrupted');feedback.replaceChildren(button('Retry verification',()=>attempt(async()=>{await api.post('retryVerification',{id:sessionId});await poll();}),true));return;}
@@ -48,7 +48,7 @@ export function uploadControl({api,releaseId=null,projectVersionId=null,kind='bi
   const stop=()=>{cancel();window.removeEventListener('quadrion:signout',stop);window.removeEventListener('quadrion:uploads-pause',stop);};
   window.addEventListener('quadrion:signout',stop,{once:true});window.addEventListener('quadrion:uploads-pause',stop,{once:true});
   const resumeCheck=button('Check completed upload',()=>attempt(async()=>{if(!sessionId)throw new Error('Upload a file first.');const s=await api.post('uploadStatus',{id:sessionId});if(s.state==='pending')await api.post('finalize',{id:sessionId});cancelled=false;await poll();}),true);
-  const abandon=button('Abandon and replace',()=>attempt(async()=>{if(!abandonReviewed){feedback.replaceChildren(notice('This discards this unfinished upload. A replacement will use a new private destination.'));abandon.textContent='Confirm abandonment';abandonReviewed=true;return;}await cancel();await api.post('abandonUpload',{id:sessionId});sessionStorage.removeItem(key);await onVerified();}),true);
+  const abandon=button('Abandon and replace',()=>attempt(async()=>{if(!abandonReviewed){feedback.replaceChildren(notice('This discards this unfinished upload. A replacement will use a new private destination.'));abandon.textContent='Confirm abandonment';abandonReviewed=true;return;}await cancel();await api.post('abandonUpload',{id:sessionId});sessionStorage.removeItem(key);await onVerified('abandoned');}),true);
   if(existing&&existing.state!=='pending'){fileInput.hidden=true;start.hidden=true;pause.hidden=true;status.textContent='Stored file: '+existing.state+'. Check its verification or abandon a failed upload.';}
   return el('section',{class:'upload-box'},fileInput,status,progress,el('div',{class:'actions'},start,pause,resumeCheck,existing&&existing.state!=='verifying'?abandon:null),feedback);
 }
