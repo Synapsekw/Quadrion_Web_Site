@@ -35,7 +35,7 @@ The database tests execute the actual migration and generated SQL in PGlite. The
 
 ## Implementation update — 15 October 2026
 
-The portal and dashboard, including MFA enforcement and Owner-created members with chosen passwords, are now implemented and tested locally. The production connection and Owner MFA enrollment remain pending. See `portal-operations.md` for current status and deployment steps; the original foundation record above is historical.
+The portal and dashboard, including MFA enforcement and Owner-created members with chosen passwords, are now implemented and deployed through PR #5. The live login form and anonymous-access denial checks pass. Owner MFA enrollment, authenticated login and live acceptance remain pending. See `portal-operations.md` for current status and deployment steps; the original foundation record above is historical.
 
 ## Approved hosted rollout — 15 October 2026
 

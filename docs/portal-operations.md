@@ -2,7 +2,7 @@
 
 ## Release status — 15 October 2026
 
-The login, member portal, administration UI, MFA gates, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are implemented on `codex/client-portal`. Supabase migrations 001–006 and both private buckets are live. The hosted audit confirms one active Owner, ten tables with RLS enabled and forced, and no anonymous/authenticated table or portal RPC grants. The application is not yet connected or deployed to production; the remaining setup and acceptance checks below are required.
+The login, member portal, administration UI, MFA gates, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are deployed at `https://quadrion.ai/portal/` and `https://quadrion.ai/admin/`. PR #5 merged as `88d641c64647ac8cd73fc2afb05cdeabb0b5f7e4`; Netlify published deploy `6ad0f79eecb07b23ae45b02d` on 15 October 2026. Supabase migrations 001–006 and both private buckets are live. The hosted audit confirms one active Owner, ten tables with RLS enabled and forced, and no anonymous/authenticated table or portal RPC grants. Owner MFA/login and live account/file acceptance remain pending; deployment alone does not complete acceptance.
 
 Local validation: 121 automated tests pass, portal build and public-artifact scan pass, and three real PostgreSQL multi-connection account-grant scenarios pass. Desktop and 360px browser checks cover member pages, the Create user form, project/release workflows and overlapping AIO/cover uploads. Local fixtures send no emails and create no real accounts.
 
@@ -64,7 +64,9 @@ Set these variables only for Netlify **Production / Functions**. Never give prod
 | `PORTAL_PROJECT_MAX_BYTES` | `100000000000` |
 | `PORTAL_ENABLED` | `true` only after configuration is ready |
 
-Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` as a secret scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED` is saved as `false` until activation, and the verifier credential remains a prepared account-holder handoff. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
+Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` and `PORTAL_VERIFY_SECRET` as secrets scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED=true` is saved and the published production configuration endpoint responds successfully. Secret values were not retrieved during setup. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
+
+Deployment checks: the preview configuration endpoint returns 503 without production access. Production `/portal/`, `/admin/` and `/portal/account/` return 200 with private/no-store, noindex/nofollow and CSP headers. Anonymous account, project and admin-user API requests return 401 with no data. The live Chrome administration page renders the sign-in form. These checks do not yet prove authenticated service-key access or the file verifier; those require the Owner session and approved test files.
 
 ## Live acceptance and recovery
 
