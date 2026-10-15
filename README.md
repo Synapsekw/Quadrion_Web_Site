@@ -2,6 +2,8 @@
 
 Marketing site prototypes for Quadrion AI, the offline drone inspection and survey workspace by Synapse Solutions.
 
+The animated **Quori chat** is integrated into `/d3-quarter/`, with its character studio at `/quori/`. Run `npm ci` then `npm run dev` and open `http://127.0.0.1:5186/d3-quarter/`. See [Quori chat setup](docs/quori-chat.md) for the private backend, Grokbot handoff, embedding and production activation. The animation studio retains 11 expressions and 12 gestures.
+
 The selected direction is **The Quarter** (`directions/d3-quarter/`). The other folders under `directions/` are earlier explorations, kept for comparison.
 
 ## Run locally
@@ -18,7 +20,7 @@ There is no build step. Pages load three.js, GSAP and Lenis from pinned CDN vers
 
 ## Deploy
 
-Netlify publishes `directions/` as configured in `netlify.toml`, with no build step:
+Netlify checks the public files, publishes `directions/`, bundles the Quori functions, and provisions/migrates its database as configured in `netlify.toml`:
 - `/` redirects to `/d3-quarter/`
 - the overview of all directions is at `/overview`
 
