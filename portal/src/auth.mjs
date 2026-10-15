@@ -1,5 +1,6 @@
 import {createClient} from '@supabase/supabase-js';
 import {el,field,button,link,notice} from './ui.mjs';
+export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
 export async function createPortalAuth({root,onChange}){
   const response=await fetch('/api/portal?action=config',{cache:'no-store',credentials:'omit'});
   if(!response.ok)throw new Error('Portal access is being prepared. Please contact info@synapse-solutions.ai if you need access.');
@@ -37,6 +38,6 @@ export async function createPortalAuth({root,onChange}){
     const feedback=el('div',{'aria-live':'polite'}),submit=el('button',{type:'submit',class:'primary full'},'Verify and continue');
     frame(verified?'Verify it’s you':'Protect your account',verified?'Enter the six-digit code from your authenticator app.':'Scan this code with your authenticator app, then enter the six-digit code. Administrator access requires MFA.',qr?el('img',{class:'mfa-qr',src:qr.startsWith('data:')?qr:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr),alt:'Authenticator setup QR code'}):null,el('form',{onsubmit:async e=>{e.preventDefault();submit.disabled=true;feedback.replaceChildren();const result=await client.auth.mfa.challengeAndVerify({factorId:factor.id,code:code.input.value});submit.disabled=false;if(result.error){feedback.replaceChildren(notice('That code was not accepted. Try the current code from your authenticator.','error'));return;}code.input.value='';await onChange();}},code.node,submit,feedback),button('Sign out',signOut,true));
   }
-  async function signOut(){root.replaceChildren();await client.auth.signOut({scope:'local'});sessionStorage.removeItem('quadrion-auth');sessionStorage.removeItem('quadrion-password-setup');history.replaceState(null,'','/portal/');showLogin();}
+  async function signOut(){window.dispatchEvent(new Event('quadrion:signout'));root.replaceChildren();await client.auth.signOut({scope:'local'});clearSessionData(sessionStorage);history.replaceState(null,'','/portal/');showLogin();}
   return {client,getToken,showLogin,showPassword,showMfa,signOut,needsPassword:()=>sessionStorage.getItem('quadrion-password-setup')==='true'};
 }

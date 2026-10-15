@@ -56,7 +56,7 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
       keys(body,action==='publish'?['kind','id','revision','versionId']:['kind','id','revision']);uuid(body.id);revision(body.revision);if(!['project','release'].includes(body.kind))fail('invalid');
       if(action==='publish'&&body.kind==='project')uuid(body.versionId);
       result=await backend.rpc(action==='publish'?'portal_publish':'portal_archive',{...base,p_kind:body.kind,p_id:body.id,p_revision:body.revision,...(action==='publish'?{p_version:body.kind==='project'?body.versionId:null}:{})});
-    }else if(['upload','finalize','uploadStatus','retryVerification'].includes(action)&&uploads){result=await uploads(action,body,user,context);}
+    }else if(['upload','resumeUpload','finalize','uploadStatus','retryVerification'].includes(action)&&uploads){result=await uploads(action,body,user,context);}
     else fail('not_found');
     return json(result);
   }catch(error){return errorResponse(error);}};

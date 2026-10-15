@@ -11,7 +11,8 @@ export function createMemberHandler({config,backend,clock=Date.now}){
     if(action==='config')return json({enabled:true,url:config.url,publishableKey:config.publishableKey});
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
     if(!activeMember(member,clock()))fail('forbidden');
-    if(action==='me')return json({member,email:user.email,aal:user.aal,requiresMfa:member.role!=='member'&&user.aal!=='aal2'});
+    if(action==='me')return json({member,email:user.email,aal:user.aal,requiresMfa:(member.role!=='member'||user.mfaEnrolled)&&user.aal!=='aal2'});
+    if(user.mfaEnrolled&&user.aal!=='aal2')fail('mfa_required');
     if(member.role!=='member'&&!canAdminister({member,aal:user.aal,now:clock()}))fail('mfa_required');
     if(action==='releases'||action==='projects'){
       const search=string(url.searchParams.get('search')||'',160),offset=Number(url.searchParams.get('offset')||0);

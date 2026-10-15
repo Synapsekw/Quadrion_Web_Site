@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPortalApi} from '../portal/src/api.mjs';
+import {clearSessionData} from '../portal/src/auth.mjs';
+test('sign-out removes session and upload capabilities without clearing unrelated site preferences',()=>{
+  const storage={'quadrion-auth':'token','quadrion-password-setup':'true','quadrion-upload:tus:1':'upload-url',theme:'dark',removeItem(key){delete this[key];}};
+  clearSessionData(storage);assert.equal(storage['quadrion-auth'],undefined);assert.equal(storage['quadrion-upload:tus:1'],undefined);assert.equal(storage.theme,'dark');
+});
 test('bearer credentials stay in headers and denials clear cached UI state',async()=>{
   let reset=0,status=200,seen;
   const api=createPortalApi({getToken:async()=>'private-token',onDenied:()=>reset++,fetcher:async(url,options)=>{seen=new Request('https://quadrion.ai'+url,options);return new Response(JSON.stringify(status===200?{items:[]}:{error:'forbidden',message:'Access denied'}),{status});}});

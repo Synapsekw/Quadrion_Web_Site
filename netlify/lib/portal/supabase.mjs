@@ -15,7 +15,7 @@ export function createBackend(config){
       const [{data:userData,error:userError},{data:claimData,error:claimError}]=await Promise.all([auth.getUser(token),auth.getClaims(token)]);
       const user=userData?.user,claims=claimData?.claims;
       if(userError||claimError||!user||!claims||claims.sub!==user.id||claims.iss!==config.url+'/auth/v1'||!Number.isFinite(claims.exp)||claims.exp*1000<=Date.now()||claims.aud!=='authenticated'||user.is_anonymous||!user.email_confirmed_at)fail('unauthorized');
-      return {userId:user.id,email:user.email,emailConfirmed:true,aal:claims.aal};
+      return {userId:user.id,email:user.email,emailConfirmed:true,aal:claims.aal,mfaEnrolled:!!user.factors?.some(f=>f.status==='verified')};
     },
     account:userId=>rpc('portal_account',{p_actor:userId}),
     catalog:(userId,aal,kind,search,offset)=>rpc('portal_catalog',{p_actor:userId,p_aal:aal,p_kind:kind,p_search:search,p_offset:offset}),
