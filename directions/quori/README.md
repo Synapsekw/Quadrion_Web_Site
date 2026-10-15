@@ -33,4 +33,4 @@ The host needs an explicit width and height. `motion.mjs` exports supported `STA
 - Mobile portrait checked at 390×844 with no horizontal overflow. At 667×375 the new chat remains inside the viewport (top 24px, bottom 351px, composer bottom 322px); its message area scrolls and close control remains reachable.
 - Independent review findings were resolved and verified: ambiguous callback acknowledgements remain non-retryable, recovery buttons invoke their stated action, and contact navigation uses a working destination. `npm test`: 33/33 passing. `npm run check:public` passes. Device reduced-motion behavior is covered by motion tests, not OS preference switching.
 
-This is a local preview on `codex/quori-character-preview`, with no production deployment.
+Quori is also published on the existing Quadrion Netlify website. See [deployment and live handoff verification](../../docs/quori-activation-check.md) for the production checks, including owner-confirmed Grokbot delivery.
