@@ -24,5 +24,5 @@
 - [x] Scene performance: replace eager six-dataset loading with prioritised loading near each scene/app selection. Test deduplication, priority and failure behavior. Defer silhouettes to their visible section.
 - [x] Initial mobile load: immediate headline, SVG logo while WebGL loads on exploration, deferred Quori 3D enhancement with state-preserving proxy. Test delayed state, destroy and failure behavior.
 - [x] Search/mobile integration: canonical and social metadata, truthful structured data, sitemap/robots, noindex prototypes, visible GCC context, generous mobile tap targets and safe areas.
-- [ ] Verify: full Node suite, public-secret scan, syntax/diff checks, browser mobile/desktop/chat/tour smoke checks, comparable fresh Lighthouse report, service worker control and offline fallback.
-- [ ] Review, PR/deploy preview, publish through existing Netlify workflow, verify production and document measured outcomes/remaining regional content work.
+- [x] Verify: full Node suite, public-secret scan, syntax/diff checks, browser mobile/desktop/chat/tour smoke checks, comparable fresh Lighthouse report, service worker control and offline fallback.
+- [x] Review, PR/deploy preview, publish through existing Netlify workflow, verify production and document measured outcomes/remaining regional content work. PR #4 merged; production Lighthouse 98/100/100/100 and separate PWA installability checks pass. See docs/quadrion-readiness.md for scope and remaining physical-device/regional validation.

@@ -17,9 +17,11 @@ The supplied Lighthouse 9.6.8 report found performance 25, approximately 39 MB t
 
 - 67 Node tests pass, including service-worker isolation/cache lifecycle, deferred-avatar lifecycle, loader priority/deduplication and reduced-motion tile readiness.
 - Public-artifact scan and JavaScript/diff checks pass.
-- Local mobile Lighthouse after optimisation: performance 92, accessibility 100, best practices 100, technical SEO 100; FCP 2.4 s, LCP 2.9 s, TBT 30 ms, CLS 0, initial transfer 590 KiB. Production results should be measured separately after deployment.
+- Production mobile Lighthouse 13.5.0 after deployment: performance 98, accessibility 100, best practices 100, technical SEO 100; FCP 1.8 s, LCP 2.0 s, TBT 60 ms, CLS 0, initial transfer 304 KiB. Measured at 2026-10-15 11:59 UTC using the same default mobile emulation and headless/disable-gpu flags as the fresh baseline; no audit warnings. This measures initial landing-page loading, not the entire interactive tour.
+- Separate production Lighthouse 11.7.1 PWA checks all pass, including installable manifest/service worker, splash screen, theme colour, maskable icon and viewport. Lighthouse 13 no longer includes a PWA category. This does not replace physical iOS/Android installation testing.
 - Browser: 390 px and 360 px layouts, 360×640 short-screen layout, demo dialog, live local Quori connection, direct product view and four preview windows.
 - Real offline test: stopped the local origin server, reloaded the controlled landing page, observed the branded offline fallback, restarted the server and followed Try again successfully. No enquiry was sent during this verification.
+- PR #4 merged and production verified on quadrion.ai: manifest, icons, worker headers, sitemap/robots, canonical, permanent redirects and indexing headers. The production mobile demo dialog fits and Quori reaches its connected AI-assistant state without console errors. No test enquiry was sent.
 
 ## Remaining SEO and device validation
 
