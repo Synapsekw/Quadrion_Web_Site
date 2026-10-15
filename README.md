@@ -16,6 +16,12 @@ Then open:
 
 There is no build step. Pages load three.js, GSAP and Lenis from pinned CDN versions.
 
+## Deploy
+
+Netlify publishes `directions/` as configured in `netlify.toml`, with no build step:
+- `/` redirects to `/d3-quarter/`
+- the overview of all directions is at `/overview`
+
 ## Layout
 
 | Path | Contents |

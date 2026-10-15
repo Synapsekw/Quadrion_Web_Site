@@ -1,0 +1,29 @@
+# The site is plain static files in directions/ (no build step).
+[build]
+  publish = "directions"
+  command = ""
+
+# Home goes to the current page. A redirect (not a rewrite) keeps its relative paths working.
+[[redirects]]
+  from = "/"
+  to = "/d3-quarter/"
+  status = 302
+  force = true
+
+# Overview of all directions.
+[[redirects]]
+  from = "/overview"
+  to = "/index.html"
+  status = 200
+
+# Links shared before the publish folder changed.
+[[redirects]]
+  from = "/directions/*"
+  to = "/:splat"
+  status = 301
+
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    Access-Control-Allow-Origin = "*"

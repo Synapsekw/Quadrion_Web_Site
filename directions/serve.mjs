@@ -14,6 +14,7 @@ const types = {
 
 createServer(async (req, res) => {
   let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (path === '/overview') path = '/index.html'; // same alias as netlify.toml
   if (path.endsWith('/')) path += 'index.html';
   const file = normalize(join(root, path));
   if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
