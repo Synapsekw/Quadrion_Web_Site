@@ -67,13 +67,13 @@ begin
   elsif p_kind='projects' then
     select count(*) into total from public.projects where title ilike '%'||p_search||'%';
     select coalesce(jsonb_agg(to_jsonb(t)),'[]') into result from (select p.*,
-      (select coalesce(jsonb_agg(to_jsonb(v)||jsonb_build_object('files',(select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'kind',f.kind,'filename',f.filename,'bytes',f.bytes,'sha256',f.sha256,'state',f.state)),'[]') from public.artifact_files f where f.project_version_id=v.id)) order by v.created_at desc),'[]') from public.project_versions v where v.project_id=p.id) versions,
+      (select coalesce(jsonb_agg(to_jsonb(v)||jsonb_build_object('files',(select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'kind',f.kind,'filename',f.filename,'bytes',f.bytes,'sha256',f.sha256,'state',f.state,'upload_session_id',(select s.id from public.upload_sessions s where s.artifact_id=f.id))),'[]') from public.artifact_files f where f.project_version_id=v.id)) order by v.created_at desc),'[]') from public.project_versions v where v.project_id=p.id) versions,
       (select coalesce(jsonb_agg(jsonb_build_object('userId',a.user_id,'expiresAt',a.expires_at)),'[]') from public.project_assignments a where a.project_id=p.id) assignments
       from public.projects p where title ilike '%'||p_search||'%' order by p.created_at desc,p.id limit 50 offset p_offset) t;
   elsif p_kind='releases' then
     select count(*) into total from public.software_releases where (kind||' '||version) ilike '%'||p_search||'%';
     select coalesce(jsonb_agg(to_jsonb(t)),'[]') into result from (select r.*,
-      (select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'filename',f.filename,'bytes',f.bytes,'sha256',f.sha256,'state',f.state)),'[]') from public.artifact_files f where f.release_id=r.id) files
+      (select coalesce(jsonb_agg(jsonb_build_object('id',f.id,'filename',f.filename,'bytes',f.bytes,'sha256',f.sha256,'state',f.state,'upload_session_id',(select s.id from public.upload_sessions s where s.artifact_id=f.id))),'[]') from public.artifact_files f where f.release_id=r.id) files
       from public.software_releases r where (kind||' '||version) ilike '%'||p_search||'%' order by r.created_at desc,r.id limit 50 offset p_offset) t;
   elsif p_kind='activity' then
     select count(*) into total from public.portal_events where action ilike '%'||p_search||'%';

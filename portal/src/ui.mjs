@@ -19,6 +19,6 @@ export function field(label,name,{type='text',value='',required=false,maxLength,
 export function notice(text,kind='info'){return el('div',{class:'notice '+kind,role:kind==='error'?'alert':'status'},text);}
 export function heading(eyebrow,title,description){return el('header',{class:'page-heading'},el('p',{class:'eyebrow'},eyebrow),el('h1',{tabindex:'-1'},title),description?el('p',{class:'lede'},description):null);}
 export function empty(title,text,action){return el('section',{class:'empty'},el('span',{class:'empty-symbol','aria-hidden':'true'},'◇'),el('h2',{},title),el('p',{},text),action);}
-export function bytes(value){const n=Number(value);if(!Number.isFinite(n))return '—';if(n>=1024**3)return (n/1024**3).toFixed(1)+' GB';return (n/1024**2).toFixed(1)+' MB';}
+export function bytes(value){const n=Number(value);if(!Number.isFinite(n))return '—';if(n>=1000**3)return (n/1000**3).toFixed(1)+' GB';return (n/1000**2).toFixed(1)+' MB';}
 export function date(value){return value?new Intl.DateTimeFormat('en',{dateStyle:'medium'}).format(new Date(value)):'—';}
 export async function runButton(target,fn){target.disabled=true;try{await fn();}finally{target.disabled=false;}}
