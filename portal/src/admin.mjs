@@ -42,6 +42,24 @@ function invite(){
   const form=el('form',{onsubmit:async e=>{e.preventDefault();send.disabled=true;try{const result=await api.post('invite',{email:email.input.value,role:role.input.value,tier:role.input.value==='member'?Number(tier.input.value):null,expiresAt:expiry.input.value?new Date(expiry.input.value+'T23:59:59').toISOString():null,idempotencyKey:id});feedback.replaceChildren(notice(result.status==='sent'?'Invitation submitted. Email delivery is tracked separately.':result.status==='failed'||result.status==='cancelled'?'Invitation did not complete. Close this form and retry from Recent invitations after the ten-minute recipient cooldown.':'Dispatch is uncertain. Use this same form to check again without sending another email.'));if(result.status==='sent')send.disabled=true;else send.textContent='Check invitation';}catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{if(send.textContent==='Check invitation'||feedback.querySelector('.error'))send.disabled=false;}}},email.node,role.node,tier.node,expiry.node,notice('Only invite recipients you intend to grant access to. Private assignments never override their tier.'),send,feedback);
   form.addEventListener('input',()=>{id=crypto.randomUUID();send.textContent='Send invitation';send.disabled=false;});dialog('Invite a user','Send a secure account setup link from Quadrion.',form);
 }
+function createUser(){
+  const email=field('Email address','create-email',{type:'email',required:true,maxLength:254,autocomplete:'off'}),password=field('Password','create-password',{type:'password',required:true,maxLength:128,autocomplete:'new-password',help:'Use at least 12 characters. Keep a copy to share directly; it cannot be viewed later.'}),tier=select('Access tier','create-tier',[[1,'T1 · Software and pipelines'],[2,'T2 · Basic projects'],[3,'T3 · All project categories']],1),expiry=field('Access expiry (optional)','create-expiry',{type:'date'});
+  password.input.minLength=12;let id=crypto.randomUUID();
+  const reveal=button('Show password',()=>{password.input.type=password.input.type==='password'?'text':'password';reveal.textContent=password.input.type==='password'?'Show password':'Hide password';},true);
+  const feedback=el('div',{'aria-live':'polite'}),save=el('button',{type:'submit',class:'primary'},'Create active user');
+  const form=el('form',{autocomplete:'off',onsubmit:async e=>{
+    e.preventDefault();save.disabled=true;
+    const payload={email:email.input.value,password:password.input.value,tier:Number(tier.input.value),expiresAt:expiry.input.value?new Date(expiry.input.value+'T23:59:59').toISOString():null,idempotencyKey:id};
+    password.input.value='';password.input.type='password';reveal.textContent='Show password';
+    try{
+      const result=await api.post('createUser',payload);d.close();await render();
+      content.prepend(notice(result.status==='created'?'Account ready. Share the email, password you chose and quadrion.ai/portal/ directly. No invitation or confirmation email was sent.':result.status==='failed'?'Account creation was rejected. Check the email and password requirements, then create the user again.':'The result is not confirmed yet. Use Check account in Recent manual accounts; do not send another creation request.'));
+    }catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{payload.password='';save.disabled=false;}
+  }},email.node,password.node,reveal,tier.node,expiry.node,notice('This member can sign in immediately. No invitation or confirmation email will be sent. Private projects still require the matching tier and assignment.'),save,feedback);
+  form.addEventListener('input',()=>{id=crypto.randomUUID();});
+  const d=dialog('Create a user','Owner access · Set the password and share the login directly.',form);
+  d.addEventListener('close',()=>{password.input.value='';});
+}
 function editUser(u){
   const tier=select('Access tier','edit-tier',[[1,'T1 · Software'],[2,'T2 · Basic projects'],[3,'T3 · All categories']],u.tier||1),role=select('Role','edit-role',member.role==='owner'?[['member','Member'],['admin','Administrator'],['owner','Owner']]:[['member','Member']],u.role),status=select('Account status','edit-status',[['active','Active'],['invited','Invited'],['suspended','Suspended'],['revoked','Revoked']],u.status),expiry=field('Access expiry (optional)','edit-expiry',{type:'date',value:u.expires_at?u.expires_at.slice(0,10):''});
   const roleChange=()=>{tier.node.hidden=role.input.value!=='member';expiry.node.hidden=role.input.value==='owner';};role.input.addEventListener('change',roleChange);roleChange();
@@ -49,7 +67,7 @@ function editUser(u){
   dialog('Manage access',u.email,saveForm([role.node,tier.node,status.node,expiry.node],'member',payload,'Save access',data=>u.email+' will have '+data.role+(data.tier?' / T'+data.tier:'')+' access with status '+data.status+'. Existing downloaded files cannot be recalled.'));
 }
 async function users(ticket,administrators=false){
-  const data=await list('users');if(ticket!==sequence)return;toolbar(administrators?'Administrators':'Users & access',administrators?'Owner access includes management of other administrators. At least one active owner must remain.':'Tiers determine the library. Roles determine who can administer it.',button('Invite user',invite));content.append(searchForm('users'));
+  const data=await list('users');if(ticket!==sequence)return;toolbar(administrators?'Administrators':'Users & access',administrators?'Owner access includes management of other administrators. At least one active owner must remain.':'Tiers determine the library. Roles determine who can administer it.',el('div',{class:'actions'},member.role==='owner'&&!administrators?button('Create user',createUser):null,button('Invite user',invite,true)));content.append(searchForm('users'));
   const items=administrators?data.items.filter(u=>u.role!=='member'):data.items;
   content.append(items.length?table(['User','Access','Status','Expiry',''],items.map(u=>el('tr',{},el('td',{},el('strong',{},u.display_name||u.email),el('small',{class:'table-sub'},u.display_name?u.email:u.company)),el('td',{},u.role==='member'?'T'+u.tier:u.role),el('td',{},stateLabel(u.status)),el('td',{},date(u.expires_at)),el('td',{},(member.role==='owner'||u.role==='member')?button('Manage',()=>editUser(u),true):null)))):empty('No users found','Try another search or invite a user.'));pagination(data);
   const invitations=await api.get('invitations');if(ticket!==sequence)return;
@@ -62,6 +80,10 @@ async function users(ticket,administrators=false){
       return el('tr',{},el('td',{},i.email),el('td',{},stateLabel(i.status)),el('td',{},date(i.created_at)),el('td',{},controls));
     });
     content.append(el('section',{class:'section-block'},el('h2',{},'Recent invitations'),table(['Recipient','Status','Requested',''],rows)));
+  }
+  if(member.role==='owner'&&!administrators){
+    const creations=await api.get('creations');if(ticket!==sequence)return;
+    if(creations.items.length)content.append(el('section',{class:'section-block'},el('h2',{},'Recent manual accounts'),table(['User','Tier','Status',''],creations.items.map(c=>el('tr',{},el('td',{},c.email),el('td',{},'T'+c.tier),el('td',{},stateLabel(c.status)),el('td',{},c.status==='creating'?el('div',{class:'actions'},button('Check account',()=>confirmAction('Check account','Reconcile '+c.email+' without sending email or changing a password.','creationRecovery',{id:c.id,action:'reconcile'}),true),button('Cancel unresolved',()=>confirmAction('Cancel account creation','Available after ten minutes only if no Auth account exists.','creationRecovery',{id:c.id,action:'cancel'}),true)):null))))));
   }
 }
 function projectEditor(p){

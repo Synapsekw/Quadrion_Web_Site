@@ -1,5 +1,6 @@
 const memberActions=new Set(['me','releases','projects','project','download','profile','preview']);
 const adminActions=new Set(['overview','users','invitations','projects','releases','activity','member','invite','assignments','project','version','release','publish','archive','upload','resumeUpload','finalize','uploadStatus','retryVerification','abandonUpload','inviteRecovery']);
+for(const action of ['createUser','creationRecovery','creations'])adminActions.add(action);
 export function createPortalApi({fetcher=fetch,getToken,onDenied=()=>{},admin=false}){
   async function call(action,params,method){
     if(!(admin?adminActions:memberActions).has(action))throw new Error('Unknown portal action');

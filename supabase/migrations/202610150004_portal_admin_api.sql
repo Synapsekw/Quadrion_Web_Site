@@ -7,6 +7,7 @@ begin
   if p_data->>'role' not in ('member','admin') or (p_data->>'role'='admin' and actor.role<>'owner') then raise exception 'portal:forbidden'; end if;
   perform pg_advisory_xact_lock(hashtextextended('portal-invite:'||p_actor::text,0));
   perform pg_advisory_xact_lock(hashtextextended('portal-email:'||mail,0));
+  if exists(select 1 from public.portal_user_creations where email=mail and status='creating') then raise exception 'portal:creation_pending'; end if;
   select * into result from public.portal_invitations where idempotency_key=(p_data->>'idempotencyKey')::uuid;
   if result.id is not null then
     if result.invited_by<>p_actor or result.email<>mail or result.role is distinct from p_data->>'role' or result.tier is distinct from (p_data->>'tier')::smallint or result.expires_at is distinct from (p_data->>'expiresAt')::timestamptz then raise exception 'portal:conflict'; end if;
@@ -30,6 +31,8 @@ create function public.portal_invite_resolve(p_actor uuid,p_aal text,p_id uuid,p
 language plpgsql security definer set search_path='' as $$
 declare actor public.portal_members; intent public.portal_invitations; target auth.users; existing public.portal_members;
 begin
+  -- Acquire the mutation lock before portal_require_admin's shared lock.
+  lock table public.portal_members in share row exclusive mode;
   actor:=public.portal_require_admin(p_actor,p_aal);
   select * into intent from public.portal_invitations where id=p_id for update;
   if intent.id is null then raise exception 'portal:not_found'; end if;
@@ -55,6 +58,8 @@ create function public.portal_invite_recover(p_actor uuid,p_aal text,p_id uuid,p
 language plpgsql security definer set search_path='' as $$
 declare actor public.portal_members; intent public.portal_invitations; resolved jsonb;
 begin
+  -- Recovery may call the grant resolver, so it must use the same lock order.
+  lock table public.portal_members in share row exclusive mode;
   actor:=public.portal_require_admin(p_actor,p_aal);
   select * into intent from public.portal_invitations where id=p_id for update;
   if intent.id is null then raise exception 'portal:not_found'; end if;

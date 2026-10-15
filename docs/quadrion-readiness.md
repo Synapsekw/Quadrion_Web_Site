@@ -32,3 +32,7 @@ Real visitor Core Web Vitals, actual iOS/Android installation and field-device G
 The owner's confirmed direction is English-only GCC SEO; an Arabic version is out of scope. For stronger regional discovery, develop useful English industry pages and genuine regional case studies. Add local business/office data only for locations the company actually operates. Do not create six duplicate keyword pages.
 
 Installation is browser-dependent: supported Chromium browsers expose Install Quadrion when available; iOS users can add the site through Safari's Add to Home Screen. The web app offers a launch shortcut and offline fallback, not offline chat or the full desktop application.
+
+## Private portal — local implementation, production pending
+
+Login, member/admin interfaces, MFA, T1–T3, private assignments, manually created tester passwords and a 100 GB per-project limit are implemented on `codex/client-portal`. 121 automated tests and three real PostgreSQL concurrency scenarios pass. Desktop and 360px preview checks passed. The public website readiness measurements above do not establish portal readiness: production schema/storage/configuration, Owner MFA and real user/file acceptance remain pending. See `portal-operations.md`.

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for implementation in this session, or superpowers:subagent-driven-development if the owner chooses delegation. Steps use checkbox syntax for tracking.
 
-**Goal:** Deliver an invite-only portal with cumulative T1–T3 access, optional private project assignments and a separate owner/admin dashboard.
+**Goal:** Deliver an administrator-provisioned portal with cumulative T1–T3 access, optional private project assignments and a separate owner/admin dashboard.
 
 **Architecture:** Netlify serves lightweight portal/admin bundles and authenticated APIs. Supabase Auth verifies identities; database permission records govern every resource operation; private Storage serves versioned files through expiring links. Admin uploads remain drafts until verification and explicit publication.
 
@@ -10,7 +10,7 @@
 
 **Spec:** docs/superpowers/specs/2026-10-15-private-downloads-design.md
 
-**Status:** The owner confirmed the tier-library plus optional private-assignment model, then explicitly requested initial owner setup. The narrow membership/audit migration `202610150001_portal_members.sql` has been tested and applied manually to the Quadrion project. Its trusted bootstrap generator is implemented; account/role status is recorded in `docs/portal-owner-setup.md`. The remaining schema, portal pages/APIs, MFA enforcement, production secrets and buckets are not deployed. This initial setup does not complete Tasks 1 or 4 below.
+**Status — 15 October 2026:** Tasks 1–6 are implemented and locally verified, including the later Owner-created tester flow and 100 GB project limit. Validation: 121 automated tests, three multi-connection PostgreSQL grant scenarios, desktop/360px browser checks, portal build and public-artifact scan. Detailed historical task checkboxes below are retained as the original work recipe, not the current completion ledger. Task 7 remains in progress: only migration 001 and the confirmed Owner are live; Resend SMTP is saved; migrations 002–006, private buckets, Auth redirects, production function configuration, deployment, Owner MFA enrollment and live acceptance remain pending. See `docs/portal-operations.md`.
 
 ## Global constraints
 
@@ -242,6 +242,6 @@ beginUpload input: parent kind/ID, filename, bytes, expected SHA-256 and MIME ty
 
 Automated policy/API/database tests must pass before any live grants. The existing website regression suite remains part of acceptance. UI tests must exercise denial/error paths, not merely happy-path screenshots. Local simulations cannot prove SMTP delivery, real Supabase RLS, production deployment isolation or large-file performance; those receive explicit live checks.
 
-Unresolved external inputs are the SMTP provider, authorized owner/test recipients, release pair and representative project sizes/files. These do not block building the permission model or local interface, but they block claims of a complete production rollout.
+Resend is the selected SMTP provider and the confirmed Owner is already bootstrapped. Remaining external inputs are authorized test recipients, a release pair and representative project files; the selected per-project maximum is 100 GB. These do not block building the permission model or local interface, but they block claims of a complete production rollout.
 
 Recommended execution is native in this chat with a whole-change review: the tasks share one authorization model and schema, so keeping their implementation together reduces integration risk. Delegated implementation remains an option if the owner prefers it.

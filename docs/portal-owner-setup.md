@@ -32,3 +32,7 @@ Administration is separate from T1–T3. Members require tier 1–3; owner/admin
 Run `node --test tests/portal-owner.test.mjs`, `npm test`, `npm run check:public` and `git diff --check`.
 
 The database tests execute the actual migration and generated SQL in PGlite. They verify identity binding, retry behavior, rejection cases, atomic rollback, role/tier constraints, browser denial and RLS even with accidental grants. Hosted Supabase permissions must also be inspected after applying the migration. Local tests do not prove production login or a deployed administration UI.
+
+## Implementation update — 15 October 2026
+
+The portal and dashboard, including MFA enforcement and Owner-created members with chosen passwords, are now implemented and tested locally. The production connection and Owner MFA enrollment remain pending. See `portal-operations.md` for current status and deployment steps; the original foundation record above is historical.

@@ -1,6 +1,6 @@
 # Quadrion tiered portal and administration design
 
-Quadrion will provide an invite-only user portal and an administrator dashboard on its existing Netlify website. Supabase will hold accounts, permissions, release records and private files. Administrators can invite people, assign T1–T3 access, publish software updates and upload .aio project datasets without editing the website.
+Quadrion will provide a private user portal and an administrator dashboard on its existing Netlify website. Supabase will hold accounts, permissions, release records and private files. Administrators can invite people, assign T1–T3 access, publish software updates and upload .aio project datasets without editing the website.
 
 Status: the tier-library/private-assignment model is confirmed. On 15 October 2026 the owner requested initial master-admin setup. The protected `portal_members` and `portal_events` foundation tables have been applied to the Quadrion Supabase project with RLS and no browser access. Account verification and the initial owner grant are tracked in `docs/portal-owner-setup.md`. Portal pages, APIs, MFA enforcement and private file buckets are not deployed; public registration remains disabled.
 
@@ -163,3 +163,12 @@ The foundation supports all tiers from the beginning. These are delivery checkpo
 ## Confirmed upload limit
 
 The owner selected 100 GB per AIO project (100,000,000,000 bytes). Software packages remain capped at 1 GB and cover images at 10 MB. The application limit is implemented; hosted bucket configuration and a representative 100 GB transfer are separate acceptance checks.
+
+
+## Owner-created tester accounts (15 October 2026)
+
+The Owner may create a new member with an email, a manually chosen password, T1/T2/T3 and optional expiry. The account is immediately active and Supabase Auth marks that email confirmed through its trusted administrative create-user API. No invitation or confirmation email is sent. The Owner shares the login directly. Password changes on first sign-in are not forced; members may change their own password in Account.
+
+This action requires the current Owner role and MFA. It cannot create administrators/owners, overwrite an existing account or reset another person's password. Public signup remains disabled. Passwords are sent once over HTTPS to the server and Supabase Auth; they are never saved in portal tables, audit events, browser storage or responses, and the input is cleared after submission. Supabase handles password hashing.
+
+A credential-free creation intent records the email/tier/expiry. The Auth account receives a trusted application-metadata intent ID; reconciliation only binds that identity. An uncertain response is checked without another create call or password reset. Existing invitations and manual creation cannot run concurrently for the same email. Recent manual accounts exposes unresolved attempts for recovery.

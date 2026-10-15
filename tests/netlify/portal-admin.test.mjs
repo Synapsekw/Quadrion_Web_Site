@@ -33,3 +33,28 @@ test('definite invite errors are persisted; unknown delivery is reconciled witho
   }
   const f=fixture();assert.equal((await f.handler(req('inviteRecovery',{id:'10000000-0000-4000-8000-000000000009',action:'failed'}),context)).status,400);
 });
+
+test('only an MFA-verified owner can create an immediately usable member without email',async()=>{
+  const body={email:'manual@example.com',password:'A local test password 123!',tier:2,expiresAt:null,idempotencyKey:'10000000-0000-4000-8000-000000000008'};
+  for(const [role,aal] of [['member','aal2'],['admin','aal2'],['owner','aal1']]){
+    const denied=fixture(role,aal);assert.equal((await denied.handler(req('createUser',body),context)).status,403);assert.equal(denied.calls.length,0);
+  }
+  const f=fixture();let created=0;
+  f.backend.rpc=async(name,args)=>{f.calls.push({name,args});return name==='portal_create_user_begin'?{id:body.idempotencyKey,dispatch:created===0}:{status:'created',email:body.email};};
+  f.backend.service={auth:{admin:{createUser:async input=>{created++;assert.equal(input.email_confirm,true);assert.equal(input.password,body.password);assert.equal(input.app_metadata.quadrion_creation_id,body.idempotencyKey);return {data:{user:{id:'10000000-0000-4000-8000-000000000009'}},error:null};},inviteUserByEmail:async()=>assert.fail('Manual users must not receive invitations')}}};
+  const response=await f.handler(req('createUser',body),context);assert.equal(response.status,200);
+  assert.equal((await response.text()).includes(body.password),false);assert.equal(JSON.stringify(f.calls).includes(body.password),false);
+  assert.equal((await f.handler(req('createUser',body),context)).status,200);assert.equal(created,1);
+  assert.equal((await f.handler(req('createUser',{...body,role:'owner'}),context)).status,400);
+  assert.equal((await f.handler(req('createUser',{...body,password:'short'}),context)).status,400);
+  assert.equal((await f.handler(req('creationRecovery',{id:body.idempotencyKey,action:'failed'}),context)).status,400);
+});
+
+test('manual user provider failures are safe and uncertain responses are never blindly retried',async()=>{
+  for(const status of [422,500]){
+    const f=fixture();f.backend.rpc=async(name,args)=>{f.calls.push({name,args});return name==='portal_create_user_begin'?{id:'10000000-0000-4000-8000-000000000009',dispatch:true}:{status:args.p_action==='failed'?'failed':'creating'};};
+    f.backend.service={auth:{admin:{createUser:async()=>({error:{status,message:'private-provider-details'},data:null})}}};
+    const response=await f.handler(req('createUser',{email:'test@example.com',password:'Local test password 123!',tier:1,expiresAt:null,idempotencyKey:'10000000-0000-4000-8000-000000000008'}),context);
+    assert.equal(response.status,200);assert.equal(f.calls.at(-1).args.p_action,status===422?'failed':'reconcile');assert.equal((await response.text()).includes('private-provider-details'),false);
+  }
+});
