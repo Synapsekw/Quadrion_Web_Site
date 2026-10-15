@@ -1,5 +1,5 @@
 import {arrowIcon,normalizeAnswer,safeLink,technicalSources,resolveQuoriMotion} from './reply.js';
-import { createQuori } from './avatar.js';
+import { deferAvatar } from './deferred-avatar.mjs';
 import {createQuoriClient} from './client.js';
 import {createContactFlow} from './contact.js';
 
@@ -68,9 +68,21 @@ export function mountQuoriWidget(options = {}) {
     fallback.src = new URL('./assets/quori-fallback.svg', import.meta.url).href;
     target.append(fallback);
   }
-  const launcherAvatar = createQuori($('.quori-launcher__avatar'),{...avatarOptions,playful:true,interactive:false});
+  function createAvatar(target) {
+    const proxy = deferAvatar(async () => {
+      const { createQuori } = await import('./avatar.js');
+      return createQuori(target, avatarOptions);
+    }, () => { target.dataset.renderer = 'fallback'; });
+    const setMotion = proxy.setMotion;
+    proxy.setMotion = value => { target.dataset.motion = value ? 'running' : 'paused'; setMotion(value); };
+    return proxy;
+  }
+  const launcherAvatar = createAvatar($('.quori-launcher__avatar'));
+  // Phones get the lightweight animated character immediately. Upgrade on intent,
+  // so opening the page doesn't create a second WebGL renderer before it is needed.
+  if (!matchMedia('(max-width: 760px), (pointer: coarse)').matches) launcherAvatar.load();
   let launcherHovered = false, launcherFocused = false;
-  const holdLauncher = () => launcherAvatar.setState(launcherHovered || launcherFocused?'curious':'idle');
+  const holdLauncher = () => { if (launcherHovered || launcherFocused) launcherAvatar.load(); launcherAvatar.setState(launcherHovered || launcherFocused?'curious':'idle'); };
   on(launcher,'pointerenter',event=>{if(event.pointerType !== 'touch'){launcherHovered=true;holdLauncher();}});
   on(launcher,'pointerleave',()=>{launcherHovered=false;holdLauncher();});
   on(launcher,'focus',()=>{launcherFocused=true;holdLauncher();});
@@ -146,7 +158,8 @@ export function mountQuoriWidget(options = {}) {
     if (destroyed || opened) return;
     lastFocus = shadow.activeElement || document.activeElement; opened = true;
     showDialog(); launcher.hidden = true; launcher.setAttribute('aria-expanded','true'); launcherAvatar.setVisible(false);
-    headerAvatar ||= createQuori($('.quori-panel__avatar'),avatarOptions);
+    headerAvatar ||= createAvatar($('.quori-panel__avatar'));
+    headerAvatar.load().then(() => { if (opened && !destroyed) headerAvatar.play('hello'); });
     syncMotion(); headerAvatar.setVisible(true); headerAvatar.setState(busy?'thinking':'curious'); headerAvatar.play('hello');
     $('.quori-close').focus({preventScroll:true});
     if(transport&&!connected)connect();

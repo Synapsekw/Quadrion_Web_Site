@@ -3,23 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quadrion AI · Four dimensions. One view.</title>
-<meta name="description" content="Quadrion AI fuses drone video, 3D models, point clouds, maps and issues into one georeferenced scene with one timeline. Offline-first desktop software for inspection and survey teams.">
+<title>Quadrion AI | Drone Inspection &amp; 3D Survey Software for the GCC</title>
+<meta name="description" content="Bring drone inspections, 3D models, point clouds and surveys into one offline desktop workspace. Quadrion AI for asset and survey teams across the GCC.">
+<link rel="canonical" href="https://quadrion.ai/d3-quarter/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Quadrion AI">
+<meta property="og:title" content="Quadrion AI · Four dimensions. One view.">
+<meta property="og:description" content="Drone inspection and 3D survey software for asset teams across the GCC. One georeferenced scene, one timeline, on your own machine.">
+<meta property="og:url" content="https://quadrion.ai/d3-quarter/">
+<meta property="og:image" content="https://quadrion.ai/pwa-icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Quadrion AI four-part mark">
+<meta name="twitter:card" content="summary">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/pwa-icons/apple-touch-icon.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://quadrion.ai/#organization","name":"Synapse Solutions","url":"https://www.synapse-solutions.ai/","email":"info@synapse-solutions.ai"},{"@type":"SoftwareApplication","@id":"https://quadrion.ai/#software","name":"Quadrion AI","url":"https://quadrion.ai/d3-quarter/","applicationCategory":"BusinessApplication","description":"Offline-first desktop software combining drone inspections, 3D models, point clouds, maps and survey evidence in one georeferenced workspace.","publisher":{"@id":"https://quadrion.ai/#organization"}},{"@type":"WebSite","@id":"https://quadrion.ai/#website","name":"Quadrion AI","url":"https://quadrion.ai/","inLanguage":"en","publisher":{"@id":"https://quadrion.ai/#organization"}}]}
+</script>
 <meta name="theme-color" content="#0B0F13">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@300;400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/fonts/plex.css">
+<link rel="preload" href="/assets/fonts/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxeKYY.woff2" as="font" type="font/woff2" crossorigin>
 <script>
   (function () {
     var d = document.documentElement;
     d.classList.add('js');
+    if (innerWidth < 761 || matchMedia('(pointer: coarse)').matches) d.classList.add('gl-pending');
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) d.classList.add('reduced');
     else d.classList.add('motion');
   })();
 </script>
 <script type="importmap">{"imports":{"three":"/quori/vendor/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
-<link rel="modulepreload" href="../data/quadrion-data.js">
 <link rel="stylesheet" href="demo.css">
 <style>
 :root {
@@ -116,10 +131,10 @@ html:not(.motion) .btn-primary:hover { background: var(--mint); }
 html.motion #glStage { height: auto; bottom: 0; }
 .mark-fallback { display: none; position: absolute; z-index: 2; pointer-events: none; }
 .mark-fallback svg { display: block; width: 100%; height: 100%; overflow: visible; }
-html:not(.js) .mark-fallback, html.no-webgl .mark-fallback { display: block; }
+html:not(.js) .mark-fallback, html.no-webgl .mark-fallback, html.gl-pending .mark-fallback { display: block; }
 html.no-webgl .gl-host canvas { display: none; }
 #fbStage { left: 50%; top: 40vh; width: min(44vh, 34vw); aspect-ratio: 1; transform: translate(-50%, -50%); filter: drop-shadow(0 40px 60px rgba(0, 0, 0, .55)); }
-html.motion.no-webgl #fbStage { left: 0; top: 0; width: 100px; height: 100px; transform-origin: 50% 50%; }
+html.motion.no-webgl #fbStage, html.motion.gl-pending #fbStage { left: 0; top: 0; width: 100px; height: 100px; transform-origin: 50% 50%; }
 @media (max-width: 760px) { #fbStage { top: 27vh; width: min(28vh, 60vw); } }
 
 .hero { position: relative; z-index: 3; height: 100vh; min-height: 560px; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 var(--gut) clamp(28px, 5.5vh, 60px); }
@@ -146,9 +161,13 @@ html.motion.no-webgl #fbStage { left: 0; top: 0; width: 100px; height: 100px; tr
   .hero .ctas .btn { flex: 1 1 auto; }
   .cue, .hero-hud { display: none; }
 }
-@media (max-width: 760px) and (max-height: 700px) { .hero-sub { display: none; } }
-html.motion .h-anim { opacity: 0; visibility: hidden; }
-html.motion .hero-h .line > span { transform: translateY(112%); }
+@media (max-width: 760px) and (max-height: 700px) {
+  .hero-h { font-size: clamp(30px, 9vw, 40px); }
+  .hero-sub { font-size: 13px; line-height: 1.4; margin-top: 10px; margin-bottom: 12px; }
+  .hero .ctas { gap: 8px; }
+  .hero .ctas .btn { min-height: 44px; padding: 10px 14px; }
+}
+/* Primary content paints immediately; the mark carries the entrance animation. */
 
 html.motion .stage { height: 2160vh; }
 html.motion .stage-pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
@@ -784,6 +803,25 @@ html:not(.motion) .fx-tip { display: none; }
 
 html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
+/* Real touch controls need room independently of the dense product mockups. */
+[data-install-app][hidden] { display: none !important; }
+.install-app { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint); text-align: left; }
+.nav .btn-sm { min-height: 44px; }
+.nav .brand { min-height: 44px; display: flex; align-items: center; }
+@media (max-width: 760px), (pointer: coarse) {
+  .nav { gap: 12px; }
+  .nav .brand { flex: 1; min-width: 0; }
+  .nav .brand svg { width: 100%; max-width: 180px; height: auto; }
+  .nav-cta { flex: none; }
+  .tix ol { overflow-x: auto; scrollbar-width: thin; }
+  .tix li { flex: none; }
+  .tix a { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+  .ds-mobile button { min-height: 44px; padding: 10px 13px; }
+  .fx-legend button { min-height: 44px; }
+  .foot a.u { display: inline-flex; align-items: center; min-height: 44px; }
+  .foot ul { gap: 2px; }
+  .foot { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>
 </head>
 <body>
@@ -1309,15 +1347,15 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
     <div class="foot-brand">
       <img src="../assets/quadrion-horizontal-on-dark.svg" alt="Quadrion AI" width="746" height="156" style="height:46px;width:auto;margin:-10px 0 0 -10px">
       <p>Offline-first desktop software for drone inspection and survey teams. Made by Synapse Solutions.</p>
+      <p>For inspection and survey teams across the GCC: United Arab Emirates, Saudi Arabia, Kuwait, Qatar, Bahrain and Oman.</p>
     </div>
     <div><h4>Product</h4><ul><li><a class="u" href="#four" data-at="four">Four dimensions</a></li><li><a class="u" href="#shot-road" data-at="road">Six asset types</a></li><li><a class="u" href="#oneview">One view</a></li><li><a class="u" href="#features">Features</a></li></ul></div>
-    <div><h4>Get it</h4><ul><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li></ul></div>
+    <div><h4>Get it</h4><ul><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li><li><button class="install-app" type="button" data-install-app hidden>Install Quadrion</button></li></ul></div>
     <div><h4>Company</h4><ul><li><a class="u" href="#cta">Synapse Solutions</a></li><li><a class="u" href="#trust">Trust</a></li><li><a class="u" href="#cta">Contact</a></li></ul></div>
   </div>
   <div class="foot-bottom mono"><span>© 2026 Synapse Solutions</span><span>X · Y · Z · <span class="mint">T</span></span></div>
 </footer>
 
-<a class="badge" href="/overview">Direction <b>D3</b> · The Quarter</a>
 
 <dialog class="demo-dialog" id="demo-dialog" aria-labelledby="demo-title" data-lenis-prevent>
   <button class="demo-close" type="button" data-demo-close aria-label="Close demo request">×</button>
@@ -1344,12 +1382,13 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   </div>
 </dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
-<script src="d3-story.js"></script>
-<script type="module" src="d3-gl.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script defer src="d3-story.js"></script>
+<script type="module" src="scene-entry.js"></script>
 <script type="module" src="../quori/site.js"></script>
 <script type="module" src="demo.js"></script>
+<script type="module" src="/pwa.js"></script>
 </body>
 </html>

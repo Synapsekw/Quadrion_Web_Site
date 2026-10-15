@@ -27,6 +27,9 @@ section.quori-contact{display:block;padding:20px 0 0;border:0;color:var(--quori-
 .quori-panel__avatar,.quori-launcher__avatar{position:relative;overflow:hidden}
 .quori-static-fallback{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
 [data-renderer=webgl]>.quori-static-fallback{visibility:hidden}
+.quori-launcher__avatar[data-motion=running]:not([data-renderer=webgl])>.quori-static-fallback{animation:quori-light-float 3.6s ease-in-out infinite;filter:drop-shadow(0 6px 9px #5ed1b330)}
+@keyframes quori-light-float{50%{transform:translateY(-3px) rotate(2deg)}}
+@media(prefers-reduced-motion:reduce){.quori-static-fallback{animation:none!important}}
 .quori-launcher{border:0;background:transparent;box-shadow:none;padding:0;width:108px;height:95px;display:flex;flex-direction:column;gap:0;justify-content:flex-end}
 .quori-launcher__avatar{width:106px;height:95px;margin:0}
 .quori-panel__header{background:linear-gradient(120deg,#17241f55,transparent 65%);padding:9px 15px 9px 7px;gap:5px}
@@ -45,6 +48,6 @@ section.quori-contact{display:block;padding:20px 0 0;border:0;color:var(--quori-
 .quori-thinking{display:flex;gap:8px;align-items:center}.quori-thinking::before{content:'';width:5px;height:5px;background:var(--quori-gold);border-radius:50%;animation:quori-think 1.3s ease-in-out infinite}
 @keyframes quori-think{50%{opacity:.3;transform:scale(.75)}}
 @media(hover:hover){.quori-widget .quori-launcher:hover{background:transparent}}
-@media(max-width:620px){.quori-panel{height:720px}.quori-panel__header{padding:5px 12px 5px 4px}.quori-panel__avatar{width:72px;height:72px}.quori-welcome h3{font-size:31px}.quori-scroll{padding:22px}.quori-launcher{width:92px;height:87px}.quori-launcher__avatar{width:92px;height:87px}}
+@media(max-width:620px){.quori-panel{height:720px}.quori-panel__header{padding:5px 12px 5px 4px}.quori-panel__avatar{width:72px;height:72px}.quori-welcome h3{font-size:31px}.quori-scroll{padding:22px}.quori-launcher{width:72px;height:68px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px))}.quori-launcher__avatar{width:72px;height:68px}}
 @media(max-height:520px){.quori-panel__header{padding-top:2px;padding-bottom:2px}.quori-panel__avatar{width:52px;height:52px}.quori-panel__footer{padding:7px 15px 9px}.quori-toolbar{margin-bottom:3px;min-height:20px}.quori-disclosure{margin-top:5px!important}.quori-scroll{padding:17px 22px}.quori-welcome h3{font-size:27px}}
 @media(prefers-reduced-motion:reduce){.quori-thinking::before{animation:none}}
