@@ -1,4 +1,4 @@
-# The site is plain static files in directions/ (no build step).
+# Static marketing pages plus Quori's server-side chat and enquiry functions.
 [build]
   publish = "directions"
   command = "npm run check:public"
@@ -6,6 +6,10 @@
 
 [build.environment]
   NODE_VERSION = "24"
+  NPM_FLAGS = "--ignore-scripts"
+  # Public configuration may legitimately appear in source and deployment docs.
+  # Keep scanning enabled for all provider, session and Grokbot credentials.
+  SECRETS_SCAN_OMIT_KEYS = "QUORI_ALLOWED_ORIGINS,QUORI_MODEL,QUORI_PROVIDER_ENDPOINT,QUORI_REASONING_EFFORT,QUORI_TOKEN_PARAMETER,QUORI_OUTPUT_TOKENS"
 
 [functions]
   node_bundler = "esbuild"

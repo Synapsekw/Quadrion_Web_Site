@@ -15,7 +15,7 @@ export function mountQuoriWidget(options = {}) {
   // Only fixed authored markup is used here; messages, config values and replies use textContent.
   shell.innerHTML = `
     <button class="quori-launcher" type="button" aria-expanded="false" aria-controls="${id}-panel" aria-label="Open Quori, your Quadrion guide">
-      <span class="quori-launcher__avatar"></span><span class="quori-launcher__label">Ask Quori<span>Your Quadrion guide</span></span>
+      <span class="quori-launcher__avatar" aria-hidden="true"></span>
     </button>
     <dialog class="quori-panel" id="${id}-panel" aria-labelledby="${id}-title">
       <header class="quori-panel__header">
@@ -60,6 +60,14 @@ export function mountQuoriWidget(options = {}) {
   const cleanup = [];
   const on = (target,event,fn) => { target.addEventListener(event,fn); cleanup.push(()=>target.removeEventListener(event,fn)); };
   const avatarOptions = {compact:true,interactive:false};
+  // A visible character keeps chat discoverable before WebGL loads or if it fails.
+  for (const target of [$('.quori-launcher__avatar'), $('.quori-panel__avatar')]) {
+    const fallback = document.createElement('img');
+    fallback.className = 'quori-static-fallback'; fallback.alt = '';
+    fallback.setAttribute('aria-hidden', 'true');
+    fallback.src = new URL('./assets/quori-fallback.svg', import.meta.url).href;
+    target.append(fallback);
+  }
   const launcherAvatar = createQuori($('.quori-launcher__avatar'),{...avatarOptions,playful:true,interactive:false});
   let launcherHovered = false, launcherFocused = false;
   const holdLauncher = () => launcherAvatar.setState(launcherHovered || launcherFocused?'curious':'idle');

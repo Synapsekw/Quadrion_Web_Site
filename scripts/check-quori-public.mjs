@@ -2,7 +2,9 @@ import {readdir,readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {parseEnv} from 'node:util';
 let privateValues=[];
-try{const env=parseEnv(await readFile('.env.local','utf8'));privateValues=['OPENAI_API_KEY','QUORI_SESSION_SECRET','GROKBOT_WEBHOOK_KEY','GROKBOT_WEBHOOK_URL'].map(k=>env[k]).filter(v=>v?.length>12);}catch(error){if(error.code!=='ENOENT')throw error;}
+for(const configFile of ['.env.local','.env.production.local']){
+  try{const env=parseEnv(await readFile(configFile,'utf8'));privateValues.push(...['OPENAI_API_KEY','QUORI_SESSION_SECRET','GROKBOT_WEBHOOK_KEY','GROKBOT_WEBHOOK_URL'].map(k=>env[k]).filter(v=>v?.length>12));}catch(error){if(error.code!=='ENOENT')throw error;}
+}
 async function visit(path){
   for(const entry of await readdir(path,{withFileTypes:true})){
     const file=resolve(path,entry.name);

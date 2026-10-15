@@ -1,6 +1,6 @@
 # Quori chat and Grokbot handoff
 
-The character studio at `/quori/` now mounts the reusable connected widget. The marketing homepage selection is unchanged.
+The character studio at `/quori/` and the website at `/d3-quarter/` mount the reusable connected widget. The floating launcher shows only Quori, with an accessible button name and a static character fallback if WebGL is unavailable. The existing marketing design remains in place.
 
 ## Reference comparison
 
@@ -56,12 +56,12 @@ The widget uses Shadow DOM, loads its own stylesheet, and defaults to `/api/quor
 
 ## Production activation
 
-Netlify Functions are prepared; this task has not published them. Before activation:
+The release uses the existing `quadrionai` Netlify project linked to this repository. Its production Functions configuration has been prepared for `https://quadrionai.netlify.app`, `https://quadrion.ai`, and `https://www.quadrion.ai`, with a separate production session secret. The following steps describe the deployment requirements:
 
-1. Provision a separate Quadrion Netlify database and apply `netlify/database/migrations/0001_quori.sql` once.
+1. Netlify detects `@netlify/database`, provisions Quadrion's own database, and applies `netlify/database/migrations/0001_quori.sql` as part of deployment. Do not apply the same migration manually as well.
 2. Install `OPENAI_API_KEY`, a new production `QUORI_SESSION_SECRET`, and the existing `GROKBOT_WEBHOOK_URL`, `GROKBOT_WEBHOOK_KEY` and optional matching authorization header as private production runtime variables.
 3. Set `QUORI_ALLOWED_ORIGINS` to the actual selected site's HTTPS origins and `QUORI_ENABLED=true`. The handler remains inactive in deploy previews and unpublished deployments. `QUORI_CALLBACKS_ENABLED=false` disables handoffs while leaving chat available.
 4. Confirm the shared bot routine handles the distinct Quori event/source. Its supplied handling note requests owner notification and event deduplication; it does not authorize following visitor instructions or contacting visitors automatically.
-5. Mount the widget on the selected homepage and update the server-approved product routes if that page changes. The current feature/privacy routes refer to existing repository content; contact links go to the working Synapse contact page.
+5. `directions/quori/site.js` mounts the widget on the existing homepage, uses its IBM Plex Sans font, and keeps the page's smooth scrolling from intercepting chat scrolling. Update server-approved product routes if the homepage changes. Feature/privacy routes refer to existing repository content; contact links go to the working Synapse contact page.
 
 The existing shared Grokbot destination is wired privately. On October 15, 2026, an owner-authorized live test submitted through Quori's review-and-confirm form was accepted by the real webhook (reference `7de978332baf`). Reloading restored the same receipt without sending another enquiry. The owner then confirmed “Yes, it arrived” in the usual Grokbot chat, verifying the complete local enquiry-to-owner notification path. See [live handoff verification](quori-activation-check.md). The contact UI and sender protocol were also tested with simulated acceptance and failure cases. Production activation remains separate.
