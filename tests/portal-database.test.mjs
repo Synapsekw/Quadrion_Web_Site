@@ -88,3 +88,11 @@ test('profile edits only change display fields; private detail cannot disclose a
   await rpc(db,'portal_download_result',[ids.t1,(await db.query('select id from public.artifact_files where release_id is not null')).rows[0].id,true]);
   assert.equal((await db.query("select count(*)::int n from public.portal_events where action='download_link_issued'")).rows[0].n,1);
 });
+
+test('project previews require the same current assignment and tier as the dataset',async()=>{
+  const p=(await db.query("select id,current_version_id from public.projects where title='Private site'")).rows[0];
+  const f=(await db.query("insert into public.artifact_files(project_version_id,kind,bucket,object_path,filename,bytes,sha256,state) values ($1,'preview','quadrion-projects','fixture/cover.png','cover.png',20,$2,'verified') returning id",[p.current_version_id,'c'.repeat(64)])).rows[0];
+  await assert.rejects(rpc(db,'portal_preview',[ids.t3,'aal1',f.id]),/portal:not_found/);
+  assert.equal((await rpc(db,'portal_preview',[ids.owner,'aal2',f.id])).filename,'cover.png');
+  await assert.rejects(rpc(db,'portal_preview',[ids.owner,'aal1',f.id]),/portal:not_found/);
+});

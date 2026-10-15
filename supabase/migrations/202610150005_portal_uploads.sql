@@ -27,8 +27,20 @@ begin
   perform public.portal_require_admin(p_actor,p_aal);
   select * into s from public.upload_sessions where id=p_id for update;
   if s.id is null then raise exception 'portal:not_found'; end if;
-  if (public.portal_active(s.admin_id)).role not in ('owner','admin') or (public.portal_active(s.admin_id)).user_id is null then raise exception 'portal:forbidden'; end if;
   select * into f from public.artifact_files where id=s.artifact_id;
+  if p_action='abandon' then
+    if s.state not in ('pending','failed','cancelled') or f.state='verified' then raise exception 'portal:conflict'; end if;
+    update public.upload_sessions set state='cancelled',updated_at=now(),lease_id=null,lease_until=null where id=p_id returning * into s;
+    update public.artifact_files set state='abandoned' where id=f.id returning * into f;
+    insert into public.portal_events(actor_id,resource_id,action) values(p_actor,f.id,'upload_abandoned');
+    return to_jsonb(s)||jsonb_build_object('file',to_jsonb(f));
+  end if;
+  if p_action='status' then return to_jsonb(s)||jsonb_build_object('file',to_jsonb(f)); end if;
+  if (public.portal_active(s.admin_id)).role not in ('owner','admin') or (public.portal_active(s.admin_id)).user_id is null then raise exception 'portal:forbidden'; end if;
+  if p_action='resume' then
+    if s.state<>'pending' or s.expires_at<=now() then raise exception 'portal:conflict'; end if;
+    return to_jsonb(s)||jsonb_build_object('file',to_jsonb(f));
+  end if;
   if p_action='finalize' and s.state='pending' then
     if s.expires_at<=now() then raise exception 'portal:conflict'; end if;
     update public.upload_sessions set state='verifying',updated_at=now() where id=p_id returning * into s;
@@ -38,7 +50,8 @@ begin
     update public.upload_sessions set state='verifying',attempts=0,error_code=null,lease_id=null,lease_until=null,updated_at=now() where id=p_id returning * into s;
     update public.artifact_files set state='verifying' where id=f.id;
     insert into public.portal_events(actor_id,resource_id,action) values(p_actor,f.id,'verification_retried');
-  elsif p_action not in ('status','finalize','retry') then raise exception 'portal:invalid'; end if;
+  elsif p_action not in ('finalize','retry') then raise exception 'portal:invalid';
+  elsif s.state not in ('verifying','verified') then raise exception 'portal:conflict'; end if;
   return to_jsonb(s)||jsonb_build_object('file',to_jsonb(f));
 end; $$;
 create function public.portal_verify_claim(p_id uuid) returns jsonb
@@ -90,14 +103,21 @@ language sql security definer set search_path='' as $$
 $$;
 create function public.portal_cleanup(p_cleaned uuid default null) returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare result jsonb;
+declare result jsonb:='[]'; candidate record;
 begin
-  if p_cleaned is not null then update public.upload_sessions set cleaned_at=now() where id=p_cleaned and state in ('pending','failed','cancelled') and expires_at<now()-interval '7 days';return '[]';end if;
+  if p_cleaned is not null then update public.upload_sessions set cleaned_at=coalesce(cleaned_at,now()) where id=p_cleaned and state='cancelled';return '[]';end if;
   delete from public.portal_events where created_at<now()-interval '365 days' or (action in ('download_link_reserved','download_link_issued','download_link_failed') and created_at<now()-interval '90 days');
-  select coalesce(jsonb_agg(to_jsonb(t)),'[]') into result from (select s.id,f.bucket,f.object_path from public.upload_sessions s join public.artifact_files f on f.id=s.artifact_id
-    where s.state in ('pending','failed','cancelled') and f.state in ('pending','failed') and s.cleaned_at is null and s.expires_at<now()-interval '7 days'
+  -- Claim under the same session lock as retry/verification before returning paths.
+  -- Cancellation is irreversible; stale cleanup results can never name a published file.
+  for candidate in select s.id,f.id artifact_id,f.bucket,f.object_path from public.upload_sessions s join public.artifact_files f on f.id=s.artifact_id
+    where s.state in ('pending','failed','cancelled') and f.state in ('pending','failed','abandoned') and s.cleaned_at is null and s.expires_at<now()-interval '7 days'
       and not exists(select 1 from public.software_releases r where r.id=f.release_id and r.status='published')
-      and not exists(select 1 from public.projects p where p.current_version_id=f.project_version_id and p.status='published') limit 20) t;
+      and not exists(select 1 from public.projects p where p.current_version_id=f.project_version_id and p.status='published')
+    limit 20 for update of s,f skip locked loop
+    update public.upload_sessions set state='cancelled',lease_id=null,lease_until=null where id=candidate.id;
+    update public.artifact_files set state='abandoned' where id=candidate.artifact_id;
+    result:=result||jsonb_build_array(jsonb_build_object('id',candidate.id,'bucket',candidate.bucket,'object_path',candidate.object_path));
+  end loop;
   return result;
 end; $$;
 do $$ declare f record; begin

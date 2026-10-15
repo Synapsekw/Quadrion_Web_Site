@@ -23,3 +23,13 @@ test('publication requires exact IDs, a revision and no browser-supplied paths',
   assert.equal((await f.handler(req('publish',{kind:'project',id:'10000000-0000-4000-8000-000000000003',revision:1,versionId:null,object_path:'private'}),context)).status,400);
   assert.equal(f.calls.length,0);
 });
+
+test('definite invite errors are persisted; unknown delivery is reconciled without redispatch',async()=>{
+  for(const status of [429,500]){
+    const f=fixture();f.backend.rpc=async(name,args)=>{f.calls.push({name,args});return name==='portal_invite_begin'?{id:'10000000-0000-4000-8000-000000000009',dispatch:true}:{status:name==='portal_invite_recover'?'failed':'dispatching'};};
+    f.backend.service={auth:{admin:{inviteUserByEmail:async()=>({data:null,error:{status}})}}};
+    const response=await f.handler(req('invite',{email:'test@example.com',role:'member',tier:1,expiresAt:null,idempotencyKey:'10000000-0000-4000-8000-000000000008'}),context);
+    assert.equal(response.status,200);assert.equal(f.calls.at(-1).name,status===429?'portal_invite_recover':'portal_invite_resolve');
+  }
+  const f=fixture();assert.equal((await f.handler(req('inviteRecovery',{id:'10000000-0000-4000-8000-000000000009',action:'failed'}),context)).status,400);
+});

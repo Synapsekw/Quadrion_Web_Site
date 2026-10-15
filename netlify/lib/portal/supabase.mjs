@@ -22,7 +22,7 @@ export function createBackend(config){
     project:(userId,aal,id)=>rpc('portal_project',{p_actor:userId,p_aal:aal,p_id:id}),
     updateProfile:(userId,profile)=>rpc('portal_profile',{p_actor:userId,p_name:profile.displayName,p_company:profile.company}),
     reserveDownload:(userId,aal,id)=>rpc('portal_download',{p_actor:userId,p_aal:aal,p_artifact:id}),
-    async signDownload(artifact,ttl){const {data,error}=await service.storage.from(artifact.bucket).createSignedUrl(artifact.object_path,ttl,{download:artifact.filename});if(error||!data?.signedUrl)fail('unavailable');return data.signedUrl;},
+    async signDownload(artifact,ttl,download=true){const {data,error}=await service.storage.from(artifact.bucket).createSignedUrl(artifact.object_path,ttl,download?{download:artifact.filename}:{});if(error||!data?.signedUrl)fail('unavailable');return data.signedUrl;},
     recordDownload:(userId,id,success)=>rpc('portal_download_result',{p_actor:userId,p_artifact:id,p_success:success}),
   };
 }

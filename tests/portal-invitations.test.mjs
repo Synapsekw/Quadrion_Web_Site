@@ -23,3 +23,18 @@ test('current administrator checks gate all admin listings',async()=>{
   await assert.rejects(rpc(db,'portal_admin_list',[ids.owner,'aal1','users','',0]),/portal:mfa_required/);
   const users=await rpc(db,'portal_admin_list',[ids.admin,'aal2','users','',0]);assert.ok(users.items.some(m=>m.email==='new@example.com'));
 });
+
+test('definite failures release the recipient after cooldown; unknown outcomes need reconciliation before cancellation',async()=>{
+  const input={...data,email:'failure@example.com',idempotencyKey:'10000000-0000-4000-8000-000000000095'};
+  const first=await rpc(db,'portal_invite_begin',[ids.admin,'aal2',input]);
+  const failed=await rpc(db,'portal_invite_recover',[ids.admin,'aal2',first.id,'failed']);assert.equal(failed.status,'failed');
+  await db.query("update public.portal_invitations set created_at=now()-interval '11 minutes' where id=$1",[first.id]);
+  const second=await rpc(db,'portal_invite_begin',[ids.admin,'aal2',{...input,idempotencyKey:'10000000-0000-4000-8000-000000000096'}]);assert.equal(second.dispatch,true);
+  await assert.rejects(rpc(db,'portal_invite_recover',[ids.admin,'aal2',second.id,'cancel']),/portal:conflict/);
+  await db.query("update public.portal_invitations set created_at=now()-interval '11 minutes' where id=$1",[second.id]);
+  assert.equal((await rpc(db,'portal_invite_recover',[ids.admin,'aal2',second.id,'cancel'])).status,'cancelled');
+  const third=await rpc(db,'portal_invite_begin',[ids.admin,'aal2',{...input,idempotencyKey:'10000000-0000-4000-8000-000000000097'}]);
+  const uid='10000000-0000-4000-8000-000000000098';await db.query('insert into auth.users(id,email) values($1,$2)',[uid,input.email]);
+  await db.query("update public.portal_invitations set created_at=now()-interval '11 minutes' where id=$1",[third.id]);
+  assert.equal((await rpc(db,'portal_invite_recover',[ids.admin,'aal2',third.id,'cancel'])).status,'sent');
+});

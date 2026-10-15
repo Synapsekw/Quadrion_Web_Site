@@ -29,13 +29,14 @@ export function createUploadActions({config,backend,dispatch=id=>dispatchVerific
     }
     if(action==='resumeUpload'){
       keys(body,['id','filename','bytes','sha256']);uuid(body.id);
-      const session=await backend.rpc('portal_upload_command',{...base,p_id:body.id,p_action:'status'});
+      const session=await backend.rpc('portal_upload_command',{...base,p_id:body.id,p_action:'resume'});
       if(session.state!=='pending'||Date.parse(session.expires_at)<=Date.now()||body.filename!==session.file.filename||body.bytes!==Number(session.file.bytes)||body.sha256!==session.file.sha256)fail('conflict');
       return signedSession(session);
     }
     keys(body,['id']);uuid(body.id);
     const session=await backend.rpc('portal_upload_command',{...base,p_id:body.id,p_action:'status'});
     if(action==='uploadStatus')return statusDto(session);
+    if(action==='abandonUpload')return statusDto(await backend.rpc('portal_upload_command',{...base,p_id:body.id,p_action:'abandon'}));
     if(action==='finalize'){
       if(session.state==='pending'){
         const {data,error}=await backend.service.storage.from(session.file.bucket).info(session.file.object_path);

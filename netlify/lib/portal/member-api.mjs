@@ -6,8 +6,8 @@ export function createMemberHandler({config,backend,clock=Date.now}){
     if(!available(config,request,context))fail('unavailable');
     checkOrigin(request,config);
     const url=new URL(request.url),action=url.searchParams.get('action')||'me';
-    if(!['config','me','releases','projects','project','download','profile'].includes(action))fail('not_found');
-    if(request.method!==(action==='download'||action==='profile'?'POST':'GET'))fail('method');
+    if(!['config','me','releases','projects','project','download','profile','preview'].includes(action))fail('not_found');
+    if(request.method!==(action==='download'||action==='profile'||action==='preview'?'POST':'GET'))fail('method');
     if(action==='config')return json({enabled:true,url:config.url,publishableKey:config.publishableKey});
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
     if(!activeMember(member,clock()))fail('forbidden');
@@ -26,6 +26,10 @@ export function createMemberHandler({config,backend,clock=Date.now}){
       return json({member:memberDto(await backend.updateProfile(user.userId,{displayName:string(body.displayName,120),company:string(body.company,160)}))});
     }
     keys(body,['artifactId']);uuid(body.artifactId);
+    if(action==='preview'){
+      const file=await backend.rpc('portal_preview',{p_actor:user.userId,p_aal:user.aal,p_id:body.artifactId});
+      return json({url:await backend.signDownload(file,300,false),expiresIn:300});
+    }
     const artifact=await backend.reserveDownload(user.userId,user.aal,body.artifactId);
     try{
       const signedUrl=await backend.signDownload(artifact,300);

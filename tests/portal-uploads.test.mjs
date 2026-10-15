@@ -30,3 +30,39 @@ test('revoked administrators cannot finalize, leases exclude other workers, and 
     assert.equal((await db.query('select state from public.artifact_files where id=$1',[session.artifact_id])).rows[0].state,'verified');
   }finally{await db.close();}
 });
+
+test('cleanup claims abandoned files before removal and prevents retry or publication',async()=>{
+  const db=await portalDb();try{
+    const release=await rpc(db,'portal_save_release',[ids.admin,'aal2',{kind:'app',version:'cleanup',platform:'windows'}]);
+    const input={releaseId:release.id,kind:'binary',filename:'app.exe',bytes:100,sha256:'a'.repeat(64),mimeType:'application/octet-stream',maxBytes:1000000000};
+    const s=await rpc(db,'portal_upload_begin',[ids.admin,'aal2',input]);
+    await db.query("update public.upload_sessions set state='failed',expires_at=now()-interval '9 days' where id=$1",[s.id]);
+    await db.query("update public.artifact_files set state='failed' where id=$1",[s.artifact_id]);
+    const candidates=await rpc(db,'portal_cleanup',[null]);assert.equal(candidates.length,1);
+    await assert.rejects(rpc(db,'portal_upload_command',[ids.admin,'aal2',s.id,'retry']),/portal:conflict/);
+    assert.equal(await rpc(db,'portal_verify_claim',[s.id]),null);
+    await assert.rejects(rpc(db,'portal_publish',[ids.admin,'aal2','release',release.id,1,null]),/portal:unverified/);
+    const next=await rpc(db,'portal_upload_begin',[ids.admin,'aal2',input]);assert.notEqual(next.file.object_path,s.file.object_path);
+    await rpc(db,'portal_cleanup',[s.id]);await rpc(db,'portal_cleanup',[s.id]);
+    assert.equal((await rpc(db,'portal_cleanup',[null])).length,0);
+  }finally{await db.close();}
+});
+
+test('expired or invalid uploads can be abandoned and replaced without losing their audit identity',async()=>{
+  const db=await portalDb();try{
+    const r=await rpc(db,'portal_save_release',[ids.admin,'aal2',{kind:'app',version:'replace',platform:'windows'}]);
+    const input={releaseId:r.id,kind:'binary',filename:'app.exe',bytes:100,sha256:'a'.repeat(64),mimeType:'application/octet-stream',maxBytes:1000000000};
+    const s=await rpc(db,'portal_upload_begin',[ids.admin,'aal2',input]);
+    await db.query("update public.upload_sessions set expires_at=now()-interval '1 minute' where id=$1",[s.id]);
+    await assert.rejects(rpc(db,'portal_upload_command',[ids.admin,'aal2',s.id,'finalize']),/portal:conflict/);
+    await rpc(db,'portal_upload_command',[ids.admin,'aal2',s.id,'abandon']);
+    const next=await rpc(db,'portal_upload_begin',[ids.admin,'aal2',input]);
+    assert.notEqual(next.file.id,s.file.id);assert.notEqual(next.file.object_path,s.file.object_path);
+    assert.equal((await db.query('select count(*)::int n from public.artifact_files where release_id=$1',[r.id])).rows[0].n,2);
+    assert.equal((await rpc(db,'portal_admin_list',[ids.admin,'aal2','releases','',0])).items[0].files.length,1);
+    await rpc(db,'portal_upload_command',[ids.admin,'aal2',next.id,'finalize']);
+    const job=await rpc(db,'portal_verify_claim',[next.id]);
+    await rpc(db,'portal_verify_checkpoint',[next.id,job.lease_id,100,null,'v1','a'.repeat(64)]);
+    await assert.rejects(rpc(db,'portal_upload_command',[ids.admin,'aal2',next.id,'abandon']),/portal:conflict/);
+  }finally{await db.close();}
+});

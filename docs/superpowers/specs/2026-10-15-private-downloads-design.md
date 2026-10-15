@@ -123,7 +123,7 @@ Keep secret keys in production-only server configuration. Only the project URL/p
 
 Inspected local artifacts: installer 0.14.0 (205,886,813 bytes), processing pack 0.7.0 (449,151,926 bytes), team kit 0.14.0 (656,440,025 bytes). The installer is unsigned; current source describes processing pack 0.8.0. The owner selects a compatible tested pair before publication. Label previews accurately and exclude internal handover reports/source files.
 
-Custom SMTP is not configured. The owner has been asked which provider to use. Configure a verified sender, invitation/reset templates and exact redirect URLs. Credentials go through service settings, never chat. Public/anonymous signup stays disabled; email confirmation stays enabled. Real invitations need explicitly authorized recipients.
+Resend custom SMTP was saved by the owner and verified in Supabase on 15 October 2026. The synapse-solutions.ai sending domain is verified. Invitation/reset delivery and exact redirect URLs still require live acceptance. Credentials go through service settings, never chat. Public/anonymous signup stays disabled; email confirmation stays enabled. Real invitations need explicitly authorized recipients.
 
 ## Delivery sequence
 
@@ -159,3 +159,7 @@ The foundation supports all tiers from the beginning. These are delivery checkpo
 - [Supabase upload limits](https://supabase.com/docs/guides/storage/uploads/file-limits)
 - [Netlify background functions](https://docs.netlify.com/build/functions/background-functions/)
 - Desktop repository: apps/desktop/src/main/packages.ts, docs/release/README.md and docs/release/SECURITY-AND-DATA.md.
+
+## Confirmed upload limit
+
+The owner selected 100 GB per AIO project (100,000,000,000 bytes). Software packages remain capped at 1 GB and cover images at 10 MB. The application limit is implemented; hosted bucket configuration and a representative 100 GB transfer are separate acceptance checks.

@@ -77,15 +77,15 @@ create table public.artifact_files (
   bytes bigint not null check (bytes>0),
   mime_type text not null default 'application/octet-stream',
   sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
-  state text not null default 'pending' check (state in ('pending','verifying','verified','failed')),
+  state text not null default 'pending' check (state in ('pending','verifying','verified','failed','abandoned')),
   created_at timestamptz not null default now(),
   verified_at timestamptz,
   check ((release_id is not null)::integer + (project_version_id is not null)::integer = 1),
   check ((release_id is not null and bucket='quadrion-software' and kind='binary') or (project_version_id is not null and bucket='quadrion-projects')),
   unique(bucket,object_path)
 );
-create unique index artifact_release_kind on public.artifact_files(release_id,kind) where release_id is not null;
-create unique index artifact_project_kind on public.artifact_files(project_version_id,kind) where project_version_id is not null;
+create unique index artifact_release_kind on public.artifact_files(release_id,kind) where release_id is not null and state<>'abandoned';
+create unique index artifact_project_kind on public.artifact_files(project_version_id,kind) where project_version_id is not null and state<>'abandoned';
 create table public.upload_sessions (
   id uuid primary key default gen_random_uuid(),
   admin_id uuid not null references public.portal_members(user_id),
@@ -253,7 +253,8 @@ begin
     select count(*) into total from public.projects p where public.portal_project_visible(p_actor,p.id,p_aal) and p.title ilike '%'||p_search||'%';
     select coalesce(jsonb_agg(to_jsonb(t)),'[]') into result from (
       select p.id,p.title,p.description,p.category,p.minimum_tier,p.audience,p.current_version_id,v.version,v.minimum_app_version,v.notes,
-        f.id artifact_id,f.filename,f.bytes,f.sha256,p.published_at
+        f.id artifact_id,f.filename,f.bytes,f.sha256,p.published_at,
+        (select cover.id from public.artifact_files cover where cover.project_version_id=v.id and cover.kind='preview' and cover.state='verified') preview_id
       from public.projects p join public.project_versions v on v.id=p.current_version_id
       join public.artifact_files f on f.project_version_id=v.id and f.kind='binary' and f.state='verified'
       where public.portal_project_visible(p_actor,p.id,p_aal) and p.title ilike '%'||p_search||'%'

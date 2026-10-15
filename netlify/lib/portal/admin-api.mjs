@@ -30,12 +30,15 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
       keys(body,['email','role','tier','expiresAt','idempotencyKey','resend']);roleTier(body,member);if(body.role==='owner')fail('invalid');
       const email=string(body.email,254,{empty:false}).toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('invalid');uuid(body.idempotencyKey);expiry(body.expiresAt);
       const intent=await backend.rpc('portal_invite_begin',{...base,p_data:{...body,email}});
-      let userId=null;
+      let userId=null,definiteFailure=false;
       if(intent.dispatch){
-        try{const {data,error}=await backend.service.auth.admin.inviteUserByEmail(email,{redirectTo:config.origin+'/portal/account/'});if(!error)userId=data?.user?.id||null;}
+        try{const {data,error}=await backend.service.auth.admin.inviteUserByEmail(email,{redirectTo:config.origin+'/portal/account/'});if(!error)userId=data?.user?.id||null;else definiteFailure=error.status>=400&&error.status<500&&error.status!==408;}
         catch{/* The persisted dispatch stays uncertain; reconciliation never re-sends. */}
       }
-      result=await backend.rpc('portal_invite_resolve',{...base,p_id:intent.id,p_user_id:userId});
+      result=definiteFailure?await backend.rpc('portal_invite_recover',{...base,p_id:intent.id,p_action:'failed'}):await backend.rpc('portal_invite_resolve',{...base,p_id:intent.id,p_user_id:userId});
+    }else if(action==='inviteRecovery'){
+      keys(body,['id','action']);uuid(body.id);if(!['cancel','reconcile'].includes(body.action))fail('invalid');
+      result=await backend.rpc('portal_invite_recover',{...base,p_id:body.id,p_action:body.action});
     }else if(action==='assignments'){
       keys(body,['projectId','revision','assignments']);uuid(body.projectId);revision(body.revision);
       if(!Array.isArray(body.assignments)||body.assignments.length>1000)fail('invalid');
@@ -56,7 +59,7 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
       keys(body,action==='publish'?['kind','id','revision','versionId']:['kind','id','revision']);uuid(body.id);revision(body.revision);if(!['project','release'].includes(body.kind))fail('invalid');
       if(action==='publish'&&body.kind==='project')uuid(body.versionId);
       result=await backend.rpc(action==='publish'?'portal_publish':'portal_archive',{...base,p_kind:body.kind,p_id:body.id,p_revision:body.revision,...(action==='publish'?{p_version:body.kind==='project'?body.versionId:null}:{})});
-    }else if(['upload','resumeUpload','finalize','uploadStatus','retryVerification'].includes(action)&&uploads){result=await uploads(action,body,user,context);}
+    }else if(['upload','resumeUpload','finalize','uploadStatus','retryVerification','abandonUpload'].includes(action)&&uploads){result=await uploads(action,body,user,context);}
     else fail('not_found');
     return json(result);
   }catch(error){return errorResponse(error);}};

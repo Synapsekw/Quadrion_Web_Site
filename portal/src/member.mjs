@@ -21,7 +21,27 @@ async function overview(ticket){
     el('section',{class:'section-block'},el('div',{class:'section-title'},el('h2',{},'Ready for your next project'),link('View downloads →','/portal/downloads/')),releases.items.length?releases.items.slice(0,2).map(fileRow):empty('Your software library is getting ready','Published installers and processing pipelines will appear here.')),
     el('section',{class:'section-block'},el('div',{class:'section-title'},el('h2',{},'Project library'),link('Browse projects →','/portal/projects/')),projects.items.length?projectGrid(projects.items.slice(0,3)):empty('No projects available yet',member.tier===1?'Project datasets are available with T2 and T3 access.':'Projects shared with your account will appear here.')));
 }
-function projectGrid(items){return el('div',{class:'project-grid'},items.map(p=>el('a',{href:'/portal/projects/'+p.id+'/',class:'project-card'},el('div',{class:'project-art','aria-hidden':'true'},el('span',{},p.category==='oil_gas'?'O&G':p.category==='restricted'?'R':'AIO')),el('div',{class:'project-meta'},el('span',{class:'badge'},p.category.replace('_',' & ')),el('h2',{},p.title),el('p',{},p.description||'Quadrion project dataset'),el('div',{class:'project-bottom'},el('span',{},'v'+p.version+' · '+bytes(p.bytes)),el('span',{'aria-hidden':'true'},'↗'))))));}
+function projectCover(id,label,category){
+  const box=el('div',{class:'project-art','aria-label':label+' cover'},el('span',{},category==='oil_gas'?'O&G':category==='restricted'?'R':'AIO'));
+  if(!id)return box;
+  const ticket=sequence;
+  async function load(){try{
+    const result=await api.post('preview',{artifactId:id});if(ticket!==sequence||!box.isConnected)return;
+    const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='oxjrkodcmflxejdwsuac.supabase.co')return;
+    const img=el('img',{src:url.href,alt:label+' project cover',referrerpolicy:'no-referrer'});
+    img.addEventListener('error',()=>box.replaceChildren(el('span',{},'AIO')),{once:true});box.replaceChildren(img);
+    setTimeout(()=>{if(ticket===sequence&&box.isConnected){box.replaceChildren(el('span',{},'Loading cover…'));load();}},Math.min(result.expiresIn,300)*1000-10000);
+  }catch{if(box.isConnected)box.replaceChildren(el('span',{},'AIO'));}}
+  setTimeout(load,0);return box;
+}
+function projectGrid(items){return el('div',{class:'project-grid'},items.map(p=>el('a',{href:'/portal/projects/'+p.id+'/',class:'project-card'},projectCover(p.preview_id,p.title,p.category),el('div',{class:'project-meta'},el('span',{class:'badge'},p.category.replace('_',' & ')),el('h2',{},p.title),el('p',{},p.description||'Quadrion project dataset'),el('div',{class:'project-bottom'},el('span',{},'v'+p.version+' · '+bytes(p.bytes)),el('span',{'aria-hidden':'true'},'↗'))))));}
+async function downloads(ticket){
+  const params=new URLSearchParams(location.search),search=params.get('search')||'',offset=Number(params.get('offset')||0);
+  const data=await api.get('releases',{search,offset});if(ticket!==sequence)return;
+  const query=field('Search releases','release-search',{value:search,maxLength:160});
+  content.append(heading('SOFTWARE','Downloads','Install Quadrion Player and keep your processing tools up to date.'),el('form',{class:'search-form',onsubmit:e=>{e.preventDefault();navigate('/portal/downloads/?search='+encodeURIComponent(query.input.value));}},query.node,el('button',{type:'submit',class:'secondary'},'Search')),data.items.length?el('section',{class:'file-list'},data.items.map(fileRow)):empty('No matching releases','Try another search or check back when your administrator publishes software.'),el('p',{class:'muted'},'Choose a release compatible with your operating system and Player version. The website cannot detect your installed version.'));
+  if(offset>0||offset+24<data.total)content.append(el('div',{class:'pagination'},offset>0?link('← Previous','/portal/downloads/?search='+encodeURIComponent(search)+'&offset='+Math.max(0,offset-24)):null,offset+24<data.total?link('Next →','/portal/downloads/?search='+encodeURIComponent(search)+'&offset='+(offset+24)):null));
+}
 async function projects(ticket){
   const search=new URLSearchParams(location.search).get('search')||'',offset=Number(new URLSearchParams(location.search).get('offset')||0);
   const data=await api.get('projects',{search,offset});if(ticket!==sequence)return;
@@ -31,6 +51,8 @@ async function projects(ticket){
 }
 async function project(ticket,id){
   const p=await api.get('project',{id});if(ticket!==sequence)return;
+  const cover=p.files.find(f=>f.kind==='preview');
+  if(cover)content.append(projectCover(cover.id,p.title,p.category));
   content.append(link('← Project library','/portal/projects/','back-link'),heading(p.category.replace('_',' & '),p.title,p.description),el('div',{class:'detail-facts'},el('span',{},'Version '+p.version),el('span',{},'Published '+date(p.published_at)),el('span',{},p.minimum_app_version?'Player '+p.minimum_app_version+' or later':'Quadrion Player')),
     el('section',{class:'section-block'},el('h2',{},'Project files'),p.files.filter(f=>f.kind==='binary').map(f=>fileRow({...f,version:p.version,minimum_app_version:p.minimum_app_version,notes:p.notes}))),el('p',{class:'muted'},'Download the .aio file, then open it in Quadrion Player. Processing runs on your computer.'));
 }
@@ -48,7 +70,7 @@ async function render(){
     shell();content.append(notice('Loading your workspace…'));
     const path=location.pathname;content.replaceChildren();
     if(path==='/portal/'||path==='/portal/index.html')await overview(ticket);
-    else if(path==='/portal/downloads/'){const data=await api.get('releases');if(ticket!==sequence)return;content.append(heading('SOFTWARE','Downloads','Install Quadrion Player and keep your processing tools up to date.'),data.items.length?el('section',{class:'file-list'},data.items.map(fileRow)):empty('No releases published yet','Your administrator is preparing the software library.'),el('p',{class:'muted'},'Choose a release compatible with your operating system and Player version. The website cannot detect your installed version.'));}
+    else if(path==='/portal/downloads/')await downloads(ticket);
     else if(path==='/portal/projects/')await projects(ticket);
     else if(/^\/portal\/projects\/[0-9a-f-]{36}\/$/i.test(path))await project(ticket,path.split('/')[3]);
     else if(path==='/portal/account/')await account();
