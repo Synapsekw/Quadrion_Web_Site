@@ -2,7 +2,7 @@
 
 ## Release status — 15 October 2026
 
-The login, member portal, administration UI, MFA gates, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are implemented locally on `codex/client-portal`. They are not yet connected to production. The live Supabase project currently has the membership/audit foundation and the confirmed Owner only. The production setup and acceptance checks below remain required.
+The login, member portal, administration UI, MFA gates, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are implemented on `codex/client-portal`. Supabase migrations 001–006 and both private buckets are live. The hosted audit confirms one active Owner, ten tables with RLS enabled and forced, and no anonymous/authenticated table or portal RPC grants. The application is not yet connected or deployed to production; the remaining setup and acceptance checks below are required.
 
 Local validation: 121 automated tests pass, portal build and public-artifact scan pass, and three real PostgreSQL multi-connection account-grant scenarios pass. Desktop and 360px browser checks cover member pages, the Create user form, project/release workflows and overlapping AIO/cover uploads. Local fixtures send no emails and create no real accounts.
 
@@ -46,11 +46,11 @@ The 100 GB limit is implemented, but a real 100 GB upload/resume/verification/do
 
 ## Production connection
 
-Use only Supabase project `oxjrkodcmflxejdwsuac` and Netlify site `quadrionai`. Migration `202610150001_portal_members.sql` was applied manually already: do not replay it or bootstrap the Owner again. Review and apply migrations 002–006 in order, then record their manual application before adopting CLI migration history. Keep RLS enabled/forced and browser roles without direct table/RPC access.
+Use only Supabase project `oxjrkodcmflxejdwsuac` and Netlify site `quadrionai`. Migrations 001–006 were applied manually on 15 October 2026. After the user's explicit rollout approval, 002–006 were applied together in one transaction, preserving the existing Owner. Do not replay these migrations or bootstrap the Owner again; reconcile their manual application before adopting CLI migration history. Keep RLS enabled/forced and browser roles without direct table/RPC access.
 
-Create private buckets `quadrion-software` (1,000,000,000-byte file limit) and `quadrion-projects` (100,000,000,000-byte file limit). Supabase's global file limit must be at least 100,000,000,000 bytes. Do not add public/client Storage policies; authorized upload tokens and short-lived download links are issued by the server.
+The live private buckets are `quadrion-software` (1,000,000,000-byte file limit) and `quadrion-projects` (100,000,000,000-byte file limit). The account holder disabled the organization's spend cap, accepting usage charges beyond included quotas. This was verified in Billing before setting the global file limit to **100,000,000,000 bytes**. Supabase displays that saved limit as 93.13225746154785 GB using binary conversion. Do not add public/client Storage policies; authorized upload tokens and short-lived download links are issued by the server.
 
-Set Auth Site URL to `https://quadrion.ai/portal/` and the exact allowed redirect to `https://quadrion.ai/portal/account/`. Keep public signup and anonymous login disabled. Leave email confirmation enabled generally: the Owner create-user API confirms only the account the Owner deliberately creates. Verify TOTP MFA is enabled. Resend custom SMTP is saved; production invitation/reset delivery still needs a live test.
+The approved Auth Site URL `https://quadrion.ai/portal/` and sole allowed redirect `https://quadrion.ai/portal/account/` are saved and verified after reload. Keep public signup and anonymous login disabled. Leave email confirmation enabled generally: the Owner create-user API confirms only the account the Owner deliberately creates. The TOTP authenticator provider is enabled; Owner enrollment remains pending. Resend custom SMTP is saved; production invitation/reset delivery still needs a live test.
 
 Set these variables only for Netlify **Production / Functions**. Never give production secrets to deploy previews or the public build:
 
@@ -64,7 +64,7 @@ Set these variables only for Netlify **Production / Functions**. Never give prod
 | `PORTAL_PROJECT_MAX_BYTES` | `100000000000` |
 | `PORTAL_ENABLED` | `true` only after configuration is ready |
 
-Keep `PORTAL_LOCAL_DEV` unset/false in production. Confirm the actual Netlify plan supports Background Functions before enabling uploads. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
+Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` as a secret scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED` is saved as `false` until activation, and the verifier credential remains a prepared account-holder handoff. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
 
 ## Live acceptance and recovery
 

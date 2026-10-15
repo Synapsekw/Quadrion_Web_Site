@@ -36,3 +36,7 @@ The database tests execute the actual migration and generated SQL in PGlite. The
 ## Implementation update — 15 October 2026
 
 The portal and dashboard, including MFA enforcement and Owner-created members with chosen passwords, are now implemented and tested locally. The production connection and Owner MFA enrollment remain pending. See `portal-operations.md` for current status and deployment steps; the original foundation record above is historical.
+
+## Approved hosted rollout — 15 October 2026
+
+After explicit user approval, migrations 002–006 and the two private buckets were applied in one transaction through the Supabase SQL editor. The existing Owner UUID and confirmed email were checked before execution. A separate live read-only audit confirmed exactly one active Owner, ten public tables with RLS enabled and forced, zero browser table grants, zero browser portal RPC grants, and private software/project buckets with limits of 1,000,000,000 and 100,000,000,000 bytes respectively. Migrations 001–006 are manually applied; do not replay them. The approved production Auth Site URL and sole callback are saved, and the TOTP provider is enabled. The account holder disabled the organization's spend cap; the global Storage limit is now 100,000,000,000 bytes. Application deployment and actual Owner MFA/login acceptance remain pending.
