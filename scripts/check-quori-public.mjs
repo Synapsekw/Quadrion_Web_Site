@@ -2,8 +2,10 @@ import {readdir,readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {parseEnv} from 'node:util';
 let privateValues=[];
+const secretNames=['OPENAI_API_KEY','QUORI_SESSION_SECRET','GROKBOT_WEBHOOK_KEY','GROKBOT_WEBHOOK_URL','SUPABASE_SECRET_KEY','SUPABASE_SERVICE_ROLE_KEY','PORTAL_VERIFY_SECRET'];
+privateValues.push(...secretNames.map(k=>process.env[k]).filter(v=>v?.length>12));
 for(const configFile of ['.env.local','.env.production.local']){
-  try{const env=parseEnv(await readFile(configFile,'utf8'));privateValues.push(...['OPENAI_API_KEY','QUORI_SESSION_SECRET','GROKBOT_WEBHOOK_KEY','GROKBOT_WEBHOOK_URL'].map(k=>env[k]).filter(v=>v?.length>12));}catch(error){if(error.code!=='ENOENT')throw error;}
+  try{const env=parseEnv(await readFile(configFile,'utf8'));privateValues.push(...secretNames.map(k=>env[k]).filter(v=>v?.length>12));}catch(error){if(error.code!=='ENOENT')throw error;}
 }
 async function visit(path){
   for(const entry of await readdir(path,{withFileTypes:true})){
@@ -13,7 +15,7 @@ async function visit(path){
     if(/\.env|\.local\.|\.php$|\.sql$/.test(entry.name))throw new Error('Private file in public artifacts: '+entry.name);
     if(!['.js','.mjs','.html','.css','.json','.txt','.md'].includes(extname(file)))continue;
     const text=await readFile(file,'utf8');
-    if(privateValues.some(value=>text.includes(value))||/sk-(?:proj-)?[a-zA-Z0-9_-]{32,}/.test(text))throw new Error('Credential detected in public artifacts.');
+    if(privateValues.some(value=>text.includes(value))||/(?:sk-(?:proj-)?|sb_secret_)[a-zA-Z0-9_-]{20,}/.test(text))throw new Error('Credential detected in public artifacts.');
   }
 }
 await visit(resolve('directions'));

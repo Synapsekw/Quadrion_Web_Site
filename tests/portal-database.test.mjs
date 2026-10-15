@@ -80,3 +80,11 @@ test('invited membership activates only after confirmation and before expiry; Au
   await db.query("update public.portal_members set status='invited',expires_at=now() where user_id=$1",[ids.t2]);
   await assert.rejects(rpc(db,'portal_account',[ids.t2]),/portal:forbidden/);
 });
+test('profile edits only change display fields; private detail cannot disclose a removed assignment',async()=>{
+  const profile=await rpc(db,'portal_profile',[ids.t3,'Client name','Company']);assert.equal(profile.display_name,'Client name');assert.equal(profile.tier,3);
+  const project=(await db.query("select id from public.projects where title='Private site'")).rows[0];
+  await assert.rejects(rpc(db,'portal_project',[ids.t3,'aal1',project.id]),/portal:not_found/);
+  const detail=await rpc(db,'portal_project',[ids.owner,'aal2',project.id]);assert.equal(detail.title,'Private site');assert.equal(JSON.stringify(detail).includes('object_path'),false);
+  await rpc(db,'portal_download_result',[ids.t1,(await db.query('select id from public.artifact_files where release_id is not null')).rows[0].id,true]);
+  assert.equal((await db.query("select count(*)::int n from public.portal_events where action='download_link_issued'")).rows[0].n,1);
+});
