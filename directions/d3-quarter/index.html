@@ -20,6 +20,7 @@
 </script>
 <script type="importmap">{"imports":{"three":"/quori/vendor/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <link rel="modulepreload" href="../data/quadrion-data.js">
+<link rel="stylesheet" href="demo.css">
 <style>
 :root {
   --bg0: #0B0F13; --bg1: #11161C; --bg2: #1E2630; --line: #2A3340;
@@ -134,11 +135,6 @@ html.motion.no-webgl #fbStage { left: 0; top: 0; width: 100px; height: 100px; tr
 .hero-hud span { display: flex; gap: 12px; }
 .hero-hud b { color: var(--t0); font-weight: 500; width: 10px; }
 .hero-hud b.mint { color: var(--mint); }
-.hero-data { position: absolute; right: var(--gut); top: 96px; text-align: right; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--t2); display: grid; gap: 6px; }
-.hero-data span[data-state]::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; background: var(--line); transition: background-color .6s; }
-.hero-data span[data-state="loading"]::before { background: var(--t2); animation: blink 1s steps(2) infinite; }
-.hero-data span[data-state="ready"]::before { background: var(--mint); }
-.hero-data span[data-state="ready"] { color: var(--t1); }
 @keyframes blink { 50% { opacity: .2; } }
 @media (min-width: 761px) { .hero-h .line > span { white-space: nowrap; } }
 @media (max-width: 1099px) { .hero-inner { grid-template-columns: 1fr; gap: 22px; } .hero-sub { margin-bottom: 20px; } }
@@ -148,7 +144,7 @@ html.motion.no-webgl #fbStage { left: 0; top: 0; width: 100px; height: 100px; tr
   .hero-h { font-size: clamp(38px, 11.4vw, 56px); margin-top: 12px; }
   .hero-sub { font-size: 15.5px; }
   .hero .ctas .btn { flex: 1 1 auto; }
-  .cue, .hero-hud, .hero-data { display: none; }
+  .cue, .hero-hud { display: none; }
 }
 @media (max-width: 760px) and (max-height: 700px) { .hero-sub { display: none; } }
 html.motion .h-anim { opacity: 0; visibility: hidden; }
@@ -808,7 +804,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   </nav>
   <div class="nav-cta">
     <a class="nav-link-sm" href="#cta">Free Player</a>
-    <a class="btn-sm" href="#cta">Request a demo</a>
+    <a class="btn-sm" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a>
   </div>
 </header>
 
@@ -844,14 +840,6 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
     <!-- Hero -->
     <div class="hero" id="top">
       <div class="hero-hud mono" aria-hidden="true"><span><b>X</b>Distance</span><span><b>Y</b>Area</span><span><b>Z</b>Height</span><span><b class="mint">T</b>Time</span></div>
-      <div class="hero-data mono" aria-hidden="true">
-        <span data-status="road">Road · 7.55 km</span>
-        <span data-status="plant">Tank terminal · cloud</span>
-        <span data-status="stockpile">Stockpile yard · 2 surveys</span>
-        <span data-status="flare">Flare stack · 78 patches</span>
-        <span data-status="tank">Storage tank · LiDAR</span>
-        <span data-status="facade">Tower facade · 74 m</span>
-      </div>
       <div class="hero-inner">
         <div class="hero-main">
           <p class="eyebrow h-anim">Quadrion AI<span class="sep">/</span>Drone inspection &amp; survey</p>
@@ -860,7 +848,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
         <div class="hero-side">
           <p class="hero-sub h-anim">Drone video, 3D models, point clouds, maps and issues, fused into one georeferenced scene with one timeline. Fully offline, on your own machine.</p>
           <div class="ctas h-anim">
-            <a class="btn btn-primary" href="#cta" data-magnetic><span class="btn-fill" aria-hidden="true"></span><span class="btn-label">Request a demo <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+            <a class="btn btn-primary" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog" data-magnetic><span class="btn-fill" aria-hidden="true"></span><span class="btn-label">Request a demo <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
             <a class="btn btn-ghost" href="#cta"><span class="btn-label">Download the free Player</span></a>
           </div>
         </div>
@@ -1309,7 +1297,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   <h2 data-reveal>Bring the whole programme into one&nbsp;view.</h2>
   <p class="lead" data-reveal>See Quadrion AI on your own data, on your own network. Or send your client a read-only package and the free&nbsp;Player.</p>
   <div class="ctas" data-reveal>
-    <a class="btn btn-primary" href="#cta" data-magnetic><span class="btn-fill" aria-hidden="true"></span><span class="btn-label">Request a demo <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+    <a class="btn btn-primary" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog" data-magnetic><span class="btn-fill" aria-hidden="true"></span><span class="btn-label">Request a demo <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
     <a class="btn btn-ghost" href="#cta"><span class="btn-label">Download the free Player</span></a>
   </div>
   <p class="fine mono" data-reveal>Windows desktop · Offline-first · Exports to Civil 3D, TBC and 12d</p>
@@ -1323,7 +1311,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       <p>Offline-first desktop software for drone inspection and survey teams. Made by Synapse Solutions.</p>
     </div>
     <div><h4>Product</h4><ul><li><a class="u" href="#four" data-at="four">Four dimensions</a></li><li><a class="u" href="#shot-road" data-at="road">Six asset types</a></li><li><a class="u" href="#oneview">One view</a></li><li><a class="u" href="#features">Features</a></li></ul></div>
-    <div><h4>Get it</h4><ul><li><a class="u" href="#cta">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li></ul></div>
+    <div><h4>Get it</h4><ul><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li></ul></div>
     <div><h4>Company</h4><ul><li><a class="u" href="#cta">Synapse Solutions</a></li><li><a class="u" href="#trust">Trust</a></li><li><a class="u" href="#cta">Contact</a></li></ul></div>
   </div>
   <div class="foot-bottom mono"><span>© 2026 Synapse Solutions</span><span>X · Y · Z · <span class="mint">T</span></span></div>
@@ -1331,11 +1319,37 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 
 <a class="badge" href="/overview">Direction <b>D3</b> · The Quarter</a>
 
+<dialog class="demo-dialog" id="demo-dialog" aria-labelledby="demo-title" data-lenis-prevent>
+  <button class="demo-close" type="button" data-demo-close aria-label="Close demo request">×</button>
+  <span class="demo-brand">Quadrion AI</span>
+  <h2 id="demo-title">See your data in Quadrion.</h2>
+  <p class="demo-intro">Tell us a little about your work. Our team will be in touch to arrange a demo.</p>
+  <form name="quadrion-demo" method="POST" action="/d3-quarter/" data-netlify="true" netlify-honeypot="bot-field">
+    <input type="hidden" name="form-name" value="quadrion-demo">
+    <p hidden><label>Leave this empty <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+    <div class="demo-fields">
+      <label>Your name<input name="name" autocomplete="name" required maxlength="100" autofocus></label>
+      <label>Email<input type="email" name="email" autocomplete="email" required maxlength="254"></label>
+      <label class="demo-wide">Company (optional)<input name="company" autocomplete="organization" maxlength="160"></label>
+      <label class="demo-wide">What would you like to explore? (optional)<textarea name="message" rows="3" maxlength="3000" placeholder="Your assets, workflow or a project you have in mind…"></textarea></label>
+    </div>
+    <p class="demo-note">Your details go to Synapse Solutions so we can respond to your request. You can also email <a href="mailto:info@synapse-solutions.ai">info@synapse-solutions.ai</a>.</p>
+    <button class="demo-submit" type="submit">Send demo request</button>
+    <p class="demo-status" data-demo-status role="alert"></p>
+  </form>
+  <div class="demo-success" data-demo-success hidden tabindex="-1" role="status">
+    <h3>Request received.</h3>
+    <p>Thank you. Synapse Solutions will get back to you by email to arrange your demo.</p>
+    <button class="demo-submit" type="button" data-demo-close>Back to Quadrion</button>
+  </div>
+</dialog>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
 <script src="d3-story.js"></script>
 <script type="module" src="d3-gl.js"></script>
 <script type="module" src="../quori/site.js"></script>
+<script type="module" src="demo.js"></script>
 </body>
 </html>
