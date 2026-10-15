@@ -29,12 +29,14 @@ test('invalid, missing and expired memberships fail closed at exact boundaries',
   assert.equal(activeMember(member,NaN),false);
   assert.equal(activeMember({...member,expiresAt:new Date(now+1).toISOString()},now),true);
 });
-test('T3 never grants administration and privileged access requires MFA', () => {
+test('T3 never grants administration; active administrators can use password sessions', () => {
   assert.equal(canAdminister({member,aal:'aal2',now}),false);
   for(const role of ['admin','owner']) {
     const m={...member,role,tier:null};
-    assert.equal(canAdminister({member:m,aal:'aal1',now}),false);
-    assert.equal(canReadProject({member:m,project,aal:'aal1',now}),false);
+    assert.equal(canAdminister({member:m,aal:'aal1',now}),true);
+    assert.equal(canReadProject({member:m,project,aal:'aal1',now}),true);
+    assert.equal(canAdminister({member:m,aal:undefined,now}),false);
+    assert.equal(canAdminister({member:{...m,status:'suspended'},aal:'aal1',now}),false);
     assert.equal(canAdminister({member:m,aal:'aal2',now}),true);
     assert.equal(canReadProject({member:m,project,aal:'aal2',now}),true);
   }

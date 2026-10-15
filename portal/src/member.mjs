@@ -58,7 +58,7 @@ async function project(ticket,id){
 }
 async function account(){
   const name=field('Display name','display-name',{value:member.displayName,maxLength:120,autocomplete:'name'}),company=field('Company','company',{value:member.company,maxLength:160,autocomplete:'organization'}),feedback=el('div',{'aria-live':'polite'});
-  content.append(heading('SETTINGS','Your account','Manage your profile and sign-in security.'),el('section',{class:'account-section'},el('div',{},el('h2',{},'Profile'),el('p',{class:'muted'},'Your access tier is managed by your administrator.')),el('form',{onsubmit:async e=>{e.preventDefault();const submit=e.target.querySelector('button');await runButton(submit,async()=>{try{const result=await api.post('profile',{displayName:name.input.value,company:company.input.value});member=result.member;feedback.replaceChildren(notice('Profile saved.'));}catch(error){feedback.replaceChildren(notice(error.message,'error'));}});}},name.node,company.node,el('button',{type:'submit',class:'primary'},'Save profile'),feedback)),el('section',{class:'account-section'},el('div',{},el('h2',{},'Security'),el('p',{class:'muted'},'An authenticator adds a second verification step.')),el('div',{class:'security-actions'},button('Set up / verify authenticator',()=>auth.showMfa().catch(e=>content.prepend(notice(e.message,'error'))),true),button('Change password',()=>{sessionStorage.setItem('quadrion-password-setup','true');auth.showPassword();},true))),el('section',{class:'account-section'},el('h2',{},'Need different access?'),el('p',{},'Contact ',link('info@synapse-solutions.ai','mailto:info@synapse-solutions.ai'),' to discuss your tier or project assignments.')));
+  content.append(heading('SETTINGS','Your account','Manage your profile and sign-in security.'),el('section',{class:'account-section'},el('div',{},el('h2',{},'Profile'),el('p',{class:'muted'},'Your access tier is managed by your administrator.')),el('form',{onsubmit:async e=>{e.preventDefault();const submit=e.target.querySelector('button');await runButton(submit,async()=>{try{const result=await api.post('profile',{displayName:name.input.value,company:company.input.value});member=result.member;feedback.replaceChildren(notice('Profile saved.'));}catch(error){feedback.replaceChildren(notice(error.message,'error'));}});}},name.node,company.node,el('button',{type:'submit',class:'primary'},'Save profile'),feedback)),el('section',{class:'account-section'},el('div',{},el('h2',{},'Security'),el('p',{class:'muted'},'Sign in with your email and password. You can change your password here.')),el('div',{class:'security-actions'},button('Change password',()=>{sessionStorage.setItem('quadrion-password-setup','true');auth.showPassword();},true))),el('section',{class:'account-section'},el('h2',{},'Need different access?'),el('p',{},'Contact ',link('info@synapse-solutions.ai','mailto:info@synapse-solutions.ai'),' to discuss your tier or project assignments.')));
 }
 async function render(){
   const ticket=++sequence;
@@ -66,7 +66,7 @@ async function render(){
     if(!auth)return;if(!await auth.getToken()){member=null;auth.showLogin();return;}
     if(auth.needsPassword()){auth.showPassword();return;}
     const me=await api.get('me');if(ticket!==sequence)return;member=me.member;
-    if(me.requiresMfa){await auth.showMfa();return;}
+    if(auth.enterWorkspace(member))return;
     shell();content.append(notice('Loading your workspace…'));
     const path=location.pathname;content.replaceChildren();
     if(path==='/portal/'||path==='/portal/index.html')await overview(ticket);

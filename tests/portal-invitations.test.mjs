@@ -20,7 +20,7 @@ test('reused idempotency keys cannot change grants, admins cannot invite adminis
 });
 test('current administrator checks gate all admin listings',async()=>{
   await assert.rejects(rpc(db,'portal_admin_list',[ids.t3,'aal2','users','',0]),/portal:forbidden/);
-  await assert.rejects(rpc(db,'portal_admin_list',[ids.owner,'aal1','users','',0]),/portal:mfa_required/);
+  assert.ok((await rpc(db,'portal_admin_list',[ids.owner,'aal1','users','',0])).items.length);
   const users=await rpc(db,'portal_admin_list',[ids.admin,'aal2','users','',0]);assert.ok(users.items.some(m=>m.email==='new@example.com'));
 });
 

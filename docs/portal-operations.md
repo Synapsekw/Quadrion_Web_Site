@@ -2,13 +2,13 @@
 
 ## Release status — 15 October 2026
 
-The login, member portal, administration UI, MFA gates, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are implemented on `codex/client-portal`. Supabase migrations 001–006 and both private buckets are live. The hosted audit confirms one active Owner, ten tables with RLS enabled and forced, and no anonymous/authenticated table or portal RPC grants. The application is not yet connected or deployed to production; the remaining setup and acceptance checks below are required.
+The login, member portal, administration UI, T1–T3 policy, private assignments, resumable upload workflow and Owner-created accounts are deployed at `https://quadrion.ai/portal/` and `https://quadrion.ai/admin/`. PR #5 merged as `88d641c64647ac8cd73fc2afb05cdeabb0b5f7e4`; Netlify published deploy `6ad0f79eecb07b23ae45b02d` on 15 October 2026. Supabase migrations 001–006 and both private buckets are live. The hosted audit confirms one active Owner, ten tables with RLS enabled and forced, and no anonymous/authenticated table or portal RPC grants. Owner login and live account/file acceptance remain pending; deployment alone does not complete acceptance.
 
 Local validation: 121 automated tests pass, portal build and public-artifact scan pass, and three real PostgreSQL multi-connection account-grant scenarios pass. Desktop and 360px browser checks cover member pages, the Create user form, project/release workflows and overlapping AIO/cover uploads. Local fixtures send no emails and create no real accounts.
 
 ## Create the first testers without email
 
-1. Sign in at `/admin/` with your Owner account and complete MFA.
+1. Use **Log in** on the main site (`/portal/?login`) with your Owner email and password. Your role opens Administration automatically; **Downloads & projects** opens the member library with the same session.
 2. Open **Users → Create user**.
 3. Enter the user's email address and a password of 12–128 characters. Use **Show password** to check it and retain your copy before submitting; the dashboard cannot retrieve it later.
 4. Select T1, T2 or T3 and, optionally, an access expiry date.
@@ -32,7 +32,7 @@ An active membership and any account expiry are checked on every request. A **Ti
 
 Use **Users → Manage** for tier, status and expiry. Use the project editor's audience/assignment controls for private access. Suspend or revoke a user to stop new access immediately. Previously issued file links expire within five minutes; downloaded files cannot be recalled.
 
-Administration is separate from tier. T3 does not grant dashboard access. Only Owners manage privileged roles; the final active Owner cannot be removed. Admin and Owner sessions require MFA. Members may enroll MFA in Account, after which it is enforced for their sessions too.
+Administration is separate from tier. T3 does not grant dashboard access. Only Owners manage privileged roles; the final active Owner cannot be removed. At the Owner’s request on 15 October 2026, all roles use email and password without MFA. Migration 007 updates the service-only database gates to accept verified password sessions; live role, status, expiry, tier, assignment and audit checks remain in force. Never infer administration from a T3 tier or browser-supplied role.
 
 ## Publish software and datasets
 
@@ -50,7 +50,7 @@ Use only Supabase project `oxjrkodcmflxejdwsuac` and Netlify site `quadrionai`. 
 
 The live private buckets are `quadrion-software` (1,000,000,000-byte file limit) and `quadrion-projects` (100,000,000,000-byte file limit). The account holder disabled the organization's spend cap, accepting usage charges beyond included quotas. This was verified in Billing before setting the global file limit to **100,000,000,000 bytes**. Supabase displays that saved limit as 93.13225746154785 GB using binary conversion. Do not add public/client Storage policies; authorized upload tokens and short-lived download links are issued by the server.
 
-The approved Auth Site URL `https://quadrion.ai/portal/` and sole allowed redirect `https://quadrion.ai/portal/account/` are saved and verified after reload. Keep public signup and anonymous login disabled. Leave email confirmation enabled generally: the Owner create-user API confirms only the account the Owner deliberately creates. The TOTP authenticator provider is enabled; Owner enrollment remains pending. Resend custom SMTP is saved; production invitation/reset delivery still needs a live test.
+The approved Auth Site URL `https://quadrion.ai/portal/` and sole allowed redirect `https://quadrion.ai/portal/account/` are saved and verified after reload. Keep public signup and anonymous login disabled. Leave email confirmation enabled generally: the Owner create-user API confirms only the account the Owner deliberately creates. The TOTP provider remains enabled in Supabase, but the Owner has canceled enrollment and requested password-only portal access. Resend custom SMTP is saved; production invitation/reset delivery still needs a live test.
 
 Set these variables only for Netlify **Production / Functions**. Never give production secrets to deploy previews or the public build:
 
@@ -64,14 +64,21 @@ Set these variables only for Netlify **Production / Functions**. Never give prod
 | `PORTAL_PROJECT_MAX_BYTES` | `100000000000` |
 | `PORTAL_ENABLED` | `true` only after configuration is ready |
 
-Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` as a secret scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED` is saved as `false` until activation, and the verifier credential remains a prepared account-holder handoff. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
+Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` and `PORTAL_VERIFY_SECRET` as secrets scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED=true` is saved and the published production configuration endpoint responds successfully. Secret values were not retrieved during setup. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.
+
+Deployment checks: the preview configuration endpoint returns 503 without production access. Production `/portal/`, `/admin/` and `/portal/account/` return 200 with private/no-store, noindex/nofollow and CSP headers. Anonymous account, project and admin-user API requests return 401 with no data. The live Chrome administration page renders the sign-in form. These checks do not yet prove authenticated service-key access or the file verifier; those require the Owner session and approved test files.
 
 ## Live acceptance and recovery
 
-Before adding the marketing login link, verify the actual deployed login and Owner MFA, manual member creation without email, password reset, tier boundaries, private-assignment removal, downgrade/revocation, direct Storage denial and a complete file download with matching SHA-256. Use only approved test recipients/files. Check no-store/noindex/CSP headers and that the PWA never caches portal, admin or API responses. Run a representative large-file interruption/resume test separately; record its exact size and outcome.
+Acceptance must verify the shared marketing login entry and Owner password sign-in, manual member creation without email, password reset, tier boundaries, private-assignment removal, downgrade/revocation, direct Storage denial and a complete file download with matching SHA-256. Use only approved test recipients/files. Check no-store/noindex/CSP headers and that the PWA never caches portal, admin or API responses. Run a representative large-file interruption/resume test separately; record its exact size and outcome.
 
 The Activity page records access-management and publication changes. Audit events retain 365 days; download events retain 90 days. Scheduled cleanup cancels and removes only eligible abandoned unpublished uploads after seven days. Do not delete a Storage object directly to repair an incomplete upload.
 
-If an Owner loses MFA, another active Owner or the verified Supabase account holder must handle recovery through the trusted Auth dashboard after verifying the identity. Never disable the application's MFA gate or promote a user by matching email alone. Record any trusted recovery action and re-enroll MFA before administration resumes.
+Use **Forgot password?** at the shared login or **Account → Change password** from the member library. For account recovery, another active Owner or the verified Supabase account holder must verify identity before using trusted Auth controls. Never promote a user by matching email alone. Record trusted recovery actions.
 
 Developer verification: `npm test`, `npm run build:portal`, `npm run check:public`, `git diff --check`. For account-grant concurrency, set `PORTAL_TEST_PG_URL` to a local PostgreSQL maintenance database and run `node scripts/test-portal-concurrency.mjs`; it creates and drops its own uniquely named test database. It refuses non-local database hosts.
+
+
+## Password login rollout — 15 October 2026
+
+Owner explicitly requested password-only sign-in and one public login button. After action-time confirmation, migration 007 was applied successfully to production on 15 October 2026. Its live audit returned Owner access at `aal1`, zero anonymous/authenticated portal RPC grants, ten forced-RLS tables, two private buckets and a working Owner project catalog. Existing credentials, user IDs, tiers and assignments are preserved. The original six migrations remain historical and unchanged. The matching frontend and function deployment is prepared in PR #6; production signed-in acceptance is not yet recorded.

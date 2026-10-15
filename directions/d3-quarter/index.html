@@ -803,6 +803,7 @@ html:not(.motion) .fx-tip { display: none; }
 
 html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
+@media (max-width: 600px) { .nav-cta [data-demo] { display: none; } }
 /* Real touch controls need room independently of the dense product mockups. */
 [data-install-app][hidden] { display: none !important; }
 .install-app { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint); text-align: left; }
@@ -812,7 +813,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   .nav { gap: 12px; }
   .nav .brand { flex: 1; min-width: 0; }
   .nav .brand svg { width: 100%; max-width: 180px; height: auto; }
-  .nav-cta { flex: none; }
+  .nav-cta { flex: none; gap: 10px; }
   .tix ol { overflow-x: auto; scrollbar-width: thin; }
   .tix li { flex: none; }
   .tix a { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
@@ -841,7 +842,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
     <a href="#trust" data-nav="trust">Trust</a>
   </nav>
   <div class="nav-cta">
-    <a class="nav-link-sm" href="#cta">Free Player</a>
+    <a class="btn-sm nav-login" href="/portal/?login">Log in</a>
     <a class="btn-sm" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a>
   </div>
 </header>
@@ -1346,7 +1347,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       <p>For inspection and survey teams across the GCC: United Arab Emirates, Saudi Arabia, Kuwait, Qatar, Bahrain and Oman.</p>
     </div>
     <div><h4>Product</h4><ul><li><a class="u" href="#four" data-at="four">Four dimensions</a></li><li><a class="u" href="#shot-road" data-at="road">Six asset types</a></li><li><a class="u" href="#oneview">One view</a></li><li><a class="u" href="#features">Features</a></li></ul></div>
-    <div><h4>Get it</h4><ul><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li><li><button class="install-app" type="button" data-install-app hidden>Install Quadrion</button></li></ul></div>
+    <div><h4>Get it</h4><ul><li><a class="u" href="/portal/?login">Log in</a></li><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li><li><button class="install-app" type="button" data-install-app hidden>Install Quadrion</button></li></ul></div>
     <div><h4>Company</h4><ul><li><a class="u" href="#cta">Synapse Solutions</a></li><li><a class="u" href="#trust">Trust</a></li><li><a class="u" href="#cta">Contact</a></li></ul></div>
   </div>
   <div class="foot-bottom mono"><span>© 2026 Synapse Solutions</span><span>X · Y · Z · <span class="mint">T</span></span></div>

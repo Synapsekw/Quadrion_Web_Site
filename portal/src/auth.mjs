@@ -1,8 +1,10 @@
 import {createClient} from '@supabase/supabase-js';
 import {el,field,button,link,notice} from './ui.mjs';
+import {loginDestination} from './routing.mjs';
 export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
 export async function createPortalAuth({root,onChange}){
   const workspaceHome=location.pathname.startsWith('/admin/')?'/admin/':'/portal/';
+  let chooseHome=new URLSearchParams(location.search).has('login');
   const response=await fetch('/api/portal?action=config',{cache:'no-store',credentials:'omit'});
   if(!response.ok)throw new Error('Portal access is being prepared. Please contact info@synapse-solutions.ai if you need access.');
   const config=await response.json();
@@ -19,26 +21,22 @@ export async function createPortalAuth({root,onChange}){
     const feedback=el('div',{'aria-live':'polite'}),submit=el('button',{type:'submit',class:'primary full'},reset?'Send reset link':'Sign in');
     const form=el('form',{onsubmit:async e=>{e.preventDefault();submit.disabled=true;feedback.replaceChildren();try{
       if(reset){const {error}=await client.auth.resetPasswordForEmail(email.input.value.trim(),{redirectTo:location.origin+'/portal/account/'});if(error)throw error;feedback.replaceChildren(notice('If an account exists for this address, a reset link will arrive shortly.'));}
-      else{const {error}=await client.auth.signInWithPassword({email:email.input.value.trim(),password:password.input.value});if(error)throw error;password.input.value='';await onChange();}
+      else{const {error}=await client.auth.signInWithPassword({email:email.input.value.trim(),password:password.input.value});if(error)throw error;password.input.value='';chooseHome=true;await onChange();}
     }catch(error){feedback.replaceChildren(notice(reset?'The reset request could not be completed. Please try again shortly.':'Sign-in failed. Check your email and password, then try again.','error'));}finally{submit.disabled=false;}}},email.node,reset?null:password.node,submit,feedback);
     frame(reset?'Reset your password':'Welcome back',reset?'We’ll send a secure link to your account email.':'Sign in to your private Quadrion workspace.',callbackError?notice('This sign-in link is invalid or expired. Request a new link.','error'):null,form,button(reset?'Back to sign in':'Forgot password?',()=>showLogin(reset?'login':'reset'),true),el('p',{class:'auth-note'},'Access is managed by Synapse. ',link('Contact us','mailto:info@synapse-solutions.ai')));
   }
   function showPassword(){
     const password=field('New password','new-password',{type:'password',required:true,autocomplete:'new-password',help:'Use at least 12 characters.'}),confirm=field('Confirm new password','confirm-password',{type:'password',required:true,autocomplete:'new-password'}),feedback=el('div',{'aria-live':'polite'}),submit=el('button',{type:'submit',class:'primary full'},'Save password');
-    frame('Set your password','Choose a password for your Quadrion account.',el('form',{onsubmit:async e=>{e.preventDefault();feedback.replaceChildren();if(password.input.value.length<12||password.input.value!==confirm.input.value){feedback.replaceChildren(notice('Use at least 12 characters and enter the same password in both fields.','error'));return;}submit.disabled=true;const {error}=await client.auth.updateUser({password:password.input.value});submit.disabled=false;if(error){feedback.replaceChildren(notice('Could not update your password. Request a new reset link and try again.','error'));return;}password.input.value='';confirm.input.value='';sessionStorage.removeItem('quadrion-password-setup');history.replaceState(null,'',workspaceHome);await onChange();}},password.node,confirm.node,submit,feedback));
+    frame('Set your password','Choose a password for your Quadrion account.',el('form',{onsubmit:async e=>{e.preventDefault();feedback.replaceChildren();if(password.input.value.length<12||password.input.value!==confirm.input.value){feedback.replaceChildren(notice('Use at least 12 characters and enter the same password in both fields.','error'));return;}submit.disabled=true;const {error}=await client.auth.updateUser({password:password.input.value});submit.disabled=false;if(error){feedback.replaceChildren(notice('Could not update your password. Request a new reset link and try again.','error'));return;}password.input.value='';confirm.input.value='';sessionStorage.removeItem('quadrion-password-setup');chooseHome=true;history.replaceState(null,'',workspaceHome);await onChange();}},password.node,confirm.node,submit,feedback));
   }
-  async function showMfa(){
-    const {data,error}=await client.auth.mfa.listFactors();if(error)throw error;
-    const verified=data.totp.find(f=>f.status==='verified');let factor=verified,qr=null;
-    if(!factor){
-      const pending=data.all?.filter(f=>f.factor_type==='totp'&&f.status==='unverified')||[];
-      for(const f of pending)await client.auth.mfa.unenroll({factorId:f.id});
-      const result=await client.auth.mfa.enroll({factorType:'totp',friendlyName:'Quadrion authenticator'});if(result.error)throw result.error;factor=result.data;qr=result.data.totp.qr_code;
-    }
-    const code=field('Authenticator code','mfa-code',{required:true,autocomplete:'one-time-code',maxLength:6});code.input.inputMode='numeric';code.input.pattern='[0-9]{6}';
-    const feedback=el('div',{'aria-live':'polite'}),submit=el('button',{type:'submit',class:'primary full'},'Verify and continue');
-    frame(verified?'Verify it’s you':'Protect your account',verified?'Enter the six-digit code from your authenticator app.':'Scan this code with your authenticator app, then enter the six-digit code. Administrator access requires MFA.',qr?el('img',{class:'mfa-qr',src:qr.startsWith('data:')?qr:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr),alt:'Authenticator setup QR code'}):null,el('form',{onsubmit:async e=>{e.preventDefault();submit.disabled=true;feedback.replaceChildren();const result=await client.auth.mfa.challengeAndVerify({factorId:factor.id,code:code.input.value});submit.disabled=false;if(result.error){feedback.replaceChildren(notice('That code was not accepted. Try the current code from your authenticator.','error'));return;}code.input.value='';await onChange();}},code.node,submit,feedback),button('Sign out',signOut,true));
+  function enterWorkspace(member){
+    if(!chooseHome)return false;
+    const destination=loginDestination(member.role);
+    if(!destination)throw new Error('Your account does not have workspace access.');
+    chooseHome=false;
+    if(location.pathname!==destination){location.replace(destination);return true;}
+    history.replaceState(null,'',destination);return false;
   }
-  async function signOut(){window.dispatchEvent(new Event('quadrion:signout'));root.replaceChildren();await client.auth.signOut({scope:'local'});clearSessionData(sessionStorage);history.replaceState(null,'',workspaceHome);showLogin();}
-  return {client,getToken,showLogin,showPassword,showMfa,signOut,needsPassword:()=>sessionStorage.getItem('quadrion-password-setup')==='true'};
+  async function signOut(){window.dispatchEvent(new Event('quadrion:signout'));root.replaceChildren();await client.auth.signOut({scope:'local'});clearSessionData(sessionStorage);location.replace('/portal/?login');}
+  return {client,getToken,showLogin,showPassword,enterWorkspace,signOut,needsPassword:()=>sessionStorage.getItem('quadrion-password-setup')==='true'};
 }
