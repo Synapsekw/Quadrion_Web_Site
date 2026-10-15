@@ -542,7 +542,7 @@
   gsap.fromTo('.hero-h .line > span', { y: 0, yPercent: 112 }, { yPercent: 0, duration: 1.6, ease: 'expo.out', stagger: 0.13, delay: 0.55 });
   gsap.fromTo('.h-anim', { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 1.4, ease: 'expo.out', stagger: 0.09, delay: 0.85 });
   gsap.from('.nav', { autoAlpha: 0, y: -14, duration: 1.2, ease: 'expo.out', delay: 0.25 });
-  gsap.from('.cue, .hero-hud, .hero-data', { autoAlpha: 0, duration: 1.2, ease: 'power2.out', delay: 1.4 });
+  gsap.from('.cue, .hero-hud', { autoAlpha: 0, duration: 1.2, ease: 'power2.out', delay: 1.4 });
 
   /* =================== The cinema: one scrubbed timeline =================== */
   var tl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { trigger: '#stage', start: 'top top', end: 'bottom bottom', scrub: 0.8 } });
@@ -628,21 +628,21 @@
   callouts('.shot-road', 7.75);
   shotOut('.shot-road', 8.75);
 
-  // 02 Terminal — entrance: ring sweep (a clock hand with a quarter-ring rider)
+  // 02 Terminal — entrance: retreat from the road, descend into the terminal
   tl.to(S, { sweep: 1, duration: 0.95, ease: 'none' }, 8.85)
     .to(S, { plant: 1, duration: 2.1 }, 8.85);
   copyIn('.shot-plant', 9.4, [{ autoAlpha: 0, rotationX: -80, transformOrigin: '50% 100%' }, { autoAlpha: 1, rotationX: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }]);
   shotOut('.shot-plant', 10.7);
 
-  // 03 Tank — entrance: quarter-ring iris (the mark opens and becomes the frame)
-  tl.to(S, { iris: 1, duration: 0.95, ease: 'power2.inOut' }, 10.95)
+  // 03 Tank — entrance: pull back from the terminal, approach the tank
+  tl.to(S, { iris: 1, duration: 0.95, ease: 'none' }, 10.95)
     .to(S, { tank: 1, duration: 2.0 }, 11.4);
   copyIn('.shot-tank', 11.75, [{ autoAlpha: 0, letterSpacing: '0.4em', xPercent: -8 }, { autoAlpha: 1, letterSpacing: '-0.04em', xPercent: 0, duration: 0.6, stagger: 0.09, ease: 'expo.out' }]);
   callouts('.shot-tank', 12.25);
   shotOut('.shot-tank', 13.1);
 
-  // 04 Flare — entrance: vertical rise, then scan resolve and patch ignition
-  tl.to(S, { rise: 1, duration: 0.85 }, 13.35)
+  // 04 Flare — entrance: lift out of the tank, approach the flare, then scan
+  tl.to(S, { rise: 1, duration: 0.85, ease: 'none' }, 13.35)
     .to(S, { flare: 1, duration: 2.15 }, 14.2)
     .to(S, { scan: 1, duration: 0.8, ease: 'power1.inOut' }, 14.25)
     .to(S, { ignite: 1, duration: 0.7 }, 15.0);
@@ -650,7 +650,7 @@
   callouts('.shot-flare', 15.4);
   shotOut('.shot-flare', 16.05);
 
-  // 05 Facade — entrance: quadrant split (the frame breaks into the mark's four quarters)
+  // 05 Facade — entrance: retreat from the flare, approach the facade
   tl.to(S, { split: 1, duration: 0.95, ease: 'none' }, 16.3)
     .to(S, { facade: 1, duration: 2.5 }, 16.6)
     .to(S, { cls: 1, duration: 1.05 }, 17.3)
@@ -660,8 +660,8 @@
   tl.fromTo(twW, { v: 100 }, { v: 42, duration: 0.4, ease: 'power2.inOut', onUpdate: function () { setTw(twW.v); } }, 18.5);
   shotOut('.shot-facade', 18.95);
 
-  // 06 Stockpile — entrance: the mint square slides a time divider across (time wipe)
-  tl.to(S, { wipe1: 1, duration: 0.7, ease: 'power2.inOut' }, 19.15)
+  // 06 Stockpile — entrance: fly from the facade into the survey; compare dates afterward
+  tl.to(S, { wipe1: 1, duration: 0.7, ease: 'none' }, 19.15)
     .to(S, { stock: 1, duration: 2.45 }, 19.15)
     .set('.divider', { className: 'divider is-w2' }, 19.9)
     .set('.shot-stock', { autoAlpha: 1 }, 19.63)

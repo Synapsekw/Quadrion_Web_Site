@@ -3,6 +3,7 @@
 // Reads scroll state from window.QS (written by the GSAP timeline in d3-story.js) every frame.
 // Six real assets, each in its own scene; only the scene(s) on screen are rendered.
 import * as THREE from 'three';
+import { sceneTravel } from './scene-travel.mjs';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -129,103 +130,26 @@ const paneFS = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
-// ---------- Composite: one transition per asset, built from the mark's geometry ----------
+// ---------- Camera handoff and survey comparison compositor ----------
 const compFS = /* glsl */`
-  uniform sampler2D tA, tB; uniform int uMode; uniform float uP; uniform vec2 uRes; uniform vec3 uMint;
+  uniform sampler2D tA, tB;
+  uniform int uMode;
+  uniform float uP;
+  uniform vec2 uRes;
+  uniform vec3 uMint;
   varying vec2 vUv;
-  float sdQ(vec2 p, vec2 c, vec2 sg, float rin, float rout) {
-    vec2 q = p - c; float r = length(q);
-    return max(max(rin - r, r - rout), max(-q.x * sg.x, -q.y * sg.y));
-  }
-  float sdBox(vec2 p, vec2 b0, vec2 b1) {
-    vec2 c = (b0 + b1) * 0.5, h = (b1 - b0) * 0.5, d = abs(p - c) - h;
-    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
-  }
-  float sdRBox(vec2 p, vec2 h, float r) { vec2 d = abs(p) - h + r; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r; }
-  float ease(float t) { t = clamp(t, 0.0, 1.0); return t < 0.5 ? 4.0 * t * t * t : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0; }
   void main() {
-    vec2 uv = vUv; vec3 col;
-    float t = uP;
-    if (uMode == 1) {
-      // Quarter-ring iris: the mark opens from the centre and becomes the frame.
-      vec2 px = (uv - 0.5) * uRes;
-      float ang = (1.0 - t) * -1.1;
-      mat2 R = mat2(cos(ang), sin(ang), -sin(ang), cos(ang));
-      float cover = length(uRes) * 0.5 / 23.0 * 1.1;
-      float s = max(cover * pow(t, 2.3), 1e-4);
-      vec2 p = R * px / s;
-      float g = 2.0 * (1.0 - smoothstep(0.25, 0.85, t));
-      float rin = 10.5 * (1.0 - smoothstep(0.2, 0.85, t));
-      float d = sdQ(p, vec2(-g, g), vec2(-1.0, 1.0), rin, 23.0);
-      d = min(d, sdQ(p, vec2(g, g), vec2(1.0, 1.0), rin, 23.0));
-      d = min(d, sdQ(p, vec2(-g, -g), vec2(-1.0, -1.0), rin, 23.0));
-      float so = 6.0 * (1.0 - smoothstep(0.3, 0.9, t));
-      d = min(d, sdBox(p, vec2(so, -27.0), vec2(27.0, -so)));
-      float dpx = d * s;
-      float m = 1.0 - smoothstep(-0.8, 0.8, dpx);
-      vec3 a = texture2D(tA, uv).rgb * (1.0 - 0.45 * smoothstep(0.0, 0.6, t));
-      vec3 b = texture2D(tB, uv).rgb;
-      col = mix(a, b, m);
-      float edge = (1.0 - smoothstep(0.0, 1.4, abs(dpx))) * (1.0 - smoothstep(0.8, 1.0, t));
-      col = mix(col, uMint, edge * 0.85);
-    } else if (uMode == 2) {
-      // Vertical rise: the next shot lifts the current one out of frame.
-      if (uv.y < t) col = texture2D(tB, vec2(uv.x, uv.y + 1.0 - t)).rgb;
-      else col = texture2D(tA, vec2(uv.x, uv.y - t)).rgb * (1.0 - 0.55 * t);
-      float e = 1.0 - smoothstep(0.0, 1.5, abs(uv.y - t) * uRes.y);
-      col = mix(col, uMint, e * 0.9 * step(0.002, t) * step(t, 0.998));
-    } else if (uMode == 4) {
-      // Ring sweep: a clock-hand arm sweeps one full turn; a quarter-ring arc rides the arm.
-      vec2 px = (uv - 0.5) * uRes;
-      float r = length(px);
-      float a01 = fract(atan(px.x, px.y) / 6.2831853 + 1.0);
-      float sw = ease(t);
-      float behind = sw - a01;
-      float m = smoothstep(-0.0015, 0.0015, behind);
-      vec3 a = texture2D(tA, uv).rgb * (1.0 - 0.4 * sw);
-      vec3 b = texture2D(tB, uv).rgb;
-      b *= 0.55 + 0.45 * smoothstep(0.0, 0.16, behind);
-      col = mix(a, b, m);
-      float th = sw * 6.2831853; vec2 dir = vec2(sin(th), cos(th));
-      float perp = abs(dot(px, vec2(dir.y, -dir.x)));
-      float on = step(0.002, t) * step(t, 0.998);
-      float arm = (1.0 - smoothstep(0.0, 1.3, perp)) * step(0.0, dot(px, dir));
-      float R0 = 0.31 * min(uRes.x, uRes.y);
-      float band = 1.0 - smoothstep(0.0, 1.3, abs(r - R0));
-      float trail = smoothstep(0.0, 0.02, behind) * (1.0 - smoothstep(0.0, 0.25, behind));
-      float ring = band * trail;
-      float hub = 1.0 - smoothstep(3.0, 4.5, r);
-      col = mix(col, uMint, (arm * 0.9 + ring * 0.8 + hub) * on);
-    } else if (uMode == 5) {
-      // Quadrant split: the frame breaks into the mark's four quarters, which part to their corners.
-      vec2 c = uv - 0.5;
-      vec2 q = vec2(c.x < 0.0 ? -1.0 : 1.0, c.y < 0.0 ? -1.0 : 1.0);
-      float idx = q.y > 0.0 ? (q.x < 0.0 ? 0.0 : 1.0) : (q.x < 0.0 ? 2.0 : 3.0);
-      // phase 1: the gutters open and the corners round off, so the frame reads as the mark; phase 2: the quarters part.
-      float o = smoothstep(0.0, 0.38, t);
-      float k = ease((t - 0.3 - idx * 0.07) / 0.5);
-      vec2 asp = vec2(uRes.x / uRes.y, 1.0);
-      vec2 qc = 0.5 + q * 0.25;
-      vec2 mc = qc + q * (k * 0.62 + o * 0.012);
-      float s = 1.0 - 0.12 * o - 0.18 * k;
-      vec2 local = (uv - mc) / s;
-      vec2 src = qc + local;
-      float gut = 0.002 + 0.01 * o;
-      float rad = 0.004 + 0.045 * o;
-      float d = sdRBox(local * asp, vec2(0.25 - gut) * asp, rad);
-      float dpx = d * uRes.y * s;
-      float inside = 1.0 - smoothstep(-0.8, 0.8, dpx);
-      vec3 b = texture2D(tB, uv).rgb * (0.55 + 0.45 * smoothstep(0.3, 1.0, t));
-      vec3 a = texture2D(tA, clamp(src, 0.0, 1.0)).rgb * (1.0 - 0.25 * o - 0.35 * k);
-      if (idx > 2.5) a = mix(a, uMint * 0.7, 0.14 * o);
-      col = mix(b, a, inside);
-      float edge = (1.0 - smoothstep(0.0, 1.3, abs(dpx))) * o * (1.0 - smoothstep(0.85, 1.0, k));
-      col = mix(col, uMint, edge * 0.9);
+    vec3 a = texture2D(tA, vUv).rgb;
+    vec3 b = texture2D(tB, vUv).rgb;
+    vec3 col;
+    if (uMode == 3) {
+      // Only the two dates of the same stockpile use a comparison divider.
+      col = vUv.x < uP ? a : b;
+      float edge = 1.0 - smoothstep(0.0, 1.2, abs(vUv.x - uP) * uRes.x);
+      col = mix(col, uMint, edge * step(0.001, uP) * step(uP, 0.999));
     } else {
-      // Time divider: left = A, right = B, the mint square rides the seam.
-      col = uv.x < t ? texture2D(tA, uv).rgb : texture2D(tB, uv).rgb;
-      float e = 1.0 - smoothstep(0.0, 1.2, abs(uv.x - t) * uRes.x);
-      col = mix(col, uMint, e * step(0.001, t) * step(t, 0.999));
+      // Camera motion does the transition; this short overlap joins worlds.
+      col = mix(a, b, uP);
     }
     gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
@@ -560,11 +484,31 @@ function boot() {
     return kmv;
   }
   let roadKm = 0, roadAlt = 9999;
+  // Remember the shot's focus so travel follows the real 3D scene scale.
+  function aimCamera(cam, x, y, z) {
+    const target = cam.userData.travelTarget || (cam.userData.travelTarget = V());
+    if (x && x.isVector3) target.copy(x); else target.set(x, y, z);
+    cam.lookAt(target);
+  }
+  const travelOffset = V();
+  function moveTravelCamera(cam, amount, direction) {
+    if (!amount || reduced) return;
+    const target = cam.userData.travelTarget;
+    travelOffset.subVectors(cam.position, target);
+    const distance = travelOffset.length();
+    const strength = MOBILE ? 0.72 : 1;
+    travelOffset.applyAxisAngle(UPV, direction * amount * 0.16 * strength);
+    travelOffset.multiplyScalar(1 + amount * 1.55 * strength);
+    travelOffset.y += distance * amount * 0.22 * strength;
+    cam.position.copy(target).add(travelOffset);
+    cam.far += distance * amount * 3;
+    cam.lookAt(target);
+  }
   function setRoadCam(cam, p, t = 0, aspect = 1) {
     cam.fov = 40;
     if (p <= 0.4) {
       roadOverview(p / 0.4, t, aspect, cam.position, _t0);
-      cam.lookAt(_t0); roadKm = -1;
+      aimCamera(cam, _t0); roadKm = -1;
     } else if (p < 0.62) {
       // Dive: orbit about a target that slides onto the hero stretch first, then close the distance.
       const q = (p - 0.4) / 0.22, e = sine(q);
@@ -576,10 +520,10 @@ function boot() {
       _t0.lerp(_t1, smooth(0, 0.6, e));
       _p0.lerp(_p1, smooth(0.15, 1, e)).normalize();
       cam.position.copy(_t0).addScaledVector(_p0, d);
-      cam.lookAt(_t0); cam.fov = lerp(40, 46, e); roadKm = -1;
+      aimCamera(cam, _t0); cam.fov = lerp(40, 46, e); roadKm = -1;
     } else {
       roadKm = roadFlight((p - 0.62) / 0.38, aspect, cam.position, _t0);
-      cam.lookAt(_t0); cam.fov = 46;
+      aimCamera(cam, _t0); cam.fov = 46;
     }
     roadAlt = cam.position.y;
     cam.near = Math.max(1, roadAlt * 0.05); cam.far = roadAlt * 40 + 8000;
@@ -608,7 +552,7 @@ function boot() {
     cam.fov = 40;
     cam.position.set(c.x + Math.cos(az) * Math.cos(el) * dist, c.y + Math.sin(el) * dist, c.z + Math.sin(az) * Math.cos(el) * dist);
     cam.near = dist * 0.02; cam.far = dist * 8;
-    cam.lookAt(c.x + lerp(0, 0.06, e) * L, c.y, c.z);
+    aimCamera(cam, c.x + lerp(0, 0.06, e) * L, c.y, c.z);
   }
   const tankClip = new THREE.Vector4(1, 0, 0, 0.35);
   function setTankCam(cam, p, up = 0, aspect = 1) {
@@ -619,9 +563,9 @@ function boot() {
     const r = lerp(14.2, 12.6, e) * (aspect < 1 ? 1.5 : 1);
     cam.position.set(Math.cos(az) * r, lerp(7.4, 5.6, e) + up * 16, Math.sin(az) * r);
     cam.near = 0.1; cam.far = 120;
-    cam.lookAt(0.4, lerp(4.5, 4.6, e) + up * 22, 0);
+    aimCamera(cam, 0.4, lerp(4.5, 4.6, e) + up * 22, 0);
   }
-  // Approach look: thin, see-through points while the iris opens and the camera settles, so the shell edge and the
+  // Approach look: thin, see-through points while the camera approaches and settles, so the shell edge and the
   // interior structure read first; the cloud firms up to its settled look just before the findings appear.
   function tankLook(k) {
     if (!tank.mat) return;
@@ -646,7 +590,7 @@ function boot() {
     cam.fov = 44;
     cam.position.set(a.x + Math.cos(az) * r, lerp(1.2, 15.2, e), a.z + Math.sin(az) * r);
     cam.near = 0.1; cam.far = 200;
-    cam.lookAt(a.x, lerp(6.5, 17.2, e) + (aspect < 1 ? 1.4 : 0), a.z);
+    aimCamera(cam, a.x, lerp(6.5, 17.2, e) + (aspect < 1 ? 1.4 : 0), a.z);
   }
   function setFacadeCam(cam, p, t = 0, aspect = 1) {
     // Rise up the west elevation, ending on a three-quarter view of the full 74 m.
@@ -661,7 +605,7 @@ function boot() {
       _f.subVectors(_t0, cam.position).normalize(); _r.crossVectors(_f, UPV).normalize().multiplyScalar(-r * 0.12);
       cam.position.add(_r); _t0.add(_r);
     }
-    cam.lookAt(_t0);
+    aimCamera(cam, _t0);
   }
   function setStockCam(cam, p, t = 0, aspect = 1) {
     const e = sine(p);
@@ -672,7 +616,7 @@ function boot() {
     cam.fov = 38;
     cam.position.set(c.x + Math.cos(az) * Math.cos(el) * dist, c.y + Math.sin(el) * dist, c.z + Math.sin(az) * Math.cos(el) * dist);
     cam.near = 2; cam.far = 3000;
-    cam.lookAt(c.x, c.y, c.z);
+    aimCamera(cam, c.x, c.y, c.z);
   }
   function flareState(scan, ignite, t) {
     scanPlane.constant = lerp(-0.6, 20.8, scan);
@@ -968,6 +912,12 @@ function boot() {
       renderer.render(SCN[name].scene, cam);
     }
   }
+  function flyBetween(nameA, cameraA, nameB, cameraB, progress) {
+    const travel = sceneTravel(progress);
+    moveTravelCamera(cameraA, travel.outgoing, 1);
+    moveTravelCamera(cameraB, travel.incoming, -1);
+    composite(nameA, cameraA, nameB, cameraB, 0, travel.blend);
+  }
   function composite(nameA, camA_, nameB, camB_, modeId, p) {
     drawScene(nameA, camA_, rtA);
     drawScene(nameB, camB_, rtB);
@@ -1078,7 +1028,7 @@ function boot() {
       setDivider(0, false);
       if (!road.ready || !plant.ready) return clearBg();
       setRoadCam(camA, rd, 0, aspect); rS(rtA); setPlantCam(camB, pl, 0, aspect);
-      composite('road', camA, 'plant', camB, 4, sw); hud(camB);
+      flyBetween('road', camA, 'plant', camB, sw); hud(camB);
     } else if (ir <= 0.0005) {
       setDivider(0, false);
       if (!plant.ready) return clearBg();
@@ -1087,7 +1037,7 @@ function boot() {
       setDivider(0, false);
       if (!plant.ready || !tank.ready) return clearBg();
       setPlantCam(camA, pl, 0, aspect); setTankCam(camB, tk, 0, aspect);
-      composite('plant', camA, 'tank', camB, 1, ir); hud(camB);
+      flyBetween('plant', camA, 'tank', camB, ir); hud(camB);
     } else if (ri <= 0.0005) {
       setDivider(0, false);
       if (!tank.ready) return clearBg();
@@ -1095,8 +1045,8 @@ function boot() {
     } else if (ri < 0.9995) {
       setDivider(0, false);
       if (!tank.ready || !flare.ready) return clearBg();
-      setTankCam(camA, tk, sine(ri), aspect); setFlareCam(camB, fl, 0, aspect); fS();
-      composite('tank', camA, 'flare', camB, 2, sine(ri)); hud(camB);
+      setTankCam(camA, tk, 0, aspect); setFlareCam(camB, fl, 0, aspect); fS();
+      flyBetween('tank', camA, 'flare', camB, ri); hud(camB);
     } else if (sp <= 0.0005) {
       setDivider(0, false);
       if (!flare.ready) return clearBg();
@@ -1105,7 +1055,7 @@ function boot() {
       setDivider(0, false);
       if (!flare.ready || !facade.ready) return clearBg();
       setFlareCam(camA, fl, 0, aspect); fS(); setFacadeCam(camB, fa, 0, aspect); fxS();
-      composite('flare', camA, 'facade', camB, 5, sp); hud(camB);
+      flyBetween('flare', camA, 'facade', camB, sp); hud(camB);
     } else if (w1 <= 0.0005) {
       setDivider(0, false);
       if (!facade.ready) return clearBg();
@@ -1113,9 +1063,9 @@ function boot() {
       facadeHover(camA);
     } else if (w1 < 0.9995) {
       if (!facade.ready || !stock.ready) return clearBg();
-      const d = 1 - w1;
+      setDivider(0, false);
       setFacadeCam(camA, fa, 0, aspect); fxS(); setStockCam(camB, st, 0, aspect);
-      composite('facade', camA, 'stock1', camB, 3, d); setDivider(d, true); hud(camB);
+      flyBetween('facade', camA, 'stock1', camB, w1); hud(camB);
     } else {
       if (!stock.ready) return clearBg();
       setStockCam(camA, st, 0, aspect);

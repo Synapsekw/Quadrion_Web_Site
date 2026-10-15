@@ -1,0 +1,33 @@
+.demo-dialog {
+  width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px);
+  margin: auto; padding: 36px; overflow-y: auto; overscroll-behavior: contain;
+  color: var(--t0); background: var(--bg1); border: 1px solid var(--line);
+  border-radius: 18px; box-shadow: 0 32px 100px #0009; font-family: var(--sans);
+}
+.demo-dialog::backdrop { background: #05090dbd; backdrop-filter: blur(9px); }
+html:has(.demo-dialog[open]) { overflow: hidden; }
+.demo-dialog[open] { animation: demo-in 220ms cubic-bezier(.16,1,.3,1); }
+.demo-dialog h2 { font-size: clamp(28px, 5vw, 36px); line-height: 1.15; letter-spacing: -.035em; margin: 10px 24px 12px 0; }
+.demo-dialog .demo-intro { font-size: 16px; line-height: 1.55; color: var(--t1); margin: 0 0 26px; max-width: 42ch; }
+.demo-brand { color: var(--mint); font-size: 13px; font-weight: 500; }
+.demo-close { position: absolute; right: 14px; top: 12px; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--t1); background: transparent; cursor: pointer; font-size: 26px; }
+.demo-close:hover { background: var(--bg2); color: var(--t0); }
+.demo-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; }
+.demo-fields label { display: grid; gap: 8px; font-size: 14px; color: var(--t0); }
+.demo-fields .demo-wide { grid-column: 1 / -1; }
+.demo-fields input, .demo-fields textarea { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); background: var(--bg0); color: var(--t0); border-radius: 7px; font: inherit; font-size: 16px; line-height: 1.4; }
+.demo-fields textarea { resize: vertical; min-height: 94px; }
+.demo-fields input:focus, .demo-fields textarea:focus { border-color: var(--mint); outline: 2px solid #5ed1b333; outline-offset: 2px; }
+.demo-dialog :focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }
+.demo-note { font-size: 13px; line-height: 1.5; color: var(--t1); margin: 18px 0; }
+.demo-note a { text-decoration: underline; text-underline-offset: 3px; }
+.demo-submit { width: 100%; min-height: 48px; border: 0; border-radius: 8px; background: var(--mint); color: var(--bg0); font: inherit; font-weight: 500; cursor: pointer; }
+.demo-submit:hover { background: #83dfc7; }
+.demo-submit:disabled { opacity: .6; cursor: wait; }
+.demo-status { color: #ffc39f; font-size: 14px; line-height: 1.5; margin: 14px 0 0; }
+.demo-status:empty { display: none; }
+.demo-success p { color: var(--t1); line-height: 1.6; margin: 12px 0 26px; }
+.demo-dialog [hidden] { display: none !important; }
+@keyframes demo-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
+@media (max-width: 520px) { .demo-dialog { padding: 28px 22px; max-height: calc(100dvh - 24px); } .demo-fields { grid-template-columns: 1fr; gap: 14px; } }
+@media (prefers-reduced-motion: reduce) { .demo-dialog[open] { animation: none; } }
