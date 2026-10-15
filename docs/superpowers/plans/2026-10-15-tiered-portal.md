@@ -10,7 +10,7 @@
 
 **Spec:** docs/superpowers/specs/2026-10-15-private-downloads-design.md
 
-**Status:** Implementation plan for review. The owner confirmed the tier-library plus optional private-assignment model. No portal code, migrations, production secrets or buckets have been applied.
+**Status:** The owner confirmed the tier-library plus optional private-assignment model, then explicitly requested initial owner setup. The narrow membership/audit migration `202610150001_portal_members.sql` has been tested and applied manually to the Quadrion project. Its trusted bootstrap generator is implemented; account/role status is recorded in `docs/portal-owner-setup.md`. The remaining schema, portal pages/APIs, MFA enforcement, production secrets and buckets are not deployed. This initial setup does not complete Tasks 1 or 4 below.
 
 ## Global constraints
 
@@ -47,7 +47,7 @@ Use a dedicated portal subsystem; leave Quori's store, migrations and live trans
 
 | Files | Responsibility |
 | --- | --- |
-| supabase/migrations/202610150001_portal.sql | Tables, constraints, deny-by-default RLS and service-only database routines |
+| supabase/migrations/202610150001_portal_members.sql; subsequent migrations | Membership/audit foundation; remaining tables, constraints, deny-by-default RLS and service-only database routines |
 | netlify/lib/portal/policy.mjs | Pure role/tier/assignment decisions; no network or UI |
 | netlify/lib/portal/config.mjs | Environment validation, enabled flag and production gate |
 | netlify/lib/portal/supabase.mjs | Auth/claims verification and private database/storage adapter |

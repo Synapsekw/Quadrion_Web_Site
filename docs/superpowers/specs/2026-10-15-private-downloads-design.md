@@ -2,7 +2,7 @@
 
 Quadrion will provide an invite-only user portal and an administrator dashboard on its existing Netlify website. Supabase will hold accounts, permissions, release records and private files. Administrators can invite people, assign T1–T3 access, publish software updates and upload .aio project datasets without editing the website.
 
-Status: revised design for owner review, 15 October 2026. The owner requested administrator/user pages and three access tiers. The Supabase project exists and public registration is disabled. Portal code, database tables and private file buckets have not been deployed.
+Status: the tier-library/private-assignment model is confirmed. On 15 October 2026 the owner requested initial master-admin setup. The protected `portal_members` and `portal_events` foundation tables have been applied to the Quadrion Supabase project with RLS and no browser access. Account verification and the initial owner grant are tracked in `docs/portal-owner-setup.md`. Portal pages, APIs, MFA enforcement and private file buckets are not deployed; public registration remains disabled.
 
 ## Access model
 
@@ -79,7 +79,7 @@ Admin uploads deliberately place a copy in Mumbai. The portal never scans or aut
 
 ## Database structure
 
-These are proposed migration entities, not existing tables.
+The membership and audit foundation tables exist. The other entities below remain planned.
 
 | Entity | Responsibility and key fields |
 | --- | --- |
