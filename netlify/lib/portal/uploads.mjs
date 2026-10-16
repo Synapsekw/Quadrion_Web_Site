@@ -9,7 +9,7 @@ export function createUploadActions({config,backend,dispatch=id=>dispatchVerific
   async function signedSession(session){
     const file=session.file;
     const {data,error}=await backend.service.storage.from(file.bucket).createSignedUploadUrl(file.object_path,{upsert:false});if(error||!data?.token)fail('unavailable');
-    return {...statusDto(session),bucket:file.bucket,objectPath:file.object_path,token:data.token,contentType:file.mime_type,endpoint:config.url.replace('.supabase.co','.storage.supabase.co')+'/storage/v1/upload/resumable'};
+    return {...statusDto(session),bucket:file.bucket,objectPath:file.object_path,token:data.token,contentType:file.mime_type,endpoint:config.url.replace('.supabase.co','.storage.supabase.co')+'/storage/v1/upload/resumable/sign'};
   }
   return async(action,body,user)=>{
     const base={p_actor:user.userId,p_aal:user.aal};
