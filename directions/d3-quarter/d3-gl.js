@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { sceneTravel, aimCamera, moveTravelCamera } from './scene-travel.mjs';
 import { createSceneLoader, sceneDemand, datasetName, canCaptureStill } from './scene-loading.mjs';
+import { WORKFLOWS, workflowState, flightTime } from './tour-workflows.mjs';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -45,6 +46,14 @@ const expoOut = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 const cubicOut = (t) => 1 - Math.pow(1 - t, 3);
 const sine = (t) => 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
 const V = () => new THREE.Vector3();
+const elevationGLSL = /* glsl */`
+  vec3 elevationColor(float h) {
+    h = clamp(h, 0.0, 1.0);
+    vec3 low = vec3(0.035, 0.17, 0.48), mid = vec3(0.08, 0.77, 0.62);
+    vec3 high = vec3(0.98, 0.66, 0.08), peak = vec3(0.94, 0.16, 0.11);
+    return h < 0.5 ? mix(low, mid, h * 2.0) : h < 0.8 ? mix(mid, high, (h - 0.5) / 0.3) : mix(high, peak, (h - 0.8) / 0.2);
+  }
+`;
 
 function radialTexture(stops) {
   const c = document.createElement('canvas');
@@ -68,13 +77,15 @@ function pointsMat(o = {}) {
       uSize: { value: o.size || 1 }, uScale: { value: 500 }, uMin: { value: o.minPx ?? 1 }, uMax: { value: o.maxPx || 6 },
       uPx: { value: o.px || 0 }, uOpacity: { value: o.opacity ?? 1 }, uBright: { value: o.bright ?? 1 },
       uFog: { value: new THREE.Vector2(o.fogNear ?? 1e8, o.fogFar ?? 2e8) },
+      uElevation: { value: new THREE.Vector2(0, 1) }, uElevOn: { value: 0 },
       uDim: { value: new THREE.Vector3(1e8, 2e8, 1) }, // near, far, min brightness (depth fade by darkening, not alpha)
       uScan: { value: -1e9 }, uScanOn: { value: o.scan ? 1 : 0 }, uClip: { value: o.clip || new THREE.Vector4(0, 0, 0, 1) }, uClipOn: { value: o.clip ? 1 : 0 }, uSec: { value: o.sec || 0 }, uMint: { value: MINT.clone() }, uSoft: { value: o.soft ? 1 : 0 }
     },
     vertexShader: /* glsl */`
       uniform float uSize, uScale, uMin, uMax, uPx, uScan, uScanOn, uBright;
-      uniform vec2 uFog; uniform vec3 uDim; uniform vec4 uClip;
+      uniform vec2 uFog, uElevation; uniform float uElevOn; uniform vec3 uDim; uniform vec4 uClip;
       varying vec3 vC; varying float vA; varying float vEdge; varying float vClip;
+      ${elevationGLSL}
       void main() {
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vec4 mv = viewMatrix * wp;
@@ -82,7 +93,8 @@ function pointsMat(o = {}) {
         float d = -mv.z;
         float s = uPx > 0.0 ? uPx : uSize * uScale / max(d, 0.001);
         gl_PointSize = clamp(s, uMin, uMax);
-        vC = color * uBright * mix(1.0, uDim.z, smoothstep(uDim.x, uDim.y, d));
+        vec3 pointColor = mix(color, elevationColor((wp.y - uElevation.x) / max(0.001, uElevation.y - uElevation.x)), uElevOn);
+        vC = pointColor * uBright * mix(1.0, uDim.z, smoothstep(uDim.x, uDim.y, d));
         vA = 1.0 - smoothstep(uFog.x, uFog.y, d);
         vEdge = 0.0;
         vClip = dot(uClip.xyz, wp.xyz) + uClip.w;
@@ -421,7 +433,7 @@ function boot() {
   const tank = { scene: mk(), ready: false, findings: [] };
   const flare = { scene: mk(), ready: false, patches: [], order: [], axis: V(), M: new THREE.Matrix4() };
   const facade = { scene: mk(), ready: false, c: V(), size: V(), centers: [], meta: null };
-  const stock = { scene: mk(), ready: false, e1: null, e2: null, piles: {} };
+  const stock = { scene: mk(), ready: false, e1: null, e2: null, piles: {}, selected: 'P02', surfaces: [], outlines: [] };
   const SCN = { road, plant, tank, flare, facade, stock };
   const scanPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
 
@@ -429,6 +441,32 @@ function boot() {
   const camB = new THREE.PerspectiveCamera(40, 1, 0.1, 10000);
   const camApp = new THREE.PerspectiveCamera(40, 1, 0.1, 10000);
   const winCams = [0, 1, 2, 3].map(() => new THREE.PerspectiveCamera(36, 1, 0.1, 10000));
+  const workflow = (name, p = S[name]) => workflowState(name, p, window.QWorkflowOverrides?.[name]);
+  const manualCamera = new Map();
+  function beginCameraMove(name) {
+    if (reduced || mode !== 'stage') return;
+    manualCamera.set(name, { pos: camA.position.clone(), q: camA.quaternion.clone(), fov: camA.fov, start: performance.now() });
+  }
+  function easeManualCamera(name, cam) {
+    const move = manualCamera.get(name);
+    if (!move || cam !== camA) return;
+    const k = smooth(0, 1000, performance.now() - move.start);
+    cam.position.lerpVectors(move.pos, cam.position, k);
+    cam.quaternion.slerpQuaternions(move.q, cam.quaternion, k);
+    cam.fov = lerp(move.fov, cam.fov, k);
+    if (k >= 1) manualCamera.delete(name);
+  }
+  window.addEventListener('d3:workflow', event => {
+    if (!WORKFLOWS[event.detail?.scene]) return;
+    beginCameraMove(event.detail.scene);
+    if (reduced && mode !== 'none') renderOnce();
+  });
+  window.addEventListener('d3:pile', event => {
+    const id = event.detail?.id;
+    if (!stock.piles[id]) return;
+    beginCameraMove('stock'); stock.selected = id;
+    if (reduced && mode !== 'none') renderOnce();
+  });
 
   // ---------- road geometry helpers ----------
   function roadAt(kmv, out = { x: 0, z: 0, dx: 1, dz: 0 }) {
@@ -524,7 +562,9 @@ function boot() {
   }
 
   // --- camera paths (p = 0..1 across each shot) ---
-  function setPlantCam(cam, p, t = 0, aspect = 1) {
+  function setPlantCam(cam, p, t = 0, aspect = 1, tour = true) {
+    const active = tour && mode === 'stage';
+    if (active) p = workflow('plant', p).progress;
     const c = plant.center, L = Math.max(plant.size.x, plant.size.z, 200);
     const e = sine(p);
     const az = lerp(-1.95, -1.3, e) + t;
@@ -534,17 +574,48 @@ function boot() {
     cam.position.set(c.x + Math.cos(az) * Math.cos(el) * dist, c.y + Math.sin(el) * dist, c.z + Math.sin(az) * Math.cos(el) * dist);
     cam.near = dist * 0.02; cam.far = dist * 8;
     aimCamera(cam, c.x + lerp(0, 0.06, e) * L, c.y, c.z);
+    if (active) easeManualCamera('plant', cam);
   }
   const tankClip = new THREE.Vector4(1, 0, 0, 0.35);
-  function setTankCam(cam, p, up = 0, aspect = 1) {
+  function setTankCam(cam, p, up = 0, aspect = 1, tour = true) {
     // Low and close, looking up into the far half of the shell, so the curvature and weld rings read.
-    const e = sine(p);
+    const state = tour && mode === 'stage' ? workflow('tank', p) : null;
+    const e = sine(state ? Math.min(state.progress / 0.75, 1) : p);
     cam.fov = aspect < 1 ? 60 : 44;
     const az = Math.PI + lerp(-0.55, 0.3, e);
     const r = lerp(14.2, 12.6, e) * (aspect < 1 ? 1.5 : 1);
     cam.position.set(Math.cos(az) * r, lerp(7.4, 5.6, e) + up * 16, Math.sin(az) * r);
     cam.near = 0.1; cam.far = 120;
     aimCamera(cam, 0.4, lerp(4.5, 4.6, e) + up * 22, 0);
+    if (state?.id === 'interior') {
+      const enter = smooth(0, 0.48, state.local);
+      const samples = tank.flight?.samples;
+      if (samples?.length) {
+        const video = document.getElementById('tank-flight-video');
+        const time = flightTime(state.local, samples.at(-1).t, video?.currentTime);
+        let i = Math.min(samples.length - 2, Math.max(0, Math.floor(time * (tank.flight.sampleRateHz || 10))));
+        while (i < samples.length - 2 && samples[i + 1].t < time) i++;
+        const a = samples[i], b = samples[i + 1], mix = clamp01((time - a.t) / (b.t - a.t));
+        _p0.fromArray(a.pos).lerp(_p1.fromArray(b.pos), mix);
+        const q = new THREE.Quaternion().fromArray(a.q).slerp(new THREE.Quaternion().fromArray(b.q), mix);
+        cam.position.lerp(_p0, enter); cam.quaternion.slerp(q, enter);
+        // Store a real forward target for the subsequent cross-scene camera handoff.
+        _t0.set(0, 0, -1).applyQuaternion(cam.quaternion).multiplyScalar(4).add(cam.position);
+        const orientation = cam.quaternion.clone();
+        aimCamera(cam, _t0);
+        // lookAt records the travel target but replaces roll with camera.up.
+        // Retain the calibrated camera quaternion, including its recorded roll.
+        cam.quaternion.copy(orientation);
+        cam.fov = lerp(cam.fov, 75, enter);
+      } else {
+        // Deterministic interior movement remains available if the optional track fails.
+        const az = lerp(-2.7, -0.35, state.local);
+        _p0.set(Math.cos(az) * 3.2, lerp(3.8, 6.5, state.local), Math.sin(az) * 3.2);
+        cam.position.lerp(_p0, enter);
+        aimCamera(cam, Math.cos(az + 0.7) * 6, 7, Math.sin(az + 0.7) * 6);
+      }
+    }
+    if (state) easeManualCamera('tank', cam);
   }
   // Approach look: thin, see-through points while the camera approaches and settles, so the shell edge and the
   // interior structure read first; the cloud firms up to its settled look just before the findings appear.
@@ -562,8 +633,21 @@ function boot() {
     const x = cam.position.x, z = cam.position.z, l = Math.hypot(x, z) || 1;
     tankClip.set(-x / l, 0, -z / l, 0.3);
     if (tank.mat) tank.mat.uniforms.uDim.value.set(l - 2.4, l + 2.6, 0.3);
+    if (tank.modelClip) tank.modelClip.setComponents(tankClip.x, 0, tankClip.z, tankClip.w);
   }
-  function setFlareCam(cam, p, t = 0, aspect = 1) {
+  function setFlareCam(cam, p, t = 0, aspect = 1, tour = true) {
+    if (tour && mode === 'stage' && flare.focus) {
+      const state = workflow('flare', p), a = flare.axis, size = aspect < 1 ? 1.55 : 1;
+      const overview = { pos: new THREE.Vector3(a.x + 12 * size, 11.5, a.z + 20 * size), target: new THREE.Vector3(a.x, 9.5, a.z) };
+      const poses = [overview, overview, ...['F70', 'F44', 'F04'].map(id => flare.focus[id] || overview)];
+      const to = poses[state.index], from = poses[Math.max(0, state.index - 1)];
+      const k = smooth(0, 0.6, state.local);
+      cam.position.lerpVectors(from.pos, to.pos, k);
+      _t0.lerpVectors(from.target, to.target, k);
+      if (aspect < 1 && state.index >= 2) cam.position.sub(_t0).multiplyScalar(1.35).add(_t0);
+      cam.fov = 40; cam.near = 0.025; cam.far = 200;
+      aimCamera(cam, _t0); easeManualCamera('flare', cam); return;
+    }
     const e = sine(p);
     const a = flare.axis;
     const r = (aspect < 1 ? 19 : 10.5) - e * 1.2;
@@ -573,9 +657,10 @@ function boot() {
     cam.near = 0.1; cam.far = 200;
     aimCamera(cam, a.x, lerp(6.5, 17.2, e) + (aspect < 1 ? 1.4 : 0), a.z);
   }
-  function setFacadeCam(cam, p, t = 0, aspect = 1) {
+  function setFacadeCam(cam, p, t = 0, aspect = 1, tour = true) {
     // Rise up the west elevation, ending on a three-quarter view of the full 74 m.
-    const e = sine(p), c = facade.c, H = facade.size.y;
+    const state = tour && mode === 'stage' ? workflow('facade', p) : null;
+    const e = sine(state ? Math.min(0.85, state.progress) : p), c = facade.c, H = facade.size.y;
     const az = Math.PI + lerp(-0.7, 0.32, e) + t;
     const r = lerp(118, 150, e) * (aspect < 1 ? 1.8 : 1);
     cam.fov = 40;
@@ -587,9 +672,27 @@ function boot() {
       cam.position.add(_r); _t0.add(_r);
     }
     aimCamera(cam, _t0);
+    if (state && state.index >= 2 && facade.evidenceTargets) {
+      const target = facade.evidenceTargets[state.id];
+      if (target) {
+        const k = smooth(0, 0.65, state.local);
+        const evidencePosition = point => {
+          const direction = point.clone().sub(new THREE.Vector3(c.x, point.y, c.z)).normalize();
+          if (direction.lengthSq() < 0.1) direction.set(-1, 0, 0);
+          const at = point.clone().addScaledVector(direction, aspect < 1 ? 70 : 48); at.y += 7; return at;
+        };
+        if (state.index === 3 && facade.evidenceTargets.rgb) {
+          cam.position.copy(evidencePosition(facade.evidenceTargets.rgb)); _t0.copy(facade.evidenceTargets.rgb);
+        }
+        const at = evidencePosition(target);
+        cam.position.lerp(at, k); _t0.lerp(target, k); aimCamera(cam, _t0);
+      }
+    }
+    if (state) easeManualCamera('facade', cam);
   }
-  function setStockCam(cam, p, t = 0, aspect = 1) {
-    const e = sine(p);
+  function setStockCam(cam, p, t = 0, aspect = 1, tour = true) {
+    const state = tour && mode === 'stage' ? workflow('stock', p) : null;
+    const e = sine(state?.progress ?? p);
     const c = stock.center || V();
     const az = lerp(0.95, 1.45, e) + t;
     const el = lerp(0.95, 0.72, e);
@@ -598,6 +701,14 @@ function boot() {
     cam.position.set(c.x + Math.cos(az) * Math.cos(el) * dist, c.y + Math.sin(el) * dist, c.z + Math.sin(az) * Math.cos(el) * dist);
     cam.near = 2; cam.far = 3000;
     aimCamera(cam, c.x, c.y, c.z);
+    if (state && state.index >= 2 && stock.piles[stock.selected]) {
+      const pile = stock.piles[stock.selected], k = state.index > 2 ? 1 : smooth(0, 0.65, state.local);
+      const distance = Math.max(45, pile.radius * 3.2) * (aspect < 1 ? 1.55 : 1);
+      _p0.set(pile.center.x + Math.cos(az) * distance * 0.65, pile.center.y + distance * 0.82, pile.center.z + Math.sin(az) * distance * 0.65);
+      cam.position.lerp(_p0, k); _t0.copy(c).lerp(pile.center, k); aimCamera(cam, _t0);
+      cam.near = 0.5;
+    }
+    if (state) easeManualCamera('stock', cam);
   }
   function flareState(scan, ignite, t) {
     scanPlane.constant = lerp(-0.6, 20.8, scan);
@@ -627,6 +738,109 @@ function boot() {
     const u = facade.mat.uniforms;
     fx.reveal = reveal;
     u.uReveal.value = reveal; u.uHi.value = fx.hi; u.uHiCls.value = fx.hiCls; u.uBase.value = base;
+  }
+  function modelOpacity(model, amount) {
+    if (!model) return;
+    model.visible = amount > 0.001;
+    for (const material of model.userData.workflowMaterials || []) {
+      const transparent = amount < 0.999;
+      if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
+      material.opacity = amount; material.depthWrite = !transparent;
+    }
+  }
+  function prepareModel(model, scene, extra = {}) {
+    const materials = new Set();
+    model.traverse(object => {
+      if (!object.isMesh) return;
+      const source = Array.isArray(object.material) ? object.material : [object.material];
+      const cloned = source.map(material => {
+        const copy = material.clone(); Object.assign(copy, extra);
+        copy.side = THREE.DoubleSide; copy.envMapIntensity = 0.5; materials.add(copy); return copy;
+      });
+      object.material = Array.isArray(object.material) ? cloned : cloned[0];
+    });
+    model.userData.workflowMaterials = [...materials];
+    scene.environment = envTex;
+    scene.add(model, new THREE.HemisphereLight(0xe6f1ff, 0x323b42, 2.1));
+    const key = new THREE.DirectionalLight(0xfff6e8, 2.5); key.position.set(-30, 70, 45); scene.add(key);
+  }
+  function applyWorkflow(name, opts = {}) {
+    const active = mode === 'stage' && !opts.still;
+    if (name === 'plant' && plant.pts) {
+      const state = active ? workflow('plant') : workflowState('plant', 0);
+      const model = state.index === 2 ? smooth(0, 0.45, state.local) : 0;
+      plant.pts.visible = model < 0.999; plant.pts.material.uniforms.uOpacity.value = 1 - model;
+      plant.pts.material.uniforms.uElevOn.value = state.index === 0 ? 0 : state.index === 1 ? smooth(0, 0.45, state.local) : 1;
+      plant.ortho.visible = state.index !== 1;
+      modelOpacity(plant.model, model);
+    } else if (name === 'tank' && tank.pts) {
+      const state = active ? workflow('tank') : workflowState('tank', 0.68);
+      const model = state.index === 0 ? 0 : state.index === 1 ? smooth(0, 0.45, state.local) : 1;
+      tank.pts.visible = model < 0.999; tank.pts.material.uniforms.uOpacity.value *= 1 - model;
+      modelOpacity(tank.model, model);
+      tank.markers.visible = state.index >= 2 && state.id !== 'interior';
+      tank.flightLine.visible = state.id === 'interior' && state.local < 0.25;
+      // The cutaway reveals the interior in overview; once inside retain all real surfaces.
+      tank.modelClip.constant = state.id === 'interior' && state.local > 0.2 ? 1e6 : tankClip.w;
+    } else if (name === 'flare' && flare.model) {
+      const state = active ? workflow('flare') : null;
+      const model = !state || state.index >= 2 ? 1 : state.index === 0 ? 0 : smooth(0, 0.45, state.local);
+      scanPlane.constant = 1e6;
+      flare.pts.material.uniforms.uScanOn.value = 0;
+      flare.pts.material.uniforms.uOpacity.value = 1 - model;
+      flare.pts.visible = model < 0.999; flare.model.visible = model > 0.001;
+      flare.scanRing.visible = false;
+      const focused = state ? ['F70', 'F44', 'F04'][state.index - 2] : null;
+      flare.order.forEach((patch, i) => {
+        patch.mesh.visible = !state || state.index >= 2;
+        const selected = !state || patch.record.id === focused;
+        patch.mesh.material.opacity = selected ? 1 : 0.18;
+        patch.mesh.material.color.setScalar(selected ? 1.25 : 0.75);
+        if (flare.glowCol) flare.glowCol.setXYZ(i, selected && focused ? 0.9 : 0, selected && focused ? 0.28 : 0, 0);
+      });
+      if (flare.glowCol) flare.glowCol.needsUpdate = true;
+    } else if (name === 'facade' && facade.mat) {
+      const state = active ? workflow('facade') : null;
+      facade.mat.uniforms.uEvidenceIssue.value = -1;
+      if (!state) {
+        facadeState(9, 0.3);
+        facade.mat.uniforms.uHi.value = -1; facade.mat.uniforms.uHiCls.value = -1;
+        return;
+      }
+      const reveal = state.index === 0 ? 0 : state.index === 1 ? smooth(0, 0.75, state.local) * 9 : 9;
+      facadeState(reveal, state.index === 1 ? 0.68 : 0.18);
+      if (state.index >= 2) {
+        facade.mat.uniforms.uEvidenceIssue.value = state.id === 'rgb' ? 159 : 397;
+        facade.mat.uniforms.uHiCls.value = state.id === 'thermal' ? 6 : -1;
+      }
+    } else if (name === 'stock' && stock.dsm) {
+      const state = active ? workflow('stock') : null;
+      const dsm = state?.id === 'dsm';
+      for (const surface of stock.surfaces) surface.mesh.material = dsm ? stock.dsm : surface.material;
+      for (const outline of stock.outlines) {
+        const selected = outline.id === stock.selected;
+        outline.line.visible = !state || state.index >= 2;
+        outline.line.material.color.setHex(selected ? 0x5ed1b3 : 0xb9c7d1);
+        outline.line.material.opacity = selected ? 1 : 0.22;
+        outline.line.renderOrder = selected ? 8 : 3;
+      }
+    }
+  }
+  let pilesProjected = false;
+  function clearPileProjection() {
+    if (!pilesProjected) return;
+    pilesProjected = false;
+    window.dispatchEvent(new CustomEvent('d3:pile-screen', { detail: { points: [], width: W, height: H } }));
+  }
+  function projectPiles(cam) {
+    if (mode !== 'stage') return;
+    const points = Object.entries(stock.piles).flatMap(([id, pile]) => {
+      pv.copy(pile.center); pv.y += 1.5; pv.project(cam);
+      return pv.z > -1 && pv.z < 1 && Math.abs(pv.x) < 0.96 && Math.abs(pv.y) < 0.92
+        ? [{ id, x: (pv.x + 1) * 0.5 * W, y: (1 - pv.y) * 0.5 * H }] : [];
+    });
+    pilesProjected = points.length > 0;
+    window.dispatchEvent(new CustomEvent('d3:pile-screen', { detail: { points, width: W, height: H } }));
   }
 
   // ================= RENDER TARGETS & COMPOSITE =================
@@ -866,16 +1080,18 @@ function boot() {
         roadState(9, 1, -9, roadAlt, 1.15);
         renderer.setRenderTarget(winRT[0]); renderer.render(road.scene, c);
       } else if (i === 1) {
-        setPlantCam(c, 0.55, t * 0.03); c.fov = 36; c.aspect = 1; c.updateProjectionMatrix();
+        applyWorkflow('plant', { still: true });
+        setPlantCam(c, 0.55, t * 0.03, 1, false); c.fov = 36; c.aspect = 1; c.updateProjectionMatrix();
         renderer.setRenderTarget(winRT[1]); renderer.render(plant.scene, c);
       } else if (i === 2) {
         const a = t * 0.12 + 0.6, ax = flare.axis;
         c.fov = 36; c.aspect = 1; c.near = 0.1; c.far = 200;
         c.position.set(ax.x + Math.cos(a) * 9, 12.5, ax.z + Math.sin(a) * 9); c.lookAt(ax.x, 16.2, ax.z); c.updateProjectionMatrix();
-        flareState(1, 1, t);
+        flareState(1, 1, t); applyWorkflow('flare', { still: true });
         renderer.setRenderTarget(winRT[2]); renderer.render(flare.scene, c);
       } else {
-        setStockCam(c, 0.3, t * 0.04); c.aspect = 1; c.updateProjectionMatrix();
+        applyWorkflow('stock', { still: true });
+        setStockCam(c, 0.3, t * 0.04, 1, false); c.aspect = 1; c.updateProjectionMatrix();
         const div = 0.5 + 0.32 * Math.sin(t * 0.55);
         stock.e1.visible = true; stock.e2.visible = false;
         renderer.setRenderTarget(winRT[3]); renderer.render(stock.scene, c);
@@ -905,6 +1121,7 @@ function boot() {
     renderer.setClearColor(BG, 1);
     const px = h / H;
     if (name === 'stock1' || name === 'stock2') {
+      applyWorkflow('stock', opts);
       stock.e1.visible = name === 'stock1'; stock.e2.visible = name === 'stock2';
       renderer.render(stock.scene, cam);
     } else if (name === 'road') {
@@ -912,6 +1129,7 @@ function boot() {
       renderer.render(road.scene, cam);
     } else {
       if (name === 'tank') { sectionTank(cam); tankLook(mode === 'stage' && !opts.still ? smooth(0.45, 0.95, S.tank) : 1); }
+      applyWorkflow(name, opts);
       renderer.render(SCN[name].scene, cam);
     }
     if (!target && !opts.still) lastVisibleAsset = name;
@@ -923,9 +1141,9 @@ function boot() {
     moveTravelCamera(cameraB, travel.incoming, -1, strength);
     composite(nameA, cameraA, nameB, cameraB, 0, travel.blend);
   }
-  function composite(nameA, camA_, nameB, camB_, modeId, p) {
-    drawScene(nameA, camA_, rtA);
-    drawScene(nameB, camB_, rtB);
+  function composite(nameA, camA_, nameB, camB_, modeId, p, opts = {}) {
+    drawScene(nameA, camA_, rtA, opts);
+    drawScene(nameB, camB_, rtB, opts);
     compMat.uniforms.tA.value = rtA.texture; compMat.uniforms.tB.value = rtB.texture;
     compMat.uniforms.uMode.value = modeId; compMat.uniforms.uP.value = p;
     renderer.setRenderTarget(null);
@@ -1004,6 +1222,7 @@ function boot() {
   let bgT0 = 0;
   function stageFrame(t, dt) {
     const aspect = W / H;
+    if (S.zoom < 0.999 || S.wipe1 < 0.9995) clearPileProjection();
     if (S.zoom < 0.999) {
       setDpr(Q.dprMark);
       setDivider(0, false);
@@ -1068,17 +1287,19 @@ function boot() {
       setFacadeCam(camA, fa, 0, aspect); fxS(); drawScene('facade', camA, null); placeCallouts('facade', camA); hud(camA);
       facadeHover(camA);
     } else if (w1 < 0.9995) {
-      if (!facade.ready || !stock.ready) return loadingFrame(['facade', 'stock1'], t);
+      if (!facade.ready || !stock.ready) return loadingFrame(['facade', 'stock2'], t);
       setDivider(0, false);
       setFacadeCam(camA, fa, 0, aspect); fxS(); setStockCam(camB, st, 0, aspect);
-      flyBetween('facade', camA, 'stock1', camB, w1); hud(camB);
+      flyBetween('facade', camA, 'stock2', camB, w1); hud(camB);
     } else {
       if (!stock.ready) return loadingFrame(['stock2'], t);
       setStockCam(camA, st, 0, aspect);
-      if (w2 <= 0.0005) { drawScene('stock1', camA, null); setDivider(0, false); }
-      else if (w2 >= 0.9995) { drawScene('stock2', camA, null); setDivider(1, false); }
-      else { camB.copy(camA); composite('stock2', camA, 'stock1', camB, 3, w2); setDivider(w2, true); }
-      placeCallouts('stock', camA, { div: w2 }); hud(camA);
+      const state = workflow('stock');
+      const comparison = state.id === 'compare' ? (state.manual ? 0.5 : smooth(0.08, 0.92, state.local)) : 0;
+      if (comparison <= 0.0005) { drawScene(state.id === 'compare' ? 'stock1' : 'stock2', camA, null); setDivider(0, false); }
+      else if (comparison >= 0.9995) { drawScene('stock2', camA, null); setDivider(1, false); }
+      else { camB.copy(camA); composite('stock2', camA, 'stock1', camB, 3, comparison); setDivider(comparison, true); }
+      placeCallouts('stock', camA, { div: comparison }); projectPiles(camA); hud(camA);
     }
   }
   function clearBg() { renderer.setRenderTarget(null); renderer.setClearColor(BG, 1); renderer.clear(); }
@@ -1216,7 +1437,9 @@ function boot() {
         const geo = decimate(a.cloud.geometry, Q.plantStride);
         const pts = new THREE.Points(geo, pointsMat({ size: 2.4, minPx: 1, maxPx: MOBILE ? 3 : 4.5 }));
         pts.frustumCulled = false;
-        plant.scene.add(pts);
+        plant.scene.add(pts); plant.pts = pts; plant.model = a.model;
+        prepareModel(a.model, plant.scene);
+        modelOpacity(plant.model, 0);
         const box = new THREE.Box3(), sz = V();
         a.model.updateMatrixWorld(true);
         a.model.traverse((o) => {
@@ -1230,11 +1453,12 @@ function boot() {
         for (let i = 0; i < p.count; i += 97) ys.push(p.getY(i));
         ys.sort((x, y) => x - y);
         const ground = ys[Math.floor(ys.length * 0.08)];
+        pts.material.uniforms.uElevation.value.set(ground, ys[Math.floor(ys.length * 0.99)]);
         plant.center.y = ground + 4;
         const ortho = a.ortho.clone();
         ortho.material = new THREE.MeshBasicMaterial({ map: a.ortho.material.map, color: 0x9a9a9a, toneMapped: false, side: THREE.DoubleSide, depthWrite: true });
         ortho.position.y = ground - a.ortho.geometry.attributes.position.getY(0) - 0.6;
-        plant.scene.add(ortho);
+        plant.scene.add(ortho); plant.ortho = ortho;
         const s = await D.samplePoints('plant', Q.bgN, 10);
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.BufferAttribute(s.positions, 3));
@@ -1243,7 +1467,7 @@ function boot() {
         bgRig.rotation.x = 0.62;
         bgPts.visible = true; bgT0 = performance.now() / 1000;
         plant.ready = true;
-        setPlantCam(camA, 0.5, 0, 1.6); warm(plant.scene, camA);
+        setPlantCam(camA, 0.5, 0, 1.6, false); warm(plant.scene, camA);
       }],
       ['stockpile', async () => {
         const a = await D.loadStockpile();
@@ -1251,7 +1475,25 @@ function boot() {
         [a.e1, a.e2].forEach((r) => r.traverse((o) => { if (o.isLine || o.isLineSegments) { o.material = new THREE.LineBasicMaterial({ color: 0xffc400, toneMapped: false, transparent: true, opacity: 0.9 }); } }));
         stock.scene.add(a.e1, a.e2);
         stock.e1 = a.e1; stock.e2 = a.e2;
+        a.e1.updateMatrixWorld(true); a.e2.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(a.e2);
+        stock.dsm = new THREE.ShaderMaterial({
+          side: THREE.DoubleSide, toneMapped: false,
+          uniforms: { uRange: { value: new THREE.Vector2(box.min.y, box.max.y) } },
+          vertexShader: 'varying float vHeight; void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vHeight = wp.y; gl_Position = projectionMatrix * viewMatrix * wp; }',
+          fragmentShader: /* glsl */`
+            uniform vec2 uRange; varying float vHeight;
+            ${elevationGLSL}
+            void main(){
+              vec3 col = elevationColor((vHeight - uRange.x) / max(0.001, uRange.y - uRange.x));
+              float contour = 1.0 - smoothstep(0.025, 0.09, abs(fract(vHeight) - 0.5));
+              gl_FragColor = vec4(col * (1.0 - contour * 0.24), 1.0);
+              #include <colorspace_fragment>
+            }`,
+        });
+        [a.e1, a.e2].forEach(root => root.traverse(mesh => {
+          if (mesh.isMesh) stock.surfaces.push({ mesh, material: mesh.material });
+        }));
         stock.center = V();
         let sx = 0, sz2 = 0, n = 0;
         a.volumes.piles.forEach((p) => p.epochs.e2.ring.forEach(([x, z]) => { sx += x; sz2 += z; n++; }));
@@ -1262,10 +1504,48 @@ function boot() {
           const r = p.epochs.e2.ring; let cx = 0, cz = 0; r.forEach(([x, z]) => { cx += x; cz += z; }); cx /= r.length; cz /= r.length;
           let y = box.max.y;
           if (terrain) { rc.set(new THREE.Vector3(cx, box.max.y + 50, cz), new THREE.Vector3(0, -1, 0)); const hit = rc.intersectObject(terrain, false)[0]; if (hit) y = hit.point.y; }
-          callouts.forEach((c) => { if (c.scene === 'stock' && c.id === p.id) c.pos = new THREE.Vector3(cx, y, cz); });
+          const center = new THREE.Vector3(cx, y, cz);
+          stock.piles[p.id] = { center, radius: Math.max(...r.map(([x, z]) => Math.hypot(x - cx, z - cz))), record: p };
+          callouts.forEach((c) => { if (c.scene === 'stock' && c.id === p.id) c.pos = center.clone(); });
         });
+        // The optimized GLB merges every outline into P01. Split its *existing*
+        // measured segments by nearest recorded ring; never fabricate a pile surface.
+        function edgeDistance(x, z, ring) {
+          let distance = Infinity;
+          for (let i = 1; i < ring.length; i++) {
+            const [ax, az] = ring[i - 1], [bx, bz] = ring[i];
+            const dx = bx - ax, dz = bz - az, t = clamp01(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1));
+            distance = Math.min(distance, (x - ax - t * dx) ** 2 + (z - az - t * dz) ** 2);
+          }
+          return distance;
+        }
+        for (const [epoch, root] of [['e1', a.e1], ['e2', a.e2]]) {
+          const groups = Object.fromEntries(a.volumes.piles.map(pile => [pile.id, []]));
+          const originals = []; root.traverse(line => { if (line.isLineSegments) originals.push(line); });
+          for (const line of originals) {
+            const geometry = line.geometry, positions = geometry.attributes.position, index = geometry.index;
+            const count = index ? index.count : positions.count;
+            for (let i = 0; i + 1 < count; i += 2) {
+              _p0.fromBufferAttribute(positions, index ? index.getX(i) : i).applyMatrix4(line.matrixWorld);
+              _p1.fromBufferAttribute(positions, index ? index.getX(i + 1) : i + 1).applyMatrix4(line.matrixWorld);
+              const x = (_p0.x + _p1.x) / 2, z = (_p0.z + _p1.z) / 2;
+              let nearest = null, distance = Infinity;
+              for (const pile of a.volumes.piles) {
+                const d = edgeDistance(x, z, pile.epochs[epoch].ring);
+                if (d < distance) { distance = d; nearest = pile.id; }
+              }
+              if (nearest) groups[nearest].push(..._p0.toArray(), ..._p1.toArray());
+            }
+            line.visible = false;
+          }
+          for (const [id, positions] of Object.entries(groups)) {
+            const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0x5ed1b3, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+            root.add(line); stock.outlines.push({ id, line });
+          }
+        }
         stock.ready = true;
-        setStockCam(camA, 0.5, 0, 1.6); warm(stock.scene, camA);
+        setStockCam(camA, 0.5, 0, 1.6, false); warm(stock.scene, camA);
       }],
       ['flare', async () => {
         const a = await D.loadFlare();
@@ -1274,7 +1554,7 @@ function boot() {
         flare.M.copy(M);
         const rig = new THREE.Group(); rig.matrixAutoUpdate = false; rig.matrix.copy(M);
         toBasic(a.model, { clippingPlanes: [scanPlane] });
-        rig.add(a.model);
+        rig.add(a.model); flare.model = a.model;
         a.patches.forEach((p) => { p.mesh.material.clippingPlanes = null; rig.add(p.mesh); });
         flare.scene.add(rig);
         rig.updateMatrixWorld(true);
@@ -1292,6 +1572,15 @@ function boot() {
         flare.scene.add(ring); flare.scanRing = ring;
         flare.order = a.patches.slice().sort((p, q) => p.center.y - q.center.y);
         flare.order.forEach((p) => { p.world = p.center.clone().applyMatrix4(M); });
+        flare.focus = {};
+        for (const id of ['F70', 'F44', 'F04']) {
+          const patch = flare.order.find(p => p.record.id === id);
+          if (!patch) continue;
+          const target = patch.world.clone();
+          const source = new THREE.Vector3(...patch.record.camera.pos).applyMatrix4(M);
+          const direction = source.sub(target).normalize();
+          flare.focus[id] = { target, pos: target.clone().addScaledVector(direction, id === 'F70' ? 2.8 : 2.0) };
+        }
         const gg = new THREE.BufferGeometry();
         gg.setAttribute('position', new THREE.Float32BufferAttribute(flare.order.flatMap((p) => p.world.toArray()), 3));
         flare.glowCol = new THREE.Float32BufferAttribute(new Float32Array(flare.order.length * 3), 3);
@@ -1301,10 +1590,16 @@ function boot() {
         flare.scene.add(glow);
         a.patches.forEach((p) => callouts.forEach((c) => { if (c.scene === 'flare' && c.id === p.record.id) c.pos = p.center.clone().applyMatrix4(M); }));
         flare.ready = true;
-        setFlareCam(camA, 0.8, 0, 1.6); flareState(1, 1, 0); warm(flare.scene, camA);
+        setFlareCam(camA, 0.8, 0, 1.6, false); flareState(1, 1, 0); warm(flare.scene, camA);
       }],
       ['tank', async () => {
         const a = await D.loadTank();
+        // The clip and its pose track are optional evidence, loaded only with this chapter.
+        tank.flight = await fetch(DATA + 'tank/flight.json').then(response => response.ok ? response.json() : null).catch(() => null);
+        tank.model = a.model; tank.modelClip = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0.35);
+        prepareModel(a.model, tank.scene, { clippingPlanes: [tank.modelClip] });
+        const insideLight = new THREE.PointLight(0xe4f0ff, 8, 16, 1); insideLight.position.set(0, 5, 0); tank.scene.add(insideLight);
+        modelOpacity(tank.model, 0);
         const tg = decimate(a.cloud.geometry, Q.tankStride);
         // Intensity contrast: stretch between the 3rd and 98th percentile, then a gentle S-curve.
         const it = tg.attributes.intensity, n = it.count, hist = new Uint32Array(256);
@@ -1328,11 +1623,25 @@ function boot() {
         tg.setAttribute('color', new THREE.BufferAttribute(tc, 3));
         const pts = new THREE.Points(tg, tank.mat = pointsMat({ size: (tank.size0 = 0.024 * Math.sqrt(Q.tankStride)), minPx: 1, maxPx: MOBILE ? 2.6 : 3.4, bright: 1.15, clip: tankClip, sec: 0.14 }));
         pts.frustumCulled = false;
-        tank.scene.add(pts);
+        tank.scene.add(pts); tank.pts = pts;
         tank.findings = a.findings;
+        const positions = [], colors = [], color = new THREE.Color();
+        a.findings.forEach(finding => {
+          positions.push(...finding.position.toArray());
+          color.setHex([0x9aa6b2, 0x5ed1b3, 0xf2c94c, 0xf2994a, 0xe5484d, 0xb0232a][finding.severity] || 0x9aa6b2);
+          colors.push(...color.toArray());
+        });
+        const markers = new THREE.BufferGeometry();
+        markers.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        markers.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        tank.markers = new THREE.Points(markers, pointsMat({ px: MOBILE ? 13 : 17, minPx: 10, maxPx: 19, bright: 1.2 }));
+        tank.markers.material.depthTest = false; tank.markers.material.depthWrite = false; tank.markers.renderOrder = 9;
+        tank.scene.add(tank.markers);
+        tank.flightLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints((tank.flight?.samples || []).map(sample => new THREE.Vector3(...sample.pos))), new THREE.LineBasicMaterial({ color: MINT, transparent: true, opacity: 0.8, toneMapped: false, depthTest: false }));
+        tank.flightLine.renderOrder = 8; tank.flightLine.visible = false; tank.scene.add(tank.flightLine);
         a.findings.forEach((f) => callouts.forEach((c) => { if (c.scene === 'tank' && c.id === f.id) c.pos = f.position.clone(); }));
         tank.ready = true;
-        setTankCam(camA, 0.5, 0, 1.6); sectionTank(camA); warm(tank.scene, camA);
+        setTankCam(camA, 0.5, 0, 1.6, false); sectionTank(camA); warm(tank.scene, camA);
       }],
       ['facade', async () => {
         const a = await D.loadFacade();
@@ -1352,26 +1661,31 @@ function boot() {
         facade.scene.add(ground);
         // Patches: restrained. Low opacity, revealed class by class, highlight on hover.
         const ORDER = ['staining', 'soiling', 'cladding', 'object', 'sealant', 'corrosion', 'thermal', 'water', 'glazing'];
-        const g = a.patches.geometry, pi = g.attributes.patchIndex, n = pi.count, ord = new Float32Array(n);
+        const g = a.patches.geometry, pi = g.attributes.patchIndex, n = pi.count, ord = new Float32Array(n), severity = new Float32Array(n), issue = new Float32Array(n);
         const ordOf = a.meta.patches.map((p) => Math.max(0, ORDER.indexOf(p.cls)));
-        for (let i = 0; i < n; i++) ord[i] = ordOf[pi.array[i]];
+        for (let i = 0; i < n; i++) {
+          const patch = a.meta.patches[pi.array[i]];
+          ord[i] = ordOf[pi.array[i]]; severity[i] = patch.sev; issue[i] = Number(patch.issue.slice(1));
+        }
         g.setAttribute('ord', new THREE.BufferAttribute(ord, 1));
+        g.setAttribute('severity', new THREE.BufferAttribute(severity, 1));
+        g.setAttribute('issue', new THREE.BufferAttribute(issue, 1));
         g.setAttribute('pcol', g.attributes.color);
         facade.mat = new THREE.ShaderMaterial({
           transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
           polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
-          uniforms: { uReveal: { value: 9 }, uHi: { value: -1 }, uHiCls: { value: -1 }, uBase: { value: 0.24 } },
-          vertexShader: 'attribute vec3 pcol; attribute float ord; attribute float patchIndex; varying vec3 vC; varying float vO; varying float vP; void main(){ vC = pcol; vO = ord; vP = patchIndex; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          uniforms: { uReveal: { value: 9 }, uHi: { value: -1 }, uHiCls: { value: -1 }, uBase: { value: 0.24 }, uEvidenceIssue: { value: -1 } },
+          vertexShader: 'attribute vec3 pcol; attribute float ord; attribute float patchIndex; attribute float severity; attribute float issue; varying vec3 vC; varying float vO; varying float vP; varying float vSeverity; varying float vIssue; void main(){ vC = pcol; vO = ord; vP = patchIndex; vSeverity = severity; vIssue = issue; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
           fragmentShader: /* glsl */`
-            uniform float uReveal, uHi, uHiCls, uBase; varying vec3 vC; varying float vO; varying float vP;
+            uniform float uReveal, uHi, uHiCls, uBase, uEvidenceIssue; varying vec3 vC; varying float vO; varying float vP; varying float vSeverity; varying float vIssue;
             void main() {
               float r = clamp(uReveal - vO, 0.0, 1.0);
               if (r <= 0.0) discard;
               float cur = (1.0 - clamp(uReveal - vO - 1.0, 0.0, 1.0)) * step(uReveal, 8.99);
-              float a = r * (uBase + 0.42 * cur);
-              vec3 col = mix(vC, vec3(dot(vC, vec3(0.299, 0.587, 0.114))), 0.22);
+              float a = r * min(0.95, uBase + 0.18 * (vSeverity - 1.0) + 0.22 * cur);
+              vec3 col = vC;
               if (uHiCls > -0.5) a = abs(vO - uHiCls) < 0.5 ? 0.82 : a * 0.3;
-              if (abs(vP - uHi) < 0.5) { a = 0.95; col = mix(col, vec3(1.0), 0.25); }
+              if (abs(vP - uHi) < 0.5 || abs(vIssue - uEvidenceIssue) < 0.5) { a = 0.95; col = mix(col, vec3(1.0), 0.25); }
               gl_FragColor = vec4(col, a);
               #include <colorspace_fragment>
             }`
@@ -1379,9 +1693,16 @@ function boot() {
         const patches = new THREE.Mesh(g, facade.mat); patches.renderOrder = 3;
         facade.scene.add(patches);
         facade.centers = a.meta.patches.map((p) => ({ v: new THREE.Vector3(...p.center), ord: Math.max(0, ORDER.indexOf(p.cls)) }));
+        facade.evidenceTargets = {}; facade.evidenceIndices = {};
+        for (const [key, issue] of [['rgb', 'D159'], ['thermal', 'D397']]) {
+          const index = a.meta.patches.findIndex(patch => patch.issue === issue);
+          if (index < 0) continue;
+          facade.evidenceIndices[key] = index;
+          facade.evidenceTargets[key] = new THREE.Vector3(...a.meta.patches[index].center);
+        }
         callouts.forEach((c) => { if (c.scene !== 'facade') return; const p = a.meta.patches.find((q) => q.issue === c.id); if (p) c.pos = new THREE.Vector3(...p.center); });
         facade.ready = true;
-        setFacadeCam(camA, 0.8, 0, 1.6); warm(facade.scene, camA);
+        setFacadeCam(camA, 0.8, 0, 1.6, false); warm(facade.scene, camA);
       }]
   ]);
   const loader = createSceneLoader(Object.fromEntries([...steps].map(([name, build]) => [name, async () => {
@@ -1565,14 +1886,14 @@ function boot() {
       renderer.setSize(w, h, false); W = w; H = h; renderer.getDrawingBufferSize(dbs);
       const aspect = w / h, o = { noOffset: true, still: true };
       if (kind === 'road') { setRoadCam(camA, 0.3, 0, aspect); roadState(9, 1, -9, roadAlt, dbs.y / h); drawScene('road', camA, null, o); }
-      else if (kind === 'plant') { setPlantCam(camA, 0.6, 0, aspect); drawScene('plant', camA, null, o); }
-      else if (kind === 'tank') { setTankCam(camA, 0.55, 0, aspect); drawScene('tank', camA, null, o); }
-      else if (kind === 'flare') { setFlareCam(camA, 0.8, 0, aspect); flareState(1, 1, 0); drawScene('flare', camA, null, o); }
-      else if (kind === 'facade') { setFacadeCam(camA, 0.85, 0, aspect); facadeState(9, 0.3); drawScene('facade', camA, null, o); }
+      else if (kind === 'plant') { setPlantCam(camA, 0.6, 0, aspect, false); drawScene('plant', camA, null, o); }
+      else if (kind === 'tank') { setTankCam(camA, 0.55, 0, aspect, false); drawScene('tank', camA, null, o); }
+      else if (kind === 'flare') { setFlareCam(camA, 0.8, 0, aspect, false); flareState(1, 1, 0); drawScene('flare', camA, null, o); }
+      else if (kind === 'facade') { setFacadeCam(camA, 0.85, 0, aspect, false); facadeState(9, 0.3); drawScene('facade', camA, null, o); }
       else if (kind === 'stock') {
-        setStockCam(camA, 0.5, 0, aspect); camB.copy(camA);
+        setStockCam(camA, 0.5, 0, aspect, false); camB.copy(camA);
         rtA.setSize(dbs.x, dbs.y); rtB.setSize(dbs.x, dbs.y); compMat.uniforms.uRes.value.set(w, h);
-        composite('stock2', camA, 'stock1', camB, 3, 0.5);
+        composite('stock2', camA, 'stock1', camB, 3, 0.5, o);
       }
       cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
       cv.getContext('2d').drawImage(canvas, 0, 0, cv.width, cv.height);
@@ -1603,6 +1924,15 @@ function boot() {
     tiles: () => Object.fromEntries(Object.entries(road.sets).map(([k, s]) => [k, s.userData.loaded + '/' + s.userData.tiles.length])),
     mode: () => mode, dpr: () => DPR,
     loading: () => Object.fromEntries([...steps.keys()].map(name => [name, loader.state(name)])),
+    workflows: () => Object.fromEntries(Object.keys(WORKFLOWS).map(name => [name, workflow(name)])),
+    workflowView: () => ({
+      plant: { points: plant.pts?.visible, model: plant.model?.visible, elevation: plant.pts?.material.uniforms.uElevOn.value },
+      tank: { points: tank.pts?.visible, model: tank.model?.visible, markers: tank.markers?.visible, flightSamples: tank.flight?.samples.length || 0 },
+      flare: { points: flare.pts?.visible, model: flare.model?.visible, focus: Object.keys(flare.focus || {}) },
+      facade: { reveal: facade.mat?.uniforms.uReveal.value, evidence: facade.evidenceIndices },
+      stock: { selected: stock.selected, piles: Object.keys(stock.piles).length, outlines: stock.outlines.length, dsm: stock.surfaces[0]?.mesh.material === stock.dsm },
+      camera: { position: camA.position.toArray(), fov: camA.fov },
+    }),
     info: () => ({ ms: lastMs, dpr: DPR, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, pts: renderer.info.render.points, programs: renderer.info.programs.length })
   };
 }
