@@ -92,3 +92,7 @@ The account holder replaced `SUPABASE_SECRET_KEY` with the project's default sec
 Using the existing authenticated Owner session, `/portal/?login` opened `/admin/` without MFA. The live overview, user list, project administration, release administration and member library loaded successfully. The Create user dialog exposes a manual password, T1–T3 and optional expiry, with no invitation or confirmation email; no test account was submitted. The dashboard reports a 100 GB project limit and 1 GB software-release limit. Anonymous member/admin requests still return 401 and API responses retain private/no-store and noindex/nofollow headers.
 
 Owner sign-in and server database access are now verified. Real member creation, tier/private-assignment enforcement with representative accounts, file verification/download, invitation delivery and a full-size 100 GB transfer remain separate acceptance tasks.
+
+## Branded password reset — 16 October 2026
+
+The password-reset email now uses Quadrion branding and the subject **Reset your Quadrion password**. Its source and update instructions are in `supabase/templates/`. This is a hosted Supabase template, separate from Netlify deployments. The existing recovery link, sender, and callback are preserved. The saved template and desktop/mobile browser previews were verified; a newly delivered message has not been tested for this template.
