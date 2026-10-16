@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import {createUploadActions} from '../../netlify/lib/portal/uploads.mjs';
 import {errorResponse} from '../../netlify/lib/portal/http.mjs';
 
+for(const action of ['upload','resumeUpload'])test(action+' pairs its signed token with the signed TUS endpoint',async()=>{
+  const file={bucket:'quadrion-software',object_path:'release/file/team.zip',filename:'team.zip',bytes:100,sha256:'a'.repeat(64),mime_type:'application/octet-stream'};
+  const session={id:'10000000-0000-4000-8000-000000000001',state:'pending',verified_bytes:0,expires_at:'2099-01-01T00:00:00Z',file};
+  const backend={rpc:async()=>session,service:{storage:{from(bucket){assert.equal(bucket,'quadrion-software');return {createSignedUploadUrl:async(path,options)=>{assert.equal(path,'release/file/team.zip');assert.equal(options.upsert,false);return {data:{token:'file-scoped-test-token'},error:null};}};}}}};
+  const actions=createUploadActions({config:{url:'https://fixture.supabase.co',verifySecret:'x'.repeat(32),releaseMaxBytes:1000000000},backend});
+  const input=action==='upload'?{releaseId:session.id,projectVersionId:null,kind:'binary',filename:file.filename,bytes:file.bytes,sha256:file.sha256}:{id:session.id,filename:file.filename,bytes:file.bytes,sha256:file.sha256};
+  const result=await actions(action,input,{});
+  assert.equal(result.endpoint,'https://fixture.storage.supabase.co/storage/v1/upload/resumable/sign');
+  assert.equal(result.token,'file-scoped-test-token');
+});
+
 test('unconfigured verification refuses uploads with an actionable error before allocating a file',async()=>{
   for(const secret of [undefined,'','short secret']){
     let allocated=false;
