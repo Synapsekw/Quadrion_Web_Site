@@ -1,4 +1,5 @@
 import {keys,uuid,string,fail} from './http.mjs';
+import {uploadsConfigured} from './config.mjs';
 export async function dispatchVerification(config,id){
   const response=await fetch(config.origin+'/api/portal-verify',{method:'POST',headers:{'Content-Type':'application/json','X-Portal-Verify':config.verifySecret},body:JSON.stringify({id}),redirect:'error',signal:AbortSignal.timeout(15000)});
   if(response.status!==202)fail('unavailable');
@@ -12,7 +13,7 @@ export function createUploadActions({config,backend,dispatch=id=>dispatchVerific
   }
   return async(action,body,user)=>{
     const base={p_actor:user.userId,p_aal:user.aal};
-    if(config.verifySecret?.length<32)fail('unavailable');
+    if(!uploadsConfigured(config))fail('upload_not_configured');
     if(action==='upload'){
       keys(body,['releaseId','projectVersionId','kind','filename','bytes','sha256']);
       if(!!body.releaseId===!!body.projectVersionId)fail('invalid');uuid(body.releaseId||body.projectVersionId);

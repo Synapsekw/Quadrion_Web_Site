@@ -8,9 +8,9 @@ export function createPortalApi({fetcher=fetch,getToken,onDenied=()=>{},admin=fa
     const url=new URLSearchParams({action,...(method==='GET'?params:{})});
     let response;
     try{response=await fetcher('/api/portal'+(admin?'-admin':'')+'?'+url,{method,cache:'no-store',credentials:'omit',headers:{Authorization:'Bearer '+(token||''),...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify(params)}:{})});}
-    catch{onDenied(0);throw new Error('Check your connection, then try again.');}
-    let body;try{body=await response.json();}catch{onDenied(0);throw new Error('The portal is temporarily unavailable.');}
-    if(!response.ok){if([401,403,404,503].includes(response.status))onDenied(response.status);const error=new Error(body.message||'This request could not be completed.');error.status=response.status;error.code=body.error;throw error;}
+    catch{const error=new Error('Check your connection, then try again.');onDenied(0,error);throw error;}
+    let body;try{body=await response.json();}catch{const error=new Error('The portal is temporarily unavailable.');onDenied(0,error);throw error;}
+    if(!response.ok){const error=new Error(body.message||'This request could not be completed.');error.status=response.status;error.code=body.error;if([401,403,404,503].includes(response.status))onDenied(response.status,error);throw error;}
     return body;
   }
   return {get:(action,params={})=>call(action,params,'GET'),post:(action,params={})=>call(action,params,'POST')};
