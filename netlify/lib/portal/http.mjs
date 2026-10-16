@@ -2,6 +2,7 @@ const errors={invalid:[400,'Check the submitted fields.'],unauthorized:[401,'Ple
 errors.account_exists=[409,'This email already has an account. Manage the existing user; their password was not changed.'];
 errors.creation_pending=[409,'An account creation is still unresolved for this email. Check Recent manual accounts before trying again.'];
 errors.upload_not_configured=[503,'Uploads are unavailable because file verification is not configured. The site administrator needs to complete the upload service setup.'];
+errors.upload_file_mismatch=[409,'This upload was started with a different file. Select the original file shown above, or use Abandon and replace to start a new upload.'];
 export const fail=code=>{throw new Error('portal:'+code);};
 export function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store, max-age=0','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex, nofollow','Vary':'Authorization'}});}
 export function errorResponse(error){
