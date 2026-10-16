@@ -140,7 +140,8 @@ html.motion.no-webgl #fbStage, html.motion.gl-pending #fbStage { left: 0; top: 0
 .hero { position: relative; z-index: 3; height: 100vh; min-height: 560px; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 var(--gut) clamp(28px, 5.5vh, 60px); }
 .hero-inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 48px; align-items: end; }
 .hero-h { font-size: clamp(40px, 7.1vw, 124px); line-height: .94; letter-spacing: -.045em; margin: 18px 0 0; }
-.hero-sub { color: var(--t1); font-size: 17px; line-height: 1.55; margin: 0 0 26px; max-width: 420px; }
+.hero-sub { color: var(--t1); font-size: 17px; line-height: 1.55; margin: 0; max-width: 420px; }
+@media (min-width: 1100px) { .hero-side { padding-right: 80px; } }
 .cue { position: absolute; right: var(--gut); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--t2); }
 .cue span { writing-mode: vertical-rl; font-size: 11px; letter-spacing: .24em; text-transform: uppercase; }
 .cue i { width: 1px; height: 56px; background: var(--line); position: relative; overflow: hidden; }
@@ -152,20 +153,17 @@ html.motion.no-webgl #fbStage, html.motion.gl-pending #fbStage { left: 0; top: 0
 .hero-hud b.mint { color: var(--mint); }
 @keyframes blink { 50% { opacity: .2; } }
 @media (min-width: 761px) { .hero-h .line > span { white-space: nowrap; } }
-@media (max-width: 1099px) { .hero-inner { grid-template-columns: 1fr; gap: 22px; } .hero-sub { margin-bottom: 20px; } }
+@media (max-width: 1099px) { .hero-inner { grid-template-columns: 1fr; gap: 22px; } }
 @media (max-width: 760px) {
   .hero { min-height: 600px; padding-bottom: 62px; }
   .badge { left: 10px; bottom: 10px; padding: 7px 10px; font-size: 10px; }
   .hero-h { font-size: clamp(38px, 11.4vw, 56px); margin-top: 12px; }
   .hero-sub { font-size: 15.5px; }
-  .hero .ctas .btn { flex: 1 1 auto; }
   .cue, .hero-hud { display: none; }
 }
 @media (max-width: 760px) and (max-height: 700px) {
   .hero-h { font-size: clamp(30px, 9vw, 40px); }
-  .hero-sub { font-size: 13px; line-height: 1.4; margin-top: 10px; margin-bottom: 12px; }
-  .hero .ctas { gap: 8px; }
-  .hero .ctas .btn { min-height: 44px; padding: 10px 14px; }
+  .hero-sub { font-size: 13px; line-height: 1.4; margin-top: 10px; }
 }
 /* Primary content paints immediately; the mark carries the entrance animation. */
 
@@ -803,7 +801,6 @@ html:not(.motion) .fx-tip { display: none; }
 
 html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
-@media (max-width: 600px) { .nav-cta [data-demo] { display: none; } }
 /* Real touch controls need room independently of the dense product mockups. */
 [data-install-app][hidden] { display: none !important; }
 .install-app { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint); text-align: left; }
@@ -843,7 +840,6 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   </nav>
   <div class="nav-cta">
     <a class="btn-sm nav-login" href="/portal/?login">Log in</a>
-    <a class="btn-sm" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a>
   </div>
 </header>
 
@@ -886,10 +882,6 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
         </div>
         <div class="hero-side">
           <p class="hero-sub h-anim">Drone video, 3D models, point clouds, maps and issues, fused into one georeferenced scene with one timeline. Fully offline, on your own machine.</p>
-          <div class="ctas h-anim">
-            <a class="btn btn-primary" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog" data-magnetic><span class="btn-fill" aria-hidden="true"></span><span class="btn-label">Request a demo <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8h11M9.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-            <a class="btn btn-ghost" href="#cta"><span class="btn-label">Download the free Player</span></a>
-          </div>
         </div>
       </div>
       <div class="cue" aria-hidden="true"><span class="mono">Scroll</span><i></i></div>
