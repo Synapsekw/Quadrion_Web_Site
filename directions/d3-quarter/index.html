@@ -8,7 +8,7 @@
 <link rel="canonical" href="https://quadrion.ai/d3-quarter/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Quadrion AI">
-<meta property="og:title" content="Quadrion AI · Four dimensions. One view.">
+<meta property="og:title" content="Quadrion AI · Any asset. Any dimension.">
 <meta property="og:description" content="Drone inspection and 3D survey software for asset teams across the GCC. One georeferenced scene, one timeline, on your own machine.">
 <meta property="og:url" content="https://quadrion.ai/d3-quarter/">
 <meta property="og:image" content="https://quadrion.ai/pwa-icons/icon-512.png">
@@ -77,7 +77,7 @@ html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-stopped { overflow: hidden; }
 
 /* Cursor */
-.cursor, .cursor-dot { position: fixed; left: 0; top: 0; z-index: 400; pointer-events: none; display: none; will-change: transform; }
+.cursor, .cursor-dot { position: fixed; left: 0; top: 0; z-index: 2100; pointer-events: none; display: none; will-change: transform; }
 html.has-cursor .cursor, html.has-cursor .cursor-dot { display: block; }
 html.has-cursor, html.has-cursor * { cursor: none !important; }
 .cursor span { position: absolute; width: 30px; height: 30px; margin: -15px; border-radius: 50%; border: 1px solid rgba(238, 242, 245, .5); transition: transform .55s var(--ease), background-color .35s, border-color .35s, opacity .3s; }
@@ -138,7 +138,7 @@ html.motion.no-webgl #fbStage, html.motion.gl-pending #fbStage { left: 0; top: 0
 @media (max-width: 760px) { #fbStage { top: 27vh; width: min(28vh, 60vw); } }
 
 .hero { position: relative; z-index: 3; height: 100vh; min-height: 560px; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 var(--gut) clamp(28px, 5.5vh, 60px); }
-.hero-inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 48px; align-items: end; }
+.hero-inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; align-items: end; }
 .hero-h { font-size: clamp(40px, 7.1vw, 124px); line-height: .94; letter-spacing: -.045em; margin: 18px 0 0; }
 .hero-sub { color: var(--t1); font-size: 17px; line-height: 1.55; margin: 0; max-width: 420px; }
 @media (min-width: 1100px) { .hero-side { padding-right: 80px; } }
@@ -821,6 +821,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   .foot { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
 }
 </style>
+<link rel="stylesheet" href="tour-ui.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -878,10 +879,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       <div class="hero-inner">
         <div class="hero-main">
           <p class="eyebrow h-anim">Quadrion AI<span class="sep">/</span>Drone inspection &amp; survey</p>
-          <h1 class="hero-h"><span class="line"><span>Four dimensions.</span></span><span class="line"><span>One view<span class="mint">.</span></span></span></h1>
-        </div>
-        <div class="hero-side">
-          <p class="hero-sub h-anim">Drone video, 3D models, point clouds, maps and issues, fused into one georeferenced scene with one timeline. Fully offline, on your own machine.</p>
+          <h1 class="hero-h"><span class="line"><span>Any asset.</span></span><span class="line"><span>Any dimension<span class="mint">.</span></span></span></h1>
         </div>
       </div>
       <div class="cue" aria-hidden="true"><span class="mono">Scroll</span><i></i></div>
@@ -891,7 +889,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
     <div class="four" id="four">
       <div class="four-head">
         <p class="eyebrow"><b>00</b><span class="sep">/</span>The Quarter</p>
-        <h2 class="four-h"><span class="line"><span>Four dimensions. Six real&nbsp;assets.</span></span></h2>
+        <h2 class="four-h"><span class="line"><span>Every dimension of your&nbsp;asset.</span></span></h2>
       </div>
       <ul class="quads">
         <li class="q q-x" style="--dy:-1"><div class="q-in">
@@ -926,7 +924,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       <p class="four-foot mono"><b>x</b> distance · <b>y</b> area · <b>z</b> height · <b class="mint">t</b> time &nbsp;=&nbsp; one georeferenced scene</p>
     </div>
 
-    <div class="portal-cap" aria-hidden="true"><p><span class="eyebrow"><b>01–06</b><span class="sep">/</span>The asset tour</span><span class="big">Six assets. One continuous scene.</span></p></div>
+    <div class="portal-cap" aria-hidden="true"><p><span class="eyebrow"><b>01–06</b><span class="sep">/</span>Example projects</span><span class="big">Different assets. Connected perspectives.</span></p></div>
 
     <div class="tour-hud mono" aria-hidden="true">
       <span id="hudCam">X    0.0  Y    0.0  Z    0.0</span>
@@ -1073,15 +1071,27 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 <!-- ======================= Statement ======================= -->
 <section class="statement" id="statement" aria-label="In one place">
   <div class="st-pin">
-    <canvas class="sil" id="silCanvas" aria-hidden="true"></canvas>
     <div class="st-copy">
       <p class="eyebrow st-kicker"><b>07</b><span class="sep">/</span>In one place</p>
-      <p class="st-text">
-        <span class="st-line">Video, models, point clouds, maps and&nbsp;issues.</span>
-        <span class="st-line">Finally in one&nbsp;place.</span>
-        <span class="st-line st-mint">Offline.</span>
-      </p>
-      <div class="st-foot mono"><span>No cloud upload</span><span>No account</span><span>Your disks</span></div>
+      <h2 class="st-text">Every layer.<br>One connected view<span class="mint">.</span></h2>
+      <p class="st-description">Move from the whole asset to the evidence that matters. Point clouds, 3D models, maps, video and findings share one workspace.</p>
+      <p class="st-offline"><span class="offline-dot" aria-hidden="true"></span>Fully offline. Your data stays with you.</p>
+    </div>
+    <div class="layer-browser" aria-label="Explore example data layers">
+      <div class="layer-tabs" role="group" aria-label="Data layer">
+        <button type="button" data-layer="cloud" aria-pressed="true">Point cloud</button>
+        <button type="button" data-layer="model" aria-pressed="false">3D model</button>
+        <button type="button" data-layer="map" aria-pressed="false">Map</button>
+        <button type="button" data-layer="video" aria-pressed="false">Video</button>
+        <button type="button" data-layer="issue" aria-pressed="false">Issue</button>
+      </div>
+      <figure class="layer-visual">
+        <img id="layer-image" src="previews/terminal-cloud.webp" width="1280" height="800" loading="lazy" alt="Colour point cloud showing the storage tanks, pipework and jetty across a terminal">
+        <video id="layer-video" hidden controls playsinline muted preload="none" poster="../data/tank/interior.jpg" aria-label="Recorded drone flight inside the tank"></video>
+        <span class="layer-badge mono" id="layer-badge">RGB · Point cloud</span>
+        <figcaption><b id="layer-title">See the whole site.</b><span id="layer-caption">Tank terminal · captured survey points</span></figcaption>
+      </figure>
+      <p class="layer-note">Explore a layer above. These projects are examples of what you can bring together.</p>
     </div>
   </div>
 </section>
@@ -1091,7 +1101,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   <div class="ov-pin">
     <p class="eyebrow ov-eb"><b>08</b><span class="sep">/</span>The product</p>
     <h2 class="ov-h"><span class="line"><span>One view<span class="mint">.</span></span></span></h2>
-    <p class="ov-sub">All six real datasets, live in the app. Pick one on the left, inspect the scene, and every finding sits on the right with its&nbsp;evidence.</p>
+    <p class="ov-sub">Explore these example projects in the app. Pick an asset, inspect the scene, and see each finding alongside its evidence. Your projects can go far beyond these&nbsp;examples.</p>
     <div class="win-stage">
       <figure class="win">
         <div class="app" role="group" aria-label="Recreation of the Quadrion AI window showing real inspection data">
@@ -1142,7 +1152,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
         <div class="win-anno" aria-hidden="true">
           <svg class="leaders"><path pathLength="1"/><path pathLength="1"/><path pathLength="1"/><path pathLength="1"/><path pathLength="1"/></svg>
           <span class="pin"><b>1</b></span><span class="pin"><b>2</b></span><span class="pin"><b>3</b></span><span class="pin"><b>4</b></span><span class="pin"><b>5</b></span>
-          <span class="tag l"><span class="tag-in"><span class="mono">01</span>Six real datasets</span></span>
+          <span class="tag l"><span class="tag-in"><span class="mono">01</span>Example projects</span></span>
           <span class="tag l"><span class="tag-in"><span class="mono">02</span>Live 3D scene</span></span>
           <span class="tag r"><span class="tag-in"><span class="mono">03</span>Findings with evidence</span></span>
           <span class="tag r"><span class="tag-in"><span class="mono">04</span>Every survey, one timeline</span></span>
@@ -1151,7 +1161,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       </figure>
     </div>
     <ol class="tag-list">
-      <li class="tl-item"><span class="mono">01</span>Six real datasets</li>
+      <li class="tl-item"><span class="mono">01</span>Example projects</li>
       <li class="tl-item"><span class="mono">02</span>Live 3D scene</li>
       <li class="tl-item"><span class="mono">03</span>Findings with evidence</li>
       <li class="tl-item"><span class="mono">04</span>One timeline</li>
@@ -1338,7 +1348,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       <p>Offline-first desktop software for drone inspection and survey teams. Made by Synapse Solutions.</p>
       <p>For inspection and survey teams across the GCC: United Arab Emirates, Saudi Arabia, Kuwait, Qatar, Bahrain and Oman.</p>
     </div>
-    <div><h4>Product</h4><ul><li><a class="u" href="#four" data-at="four">Four dimensions</a></li><li><a class="u" href="#shot-road" data-at="road">Six asset types</a></li><li><a class="u" href="#oneview">One view</a></li><li><a class="u" href="#features">Features</a></li></ul></div>
+    <div><h4>Product</h4><ul><li><a class="u" href="#four" data-at="four">Every dimension</a></li><li><a class="u" href="#shot-road" data-at="road">Example projects</a></li><li><a class="u" href="#oneview">One view</a></li><li><a class="u" href="#features">Features</a></li></ul></div>
     <div><h4>Get it</h4><ul><li><a class="u" href="/portal/?login">Log in</a></li><li><a class="u" href="mailto:info@synapse-solutions.ai?subject=Quadrion%20demo%20request" data-demo aria-haspopup="dialog">Request a demo</a></li><li><a class="u" href="#cta">Free Player</a></li><li><span>Civil 3D · TBC · 12d</span></li><li><button class="install-app" type="button" data-install-app hidden>Install Quadrion</button></li></ul></div>
     <div><h4>Company</h4><ul><li><a class="u" href="#cta">Synapse Solutions</a></li><li><a class="u" href="#trust">Trust</a></li><li><a class="u" href="#cta">Contact</a></li></ul></div>
   </div>
@@ -1375,6 +1385,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
 <script defer src="d3-story.js"></script>
+<script type="module" src="tour-ui.mjs"></script>
 <script type="module" src="scene-entry.js"></script>
 <script type="module" src="../quori/site.js"></script>
 <script type="module" src="demo.js"></script>

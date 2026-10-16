@@ -417,7 +417,7 @@
   /* ---------- Story clock: chapter windows on the stage timeline ---------- */
   var T = 21.6;
   var CH = [[5.45, 8.85], [8.85, 10.95], [10.95, 13.35], [13.35, 16.3], [16.3, 19.15], [19.15, T]];
-  var AT = { four: 2.2, road: 7.05, plant: 10.25, tank: 12.75, flare: 15.85, facade: 18.65, stock: 21.2 };
+  var AT = { four: 2.2, road: 7.05, plant: 9.95, tank: 12.05, flare: 14.42, facade: 17.4, stock: 19.98 };
   var TOUR_AT = [AT.road, AT.plant, AT.tank, AT.flare, AT.facade, AT.stock];
   $$('.tix a').forEach(function (a, i) { a.setAttribute('data-at', ['road', 'plant', 'tank', 'flare', 'facade', 'stock'][i]); });
 
@@ -468,13 +468,16 @@
   if (finePointer && motion) {
     html.classList.add('has-cursor');
     var ring = $('.cursor'), dot = $('.cursor-dot'), cx = -100, cy = -100, rx = -100, ry = -100;
-    addEventListener('pointermove', function (e) { cx = e.clientX; cy = e.clientY; dot.style.transform = 'translate3d(' + cx + 'px,' + cy + 'px,0)'; ring.classList.remove('is-out'); dot.classList.remove('is-out'); }, { passive: true });
+    addEventListener('pointermove', function (e) { cx = e.clientX; cy = e.clientY; dot.style.transform = 'translate3d(' + cx + 'px,' + cy + 'px,0)'; ring.classList.remove('is-out'); dot.classList.remove('is-out'); cursorTarget(e); }, { passive: true });
     gsap.ticker.add(function () { if (Math.abs(cx - rx) < 0.05 && Math.abs(cy - ry) < 0.05) return; rx += (cx - rx) * 0.2; ry += (cy - ry) * 0.2; ring.style.transform = 'translate3d(' + rx.toFixed(2) + 'px,' + ry.toFixed(2) + 'px,0)'; });
-    document.addEventListener('pointerover', function (e) {
-      var t = e.target, ctl = !!(t.closest && t.closest('a, button, [data-cursor], .tw, .rd-bars'));
-      var txt = !ctl && !!(t.closest && t.closest('p, h1, h2, h3, figcaption, .ch-meta li, .stat, .counter, .tl-item, .foot li'));
+    function cursorTarget(e) {
+      // Quori uses an open shadow root: the composed path retains its real controls.
+      var path = e.composedPath ? e.composedPath() : [e.target];
+      var ctl = path.some(function (t) { return t.matches && t.matches('a, button, select, [data-cursor], .tw, .rd-bars'); });
+      var txt = !ctl && path.some(function (t) { return t.matches && t.matches('input, textarea, p, h1, h2, h3, figcaption, .ch-meta li, .stat, .counter, .tl-item, .foot li'); });
       ring.classList.toggle('is-hover', ctl); ring.classList.toggle('is-text', txt);
-    });
+    }
+    document.addEventListener('pointerover', cursorTarget);
     document.addEventListener('pointerdown', function () { ring.classList.add('is-down'); });
     document.addEventListener('pointerup', function () { ring.classList.remove('is-down'); });
     html.addEventListener('pointerleave', function () { ring.classList.add('is-out'); dot.classList.add('is-out'); });
@@ -547,6 +550,16 @@
 
   /* =================== The cinema: one scrubbed timeline =================== */
   var tl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { trigger: '#stage', start: 'top top', end: 'bottom bottom', scrub: 0.8 } });
+  // A view can be clicked while an anchor is still flying between chapters.
+  // Finish that arrival before holding the selected layer.
+  addEventListener('d3:workflow', function (event) {
+    var scene = event.detail && event.detail.scene;
+    var arrivals = { plant: 9.8, tank: 11.9, flare: 14.2, facade: 17.25, stock: 19.85 };
+    if (!arrivals[scene] || tl.time() >= arrivals[scene]) return;
+    var stage = $('#stage'), y = stage.offsetTop + (AT[scene] / T) * (stage.offsetHeight - innerHeight);
+    if (lenis) lenis.scrollTo(y, { immediate: true });
+    else window.scrollTo({ top: y, behavior: 'instant' });
+  });
   // A counter runs inside its stat's fade-in, so it has settled on the exact value before the copy is fully in.
   function count(el, from, to, at, dur, sign) {
     if (!el) return;
@@ -564,6 +577,12 @@
     });
   }
   function copyIn(sel, at, kt) {
+    // Layer controls can pause the camera at any point. Keep their supporting
+    // headings and measured totals complete, rather than freezing half a count.
+    if (/shot-(plant|tank|flare|facade)/.test(sel)) {
+      tl.set(sel, { autoAlpha: 1 }, at - 0.02);
+      return;
+    }
     tl.set(sel, { autoAlpha: 1 }, at - 0.02)
       .fromTo(sel + ' .eyebrow', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.3 }, at);
     if (kt) tl.fromTo(sel + ' .kt .w', kt[0], kt[1], at + 0.05);
@@ -631,20 +650,20 @@
 
   // 02 Terminal — entrance: retreat from the road, descend into the terminal
   tl.to(S, { sweep: 1, duration: 0.95, ease: 'none' }, 8.85)
-    .to(S, { plant: 1, duration: 2.1 }, 8.85);
+    .to(S, { plant: 1, duration: 0.85 }, 9.8);
   copyIn('.shot-plant', 9.4, [{ autoAlpha: 0, rotationX: -80, transformOrigin: '50% 100%' }, { autoAlpha: 1, rotationX: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }]);
   shotOut('.shot-plant', 10.7);
 
   // 03 Tank — entrance: pull back from the terminal, approach the tank
   tl.to(S, { iris: 1, duration: 0.95, ease: 'none' }, 10.95)
-    .to(S, { tank: 1, duration: 2.0 }, 11.4);
+    .to(S, { tank: 1, duration: 1.15 }, 11.9);
   copyIn('.shot-tank', 11.75, [{ autoAlpha: 0, letterSpacing: '0.4em', xPercent: -8 }, { autoAlpha: 1, letterSpacing: '-0.04em', xPercent: 0, duration: 0.6, stagger: 0.09, ease: 'expo.out' }]);
   callouts('.shot-tank', 12.25);
   shotOut('.shot-tank', 13.1);
 
   // 04 Flare — entrance: lift out of the tank, approach the flare, then scan
   tl.to(S, { rise: 1, duration: 0.85, ease: 'none' }, 13.35)
-    .to(S, { flare: 1, duration: 2.15 }, 14.2)
+    .to(S, { flare: 1, duration: 1.7 }, 14.2)
     .to(S, { scan: 1, duration: 0.8, ease: 'power1.inOut' }, 14.25)
     .to(S, { ignite: 1, duration: 0.7 }, 15.0);
   copyIn('.shot-flare', 14.3, [{ yPercent: 150, scaleY: 1.5, transformOrigin: '50% 100%' }, { yPercent: 0, scaleY: 1, duration: 0.6, stagger: 0.1, ease: 'expo.out' }]);
@@ -653,7 +672,7 @@
 
   // 05 Facade — entrance: retreat from the flare, approach the facade
   tl.to(S, { split: 1, duration: 0.95, ease: 'none' }, 16.3)
-    .to(S, { facade: 1, duration: 2.5 }, 16.6)
+    .to(S, { facade: 1, duration: 1.6 }, 17.25)
     .to(S, { cls: 1, duration: 1.05 }, 17.3)
     .fromTo('.fx-hud', { autoAlpha: 0, y: -8 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power3.out' }, 17.15);
   copyIn('.shot-facade', 16.95, [{ autoAlpha: 0, scale: 0.86, transformOrigin: '0% 100%' }, { autoAlpha: 1, scale: 1, duration: 0.6, stagger: 0.08, ease: 'expo.out' }]);
@@ -663,11 +682,9 @@
 
   // 06 Stockpile — entrance: fly from the facade into the survey; compare dates afterward
   tl.to(S, { wipe1: 1, duration: 0.7, ease: 'none' }, 19.15)
-    .to(S, { stock: 1, duration: 2.45 }, 19.15)
+    .to(S, { stock: 1, duration: 1.65 }, 19.85)
     .set('.divider', { className: 'divider is-w2' }, 19.9)
     .set('.shot-stock', { autoAlpha: 1 }, 19.63)
-    .fromTo('.shot-stock .eyebrow', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 19.65)
-    .fromTo('.shot-stock .kt .w', { xPercent: 70, autoAlpha: 0 }, { xPercent: 0, autoAlpha: 1, duration: 0.55, stagger: 0.08, ease: 'expo.out' }, 19.7)
     .to(S, { wipe2: 1, duration: 0.95, ease: 'power1.inOut' }, 20.05);
   [['a', 0, DATA.tot.a], ['b', 0, DATA.tot.b], ['d', 0, DATA.tot.d]].forEach(function (c, i) {
     var t = 19.95 + i * 0.07, el = $('[data-vol="' + c[0] + '"]');
@@ -721,9 +738,7 @@
   });
 
   /* =================== Statement =================== */
-  gsap.timeline({ scrollTrigger: { trigger: '.statement', start: 'top top', end: 'bottom bottom', scrub: 0.5, onUpdate: function (self) { S.st = self.progress; } } })
-    .fromTo(words, { color: '#8E99A6' }, { color: function (i, el) { return el.closest('.st-mint') ? '#5ED1B3' : '#EEF2F5'; }, duration: 0.3, stagger: 0.12, ease: 'none' })
-    .fromTo('.st-foot span', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.3, stagger: 0.1 }, '-=0.1');
+  ScrollTrigger.create({ trigger: '.statement', start: 'top bottom', end: 'bottom top', onUpdate: function (self) { S.st = self.progress; } });
 
   /* =================== One view: window tilts face-on, labels pop =================== */
   var mm = gsap.matchMedia();
