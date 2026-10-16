@@ -31,7 +31,8 @@ export function createUploadActions({config,backend,dispatch=id=>dispatchVerific
     if(action==='resumeUpload'){
       keys(body,['id','filename','bytes','sha256']);uuid(body.id);
       const session=await backend.rpc('portal_upload_command',{...base,p_id:body.id,p_action:'resume'});
-      if(session.state!=='pending'||Date.parse(session.expires_at)<=Date.now()||body.filename!==session.file.filename||body.bytes!==Number(session.file.bytes)||body.sha256!==session.file.sha256)fail('conflict');
+      if(session.state!=='pending'||Date.parse(session.expires_at)<=Date.now())fail('conflict');
+      if(body.filename!==session.file.filename||body.bytes!==Number(session.file.bytes)||body.sha256!==session.file.sha256)fail('upload_file_mismatch');
       return signedSession(session);
     }
     keys(body,['id']);uuid(body.id);

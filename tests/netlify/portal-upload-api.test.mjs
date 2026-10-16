@@ -23,3 +23,14 @@ test('upload allocation validates file type, configured size and forbids paths b
   await assert.rejects(actions('upload',{...base,bytes:100,filename:'preview.svg',kind:'preview'},user),/portal:invalid/);
   await assert.rejects(actions('upload',{...base,bytes:100,object_path:'own/path'},user),/portal:invalid/);assert.equal(calls,0);
 });
+
+test('resuming with a different file returns a specific recovery error without issuing an upload token',async()=>{
+  let signed=0;
+  const actions=createUploadActions({config:{verifySecret:'x'.repeat(32)},backend:{rpc:async()=>({state:'pending',expires_at:'2099-01-01T00:00:00Z',file:{filename:'team.zip',bytes:100,sha256:'a'.repeat(64)}}),service:{storage:{from(){signed++;}}}}});
+  for(const change of [{filename:'installer.exe'},{bytes:200},{sha256:'b'.repeat(64)}]){
+    await assert.rejects(actions('resumeUpload',{id:'10000000-0000-4000-8000-000000000001',filename:'team.zip',bytes:100,sha256:'a'.repeat(64),...change},{}),asyncError=>{
+      assert.equal(asyncError.message,'portal:upload_file_mismatch');assert.equal(errorResponse(asyncError).status,409);return true;
+    });
+  }
+  assert.equal(signed,0);
+});
