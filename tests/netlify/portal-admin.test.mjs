@@ -7,6 +7,17 @@ function fixture(role='owner',aal='aal2'){
   return {calls,backend,handler:createAdminHandler({config,backend})};
 }
 const req=(action,body)=>new Request('https://quadrion.ai/api/portal-admin?action='+action,{method:body?'POST':'GET',headers:{authorization:'Bearer valid',origin:config.origin,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+
+test('administrators can see upload readiness without receiving the verification credential',async()=>{
+  for(const [verifySecret,ready] of [[undefined,false],['too short',false],['x'.repeat(32),true]]){
+    const f=fixture('owner','aal1');
+    const handler=createAdminHandler({config:{...config,verifySecret},backend:f.backend});
+    const response=await handler(req('overview'),context),body=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(body.limits.uploadsReady,ready);
+    if(verifySecret)assert.equal(JSON.stringify(body).includes(verifySecret),false);
+  }
+});
 test('T3 members cannot administer; password-authenticated admins and owners can',async()=>{
   for(const [role,aal] of [['member','aal2'],['member','aal1']]){
     const f=fixture(role,aal);assert.equal((await f.handler(req('users'),context)).status,403);assert.equal(f.calls.length,0);

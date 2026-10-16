@@ -19,3 +19,26 @@ test('network failures clear old private content, and unknown actions cannot iss
   await assert.rejects(api.get('projects'),/connection/i);assert.equal(reset,1);
   await assert.rejects(api.get('https://evil.test'),/Unknown/);assert.equal(calls,1);
 });
+
+test('failed upload requests pass their error to the private-view fallback before rejecting',async()=>{
+  for(const status of [403,503]){
+    let failure;
+    const api=createPortalApi({admin:true,getToken:async()=>'fixture-token',onDenied:(status,error)=>{failure={status,error};},fetcher:async()=>new Response(JSON.stringify({error:'unavailable',message:'Upload service unavailable'}),{status})});
+    await assert.rejects(api.post('upload',{}),error=>{
+      assert.equal(failure.status,status);
+      assert.equal(failure.error,error);
+      assert.equal(failure.error.message,'Upload service unavailable');
+      return true;
+    });
+  }
+});
+
+test('network and malformed responses provide an error to the fallback view',async()=>{
+  for(const fetcher of [async()=>{throw new Error('network');},async()=>new Response('not json')]){
+    let failure;
+    const api=createPortalApi({admin:true,getToken:async()=>'fixture-token',onDenied:(status,error)=>{failure={status,error};},fetcher});
+    await assert.rejects(api.post('upload',{}),error=>{
+      assert.equal(failure.status,0);assert.equal(failure.error,error);return true;
+    });
+  }
+});

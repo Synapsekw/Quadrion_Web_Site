@@ -1,4 +1,4 @@
-import {available} from './config.mjs';
+import {available,uploadsConfigured} from './config.mjs';
 import {canAdminister} from './policy.mjs';
 import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
 const reads=['overview','users','invitations','releases','projects','activity'];
@@ -23,7 +23,7 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
       if(request.method!=='GET')fail('method');const offset=Number(url.searchParams.get('offset')||0);
       if(!Number.isInteger(offset)||offset<0||offset>100000)fail('invalid');
       const result=await backend.rpc('portal_admin_list',{...base,p_kind:action,p_search:string(url.searchParams.get('search')||'',160),p_offset:offset});
-      return json({...result,...(action==='overview'?{limits:{releaseBytes:config.releaseMaxBytes,projectBytes:config.projectMaxBytes}}:{})});
+      return json({...result,...(action==='overview'?{limits:{releaseBytes:config.releaseMaxBytes,projectBytes:config.projectMaxBytes,uploadsReady:uploadsConfigured(config)}}:{})});
     }
     if(request.method!=='POST')fail('method');const body=await readJson(request);let result;
     if(action==='createUser'){

@@ -1,4 +1,5 @@
 import {isPublishedProduction} from '../runtime.mjs';
+export const uploadsConfigured=config=>typeof config.verifySecret==='string'&&config.verifySecret.length>=32;
 export function portalConfig(env=process.env){
   const url=env.SUPABASE_URL||'';
   const origin=env.PORTAL_ALLOWED_ORIGIN||'https://quadrion.ai';

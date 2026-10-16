@@ -9,7 +9,7 @@ const root=document.querySelector('#app');let auth,api,memberApi,member,content,
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
 function select(label,name,options,value){const input=el('select',{id:name,name},options.map(([v,text])=>el('option',{value:v,selected:String(v)===String(value)},text)));return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
 function area(label,name,value=''){const input=el('textarea',{id:name,name,rows:4,maxlength:16000},value);return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
-function clear(){sequence++;content?.replaceChildren();document.querySelectorAll('dialog').forEach(d=>d.remove());window.dispatchEvent(new Event('quadrion:signout'));}
+function clear(status,error){sequence++;content?.replaceChildren();document.querySelectorAll('dialog').forEach(d=>d.remove());window.dispatchEvent(new Event('quadrion:signout'));if(error&&content)content.append(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));}
 function navigate(path){history.pushState(null,'',path);render();}
 document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/admin/')&&!e.ctrlKey&&!e.metaKey){e.preventDefault();navigate(a.pathname+a.search);}});window.addEventListener('popstate',()=>render());
 function dialog(title,description,body){const d=el('dialog',{class:'editor-dialog'},el('header',{class:'dialog-header'},el('div',{},el('h2',{},title),el('p',{class:'muted'},description)),button('Close',()=>d.close(),true)),body);d.addEventListener('close',()=>{window.dispatchEvent(new Event('quadrion:uploads-pause'));d.remove();});document.body.append(d);d.showModal();return d;}
@@ -100,6 +100,7 @@ async function assignments(p){
 }
 function uploadPanel(file,options){
   if(file?.state==='verified')return el('div',{},stateLabel('verified'),el('p',{},file.filename+' · '+bytes(file.bytes)));
+  if(limits.uploadsReady===false)return notice('Uploads are unavailable because file verification is not configured. The site administrator needs to complete the upload service setup.','error');
   const panel=el('div');
   const completed=state=>{
     if(state==='abandoned'){panel.replaceChildren(uploadControl({api,...options,onVerified:completed}));return;}
