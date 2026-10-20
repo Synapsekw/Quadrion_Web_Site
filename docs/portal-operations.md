@@ -96,3 +96,13 @@ Owner sign-in and server database access are now verified. Real member creation,
 ## Branded password reset — 16 October 2026
 
 The password-reset email now uses Quadrion branding and the subject **Reset your Quadrion password**. Its source and update instructions are in `supabase/templates/`. This is a hosted Supabase template, separate from Netlify deployments. The existing recovery link, sender, and callback are preserved. The saved template and desktop/mobile browser previews were verified; a newly delivered message has not been tested for this template.
+
+## Project upload repair - 20 October 2026
+
+Project AIO and cover uploads failed at `portal_upload_begin` with PostgreSQL error `42702`, which the API mapped to HTTP 503. Its local variable `version` collided with the `project_versions.version` column in the existence check. Software release uploads followed a different branch, so the earlier release-only database upload tests did not catch it.
+
+Migration `202610200001_portal_project_upload.sql` was applied manually to production project `oxjrkodcmflxejdwsuac` on 20 October 2026. It replaces only that function body with distinct ID variable names and qualified table columns, retaining its signature, security settings, service-only execution grants, validation and upload state transitions. No Netlify deployment is needed for this database repair. As with the previous manual migrations, reconcile the hosted migration history before adopting CLI migration deployment.
+
+Validation: all 152 automated tests, the portal build, public-artifact scan and `git diff --check` pass. New database tests failed with the original ambiguity before the migration and now cover AIO and cover allocation, listing, resume, verification, nonexistent/published version rejection, and denied execution by browser roles. Independent review found no issues.
+
+Production validation allocated and resumed both a synthetic AIO file and a cover on an isolated draft within one transaction, then rolled back all test records. Service-role access remained enabled; anonymous and authenticated direct execution remained denied. The deployed function's whitespace-normalized body MD5 is `20a1119c96d775c014550656ae24541d`, matching the tested migration. This verifies the allocation failure is repaired; it does not claim a full user-file transfer, storage verification or download was exercised.
