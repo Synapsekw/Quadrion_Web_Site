@@ -34,7 +34,7 @@ try{
     grant usage on schema public to anon,authenticated,service_role;
     alter default privileges in schema public grant all on tables to anon,authenticated,service_role;`);
   const migrations=new URL('../supabase/migrations/',import.meta.url);
-  for(const name of (await readdir(migrations)).filter(n=>/^20261015.*\.sql$/.test(n)).sort())await db.query(await readFile(new URL(name,migrations),'utf8'));
+  for(const name of (await readdir(migrations)).filter(n=>/^\d{12}_.+\.sql$/.test(n)).sort())await db.query(await readFile(new URL(name,migrations),'utf8'));
   await db.query('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())',[ids.owner,'owner@example.invalid']);
   await db.query("insert into public.portal_members(user_id,role,status) values($1,'owner','active')",[ids.owner]);
   const blocker=await client('portal-concurrency-blocker');

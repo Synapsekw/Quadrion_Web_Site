@@ -51,6 +51,7 @@ test('anonymous and authenticated callers cannot invoke trusted functions or rea
       await assert.rejects(db.query('select * from public.projects'),/permission denied/);
       await assert.rejects(change(ids.owner,'aal2',ids.t1,2,'member',3),/permission denied/);
       await assert.rejects(rpc(db,'portal_catalog',[ids.owner,'aal2','projects','',0]),/permission denied/);
+      await assert.rejects(rpc(db,'portal_upload_begin',[ids.owner,'aal1',{}]),/permission denied/);
     } finally {await db.exec('reset role');}
   }
 });

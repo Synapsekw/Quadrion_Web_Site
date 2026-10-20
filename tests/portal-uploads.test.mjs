@@ -3,6 +3,50 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {verifySlice} from '../netlify/lib/portal/verification.mjs';
 import {portalDb,ids,rpc} from './helpers/portal-db.mjs';
+
+for(const [kind,filename,mimeType,bytes,maxBytes] of [
+  ['binary','project.aio','application/octet-stream',3000000000,100000000000],
+  ['preview','cover.png','image/png',100,10000000],
+])test('project '+kind+' uploads allocate against the version ID with password-only admin access',async()=>{
+  const db=await portalDb();try{
+    const project=await rpc(db,'portal_save_project',[ids.owner,'aal1',{title:'Project upload',category:'basic',minimumTier:2,audience:'tier'}]);
+    const version=await rpc(db,'portal_save_version',[ids.owner,'aal1',{projectId:project.id,version:'1.0'}]);
+    const session=await rpc(db,'portal_upload_begin',[ids.owner,'aal1',{releaseId:null,projectVersionId:version.id,kind,filename,bytes,sha256:'a'.repeat(64),mimeType,maxBytes}]);
+    assert.equal(session.state,'pending');
+    assert.equal(session.file.project_version_id,version.id);
+    assert.equal(session.file.release_id,null);
+    assert.equal(session.file.bucket,'quadrion-projects');
+    assert.equal(session.file.kind,kind);
+    assert.equal(session.file.filename,filename);
+    assert.equal(session.file.bytes,bytes);
+    assert.equal(session.file.object_path,version.id+'/'+session.file.id+'/'+filename);
+    const listed=await rpc(db,'portal_admin_list',[ids.owner,'aal1','projects','',0]);
+    assert.equal(listed.items[0].versions[0].files[0].upload_session_id,session.id);
+    assert.equal((await rpc(db,'portal_upload_command',[ids.owner,'aal1',session.id,'resume'])).file.id,session.file.id);
+    await rpc(db,'portal_upload_command',[ids.owner,'aal1',session.id,'finalize']);
+    const job=await rpc(db,'portal_verify_claim',[session.id]);
+    await rpc(db,'portal_verify_checkpoint',[session.id,job.lease_id,bytes,null,'v1','a'.repeat(64)]);
+    assert.equal((await rpc(db,'portal_upload_command',[ids.owner,'aal1',session.id,'status'])).state,'verified');
+  }finally{await db.close();}
+});
+
+test('project upload allocation rejects unknown and published versions without leaving files',async()=>{
+  const db=await portalDb();try{
+    const input={releaseId:null,projectVersionId:'20000000-0000-4000-8000-000000000001',kind:'binary',filename:'project.aio',bytes:100,sha256:'a'.repeat(64),mimeType:'application/octet-stream',maxBytes:100000000000};
+    await assert.rejects(rpc(db,'portal_upload_begin',[ids.owner,'aal1',input]),/portal:conflict/);
+    const project=await rpc(db,'portal_save_project',[ids.owner,'aal1',{title:'Published project',category:'basic',minimumTier:2,audience:'tier'}]);
+    const version=await rpc(db,'portal_save_version',[ids.owner,'aal1',{projectId:project.id,version:'1.0'}]);
+    const session=await rpc(db,'portal_upload_begin',[ids.owner,'aal1',{...input,projectVersionId:version.id}]);
+    await rpc(db,'portal_upload_command',[ids.owner,'aal1',session.id,'finalize']);
+    const job=await rpc(db,'portal_verify_claim',[session.id]);
+    await rpc(db,'portal_verify_checkpoint',[session.id,job.lease_id,100,null,'v1','a'.repeat(64)]);
+    await rpc(db,'portal_publish',[ids.owner,'aal1','project',project.id,1,version.id]);
+    await assert.rejects(rpc(db,'portal_upload_begin',[ids.owner,'aal1',{...input,projectVersionId:version.id,kind:'preview',filename:'cover.png',mimeType:'image/png'}]),/portal:conflict/);
+    assert.equal((await db.query('select count(*)::int n from public.artifact_files')).rows[0].n,1);
+    assert.equal((await db.query('select count(*)::int n from public.upload_sessions')).rows[0].n,1);
+  }finally{await db.close();}
+});
+
 test('verification resumes from checkpoints and rejects changed or truncated objects',async()=>{
   const bytes=Buffer.from('bounded verification across separate invocations'),sha=createHash('sha256').update(bytes).digest('hex');
   let checkpoint;const job={bytes:bytes.length,sha256:sha,verified_bytes:0,hash_state:null,object_etag:null};
