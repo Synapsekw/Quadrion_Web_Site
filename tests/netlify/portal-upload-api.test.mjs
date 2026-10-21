@@ -35,6 +35,15 @@ test('upload allocation validates file type, configured size and forbids paths b
   await assert.rejects(actions('upload',{...base,bytes:100,object_path:'own/path'},user),/portal:invalid/);assert.equal(calls,0);
 });
 
+test('release uploads accept processing tar.gz archives while project uploads keep their AIO restriction',async()=>{
+  const id='10000000-0000-4000-8000-000000000001',allocations=[];
+  const actions=createUploadActions({config:{url:'https://fixture.supabase.co',verifySecret:'x'.repeat(32),releaseMaxBytes:1000000000,projectMaxBytes:1000000000},backend:{rpc:async(name,args)=>{allocations.push(args.p_data);return {id,state:'pending',verified_bytes:0,file:{...args.p_data,bucket:'quadrion-software',object_path:'fixture/kit.tar.gz'}};},service:{storage:{from:()=>({createSignedUploadUrl:async()=>({data:{token:'test-token'}})})}}}});
+  const data={releaseId:id,projectVersionId:null,kind:'binary',filename:'pipeline-pack-0.20.0-win-x64.tar.gz',bytes:403990062,sha256:'a'.repeat(64)};
+  const result=await actions('upload',data,{});assert.equal(result.state,'pending');assert.equal(allocations[0].filename,data.filename);
+  await assert.rejects(actions('upload',{...data,releaseId:null,projectVersionId:id},{}),/portal:invalid/);
+  await assert.rejects(actions('upload',{...data,filename:'kit.gz'},{}),/portal:invalid/);assert.equal(allocations.length,1);
+});
+
 test('resuming with a different file returns a specific recovery error without issuing an upload token',async()=>{
   let signed=0;
   const actions=createUploadActions({config:{verifySecret:'x'.repeat(32)},backend:{rpc:async()=>({state:'pending',expires_at:'2099-01-01T00:00:00Z',file:{filename:'team.zip',bytes:100,sha256:'a'.repeat(64)}}),service:{storage:{from(){signed++;}}}}});

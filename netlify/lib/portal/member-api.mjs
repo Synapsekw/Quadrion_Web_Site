@@ -1,16 +1,21 @@
 import {available} from './config.mjs';
 import {activeMember} from './policy.mjs';
+import {updateQuery,selectUpdates} from './updates.mjs';
 import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
 export function createMemberHandler({config,backend,clock=Date.now}){
   return async(request,context)=>{try{
     if(!available(config,request,context))fail('unavailable');
     checkOrigin(request,config);
     const url=new URL(request.url),action=url.searchParams.get('action')||'me';
-    if(!['config','me','releases','projects','project','download','profile','preview'].includes(action))fail('not_found');
+    if(!['config','me','releases','projects','project','download','profile','preview','updates'].includes(action))fail('not_found');
     if(request.method!==(action==='download'||action==='profile'||action==='preview'?'POST':'GET'))fail('method');
     if(action==='config')return json({enabled:true,url:config.url,publishableKey:config.publishableKey});
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
     if(!activeMember(member,clock()))fail('forbidden');
+    if(action==='updates'){
+      const query=updateQuery(url.searchParams);
+      return json(selectUpdates(await backend.rpc('portal_update_candidates',{p_actor:user.userId,p_aal:user.aal}),query));
+    }
     if(action==='me')return json({member,email:user.email,aal:user.aal,requiresMfa:false});
     if(action==='releases'||action==='projects'){
       const search=string(url.searchParams.get('search')||'',160),offset=Number(url.searchParams.get('offset')||0);

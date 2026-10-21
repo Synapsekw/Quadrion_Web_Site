@@ -11,6 +11,7 @@ const release={id:'10000000-0000-4000-8000-000000000011',artifact_id:'10000000-0
 const projects=['Coastal infrastructure','Industrial facility','Terrain & earthworks'].map((title,i)=>({id:`10000000-0000-4000-8000-00000000002${i}`,title,description:'Local preview of an authorized AIO project in your library.',category:i===1?'oil_gas':'basic',minimum_tier:i===1?3:2,version:'1.0',bytes:(i+12)*1024**3}));
 const adminProjects=projects.map(p=>({...p,status:'draft',audience:'assigned',revision:1,versions:[],assignments:[]}));
 const adminReleases=[],manualUsers=[],manualCreations=[],uploads=new Map();
+if(process.argv.includes('--updates'))adminReleases.push({id:'10000000-0000-4000-8000-000000000050',kind:'pipeline',version:'0.20.0',platform:'windows',minimum_app_version:'',notes:'Local automatic-update kit fixture. No downloadable binary.',status:'published',revision:2,auto_update_enabled:true,architecture:'x64',package_format:'tar.gz',app_range:'>=0.25.0 <2.0.0',pipeline_release_id:null,files:[{id:'10000000-0000-4000-8000-000000000051',filename:'pipeline-pack-0.20.0-win-x64.tar.gz',bytes:456,sha256:'a'.repeat(64),state:'verified'}]});
 createServer(async(req,res)=>{
   const respond=(body,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   try{
@@ -39,8 +40,13 @@ createServer(async(req,res)=>{
       }
       if(action==='invitations'||action==='activity')return respond({items:[],total:0,offset:0});
       if(action==='projects')return respond({items:adminProjects,total:adminProjects.length,offset:0});
-      if(action==='releases')return respond({items:adminReleases,total:adminReleases.length,offset:0});
-      if(action==='release'){const r={...body,id:crypto.randomUUID(),minimum_app_version:body.minimumAppVersion,status:'draft',revision:1,files:[]};adminReleases.push(r);return respond(r);}
+      if(action==='releases'){const matches=adminReleases.filter(r=>(r.kind+' '+r.version).includes(url.searchParams.get('search')||'')),offset=Number(url.searchParams.get('offset')||0);return respond({items:matches.slice(offset,offset+50),total:matches.length,offset});}
+      if(action==='release'){
+        let r=adminReleases.find(r=>r.id===body.id);
+        if(body.id&&(!r||r.status!=='draft'||r.revision!==body.revision))return respond({message:'This record changed. Refresh it before saving.'},409);
+        if(!r){r={id:crypto.randomUUID(),status:'draft',revision:0,files:[]};adminReleases.push(r);}
+        Object.assign(r,{kind:body.kind,version:body.version,platform:body.platform,minimum_app_version:body.minimumAppVersion||'',notes:body.notes||'',auto_update_enabled:body.autoUpdateEnabled||false,architecture:body.architecture||null,package_format:body.packageFormat||null,app_range:body.appRange||null,pipeline_release_id:body.pipelineReleaseId||null,revision:r.revision+1});return respond(r);
+      }
       if(action==='project'){let p=adminProjects.find(p=>p.id===body.id);if(!p){p={id:crypto.randomUUID(),status:'draft',revision:1,versions:[],assignments:[]};adminProjects.push(p);}Object.assign(p,body,{minimum_tier:body.minimumTier});return respond(p);}
       if(action==='version'){const v={id:crypto.randomUUID(),version:body.version,notes:body.notes,minimum_app_version:body.minimumAppVersion,files:[]};adminProjects.find(p=>p.id===body.projectId).versions.push(v);return respond(v);}
       if(action==='assignments'){const p=adminProjects.find(p=>p.id===body.projectId);p.assignments=body.assignments;p.revision++;return respond(p);}

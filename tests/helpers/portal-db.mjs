@@ -8,7 +8,7 @@ export async function portalDb() {
     create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,banned_until timestamptz,deleted_at timestamptz,is_anonymous boolean default false,created_at timestamptz default now(),raw_app_meta_data jsonb default '{}');
     grant usage on schema public to anon,authenticated,service_role;
     alter default privileges in schema public grant all on tables to anon,authenticated,service_role;`);
-  for(const file of ['202610150001_portal_members.sql','202610150002_portal_catalog.sql','202610150003_portal_member_api.sql','202610150004_portal_admin_api.sql','202610150005_portal_uploads.sql','202610150006_portal_manual_users.sql','202610150007_portal_password_login.sql','202610200001_portal_project_upload.sql']) {
+  for(const file of ['202610150001_portal_members.sql','202610150002_portal_catalog.sql','202610150003_portal_member_api.sql','202610150004_portal_admin_api.sql','202610150005_portal_uploads.sql','202610150006_portal_manual_users.sql','202610150007_portal_password_login.sql','202610200001_portal_project_upload.sql','202610210001_portal_updates.sql']) {
     await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   }
   for(const [name,id] of Object.entries(ids)) {

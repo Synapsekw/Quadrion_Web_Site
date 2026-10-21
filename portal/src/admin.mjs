@@ -4,6 +4,7 @@ import {createPortalAuth} from './auth.mjs';
 import {createPortalApi} from './api.mjs';
 import {uploadControl} from './upload.mjs';
 import {submitMutation} from './mutations.mjs';
+import {compatibleBaselines} from './release-metadata.mjs';
 import {el,button,link,field,heading,empty,notice,bytes,date} from './ui.mjs';
 const root=document.querySelector('#app');let auth,api,memberApi,member,content,sequence=0,limits;
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
@@ -122,9 +123,39 @@ function projectDetail(p){
   const d=dialog(p.title,p.description,body);
 }
 async function projects(ticket){const data=await list('projects');if(ticket!==sequence)return;toolbar('Project library','Draft, verify and publish AIO datasets with controlled access.',button('Create project',()=>projectEditor()));content.append(searchForm('projects'),data.items.length?table(['Project','Audience','Status','Versions',''],data.items.map(p=>el('tr',{},el('td',{},el('strong',{},p.title),el('small',{class:'table-sub'},p.category.replace('_',' & '))),el('td',{},'T'+p.minimum_tier+' · '+(p.audience==='tier'?'Tier library':'Selected users')),el('td',{},stateLabel(p.status)),el('td',{},p.versions.length),el('td',{},button('Open',()=>projectDetail(p),true))))):empty('Create your first project','Upload a dataset, choose its audience and publish it when verified.'));pagination(data);}
-function releaseEditor(){const kind=select('Release type','release-kind',[['app','Quadrion Player'],['pipeline','Processing pipeline']],'app'),version=field('Version','release-version',{required:true,maxLength:80}),platform=select('Platform','release-platform',[['windows','Windows'],['macos','macOS'],['linux','Linux'],['all','All platforms']],'windows'),minimum=field('Minimum Player version','release-minimum',{maxLength:80}),notes=area('Release notes','release-notes');dialog('Create a software release','Upload the matching installer or pipeline package after saving.',saveForm([kind.node,version.node,platform.node,minimum.node,notes.node],'release',()=>({kind:kind.input.value,version:version.input.value,platform:platform.input.value,minimumAppVersion:minimum.input.value,notes:notes.input.value}),'Create draft'));}
-function releaseDetail(r){const file=r.files[0],d=dialog((r.kind==='app'?'Player':'Pipeline')+' '+r.version,r.platform,el('div',{},el('p',{class:'preserve'},r.notes),uploadPanel(file,{releaseId:r.id,limit:limits.releaseBytes}),file?.state==='verified'&&r.status!=='published'?button('Publish release',()=>{d.close();confirmAction('Publish release','This release will be available to all active T1–T3 members.','publish',{kind:'release',id:r.id,revision:r.revision,versionId:null});}):null,r.status==='published'?button('Retire release',()=>{d.close();confirmAction('Retire release','Disable new download links for this release.','archive',{kind:'release',id:r.id,revision:r.revision});},true):null));}
-async function releases(ticket){const data=await list('releases');if(ticket!==sequence)return;toolbar('Software releases','Publish versioned Player installers and processing pipelines.',button('Create release',releaseEditor));content.append(searchForm('releases'),data.items.length?table(['Release','Platform','Status','File',''],data.items.map(r=>el('tr',{},el('td',{},el('strong',{},(r.kind==='app'?'Player':'Pipeline')+' '+r.version),el('small',{class:'table-sub'},r.minimum_app_version?'Player '+r.minimum_app_version+'+':'')),el('td',{},r.platform),el('td',{},stateLabel(r.status)),el('td',{},r.files[0]?stateLabel(r.files[0].state):'No file'),el('td',{},button('Open',()=>releaseDetail(r),true))))):empty('No software releases yet','Create a draft release and upload its installer or package.'));pagination(data);}
+async function releaseEditor(r=null){
+  const ticket=sequence,kits=[];
+  try{
+    let offset=0,data;
+    do{data=await api.get('releases',{search:'pipeline',offset});kits.push(...data.items);offset+=data.items.length;}while(data.items.length&&offset<data.total);
+  }catch(error){if(ticket===sequence)dialog('Release unavailable','Refresh and try again.',notice(error.message,'error'));return;}
+  if(ticket!==sequence)return;
+  const kind=select('Release type','release-kind',[['app','Quadrion Player'],['pipeline','Processing pipeline']],r?.kind||'app'),
+    version=field('Version','release-version',{value:r?.version||'',required:true,maxLength:80,help:'Automatic updates require a stable version such as 0.25.0.'}),
+    platform=select('Platform','release-platform',[['windows','Windows'],['macos','macOS'],['linux','Linux'],['all','All platforms']],r?.platform||'windows'),
+    minimum=field('Minimum Player version','release-minimum',{value:r?.minimum_app_version||'',maxLength:80}),notes=area('Release notes','release-notes',r?.notes||''),
+    automatic=select('Automatic updates','release-automatic',[['manual','Manual download only'],['automatic','Enable automatic updates']],r?.auto_update_enabled?'automatic':'manual'),
+    baseline=select('Processing kit baseline','release-baseline',[['','Choose a compatible published kit']],'initial'),
+    range=field('Compatible Player versions','release-app-range',{value:r?.app_range||'',maxLength:100,help:'Use a bounded range, for example >=0.25.0 <2.0.0.'}),
+    packageHelp=el('p',{class:'muted','aria-live':'polite'}),baselineHelp=el('p',{class:'muted','aria-live':'polite'});
+  function updateFields(){
+    const enabled=automatic.input.value==='automatic',isApp=kind.input.value==='app',chosen=baseline.input.value||r?.pipeline_release_id||'';
+    const options=compatibleBaselines(kits,version.input.value);
+    baseline.input.replaceChildren(el('option',{value:''},'Choose a compatible published kit'),...options.map(k=>el('option',{value:k.id,selected:k.id===chosen},'Processing kit '+k.version+' · Player '+k.app_range)));
+    baseline.node.hidden=baselineHelp.hidden=!enabled||!isApp;baseline.input.required=enabled&&isApp;
+    baselineHelp.textContent=options.length?'The baseline kit must stay published and verified for this app to be offered.':'Enter a stable Player version and publish a compatible kit to select a baseline.';
+    range.node.hidden=!enabled||isApp;range.input.required=enabled&&!isApp;
+    platform.input.disabled=enabled;if(enabled)platform.input.value='windows';
+    packageHelp.hidden=!enabled;packageHelp.textContent=isApp?'Windows x64 · NSIS installer (.exe)':'Windows x64 · Processing archive (.tar.gz)';
+  }
+  kind.input.addEventListener('change',updateFields);automatic.input.addEventListener('change',updateFields);version.input.addEventListener('input',updateFields);updateFields();
+  dialog(r?'Edit software release':'Create a software release','Save the draft, upload the matching package, then publish after verification.',saveForm([kind.node,version.node,platform.node,minimum.node,automatic.node,packageHelp,baseline.node,baselineHelp,range.node,notes.node],'release',()=>{
+    const enabled=automatic.input.value==='automatic',isApp=kind.input.value==='app';
+    return {...(r?{id:r.id,revision:r.revision}:{}),kind:kind.input.value,version:version.input.value,platform:platform.input.value,minimumAppVersion:minimum.input.value,notes:notes.input.value,autoUpdateEnabled:enabled,architecture:enabled?'x64':null,packageFormat:enabled?(isApp?'nsis':'tar.gz'):null,appRange:enabled&&!isApp?range.input.value:null,pipelineReleaseId:enabled&&isApp?baseline.input.value:null};
+  },r?'Save draft':'Create draft'));
+}
+function releaseDetail(r){const file=r.files[0],d=dialog((r.kind==='app'?'Player':'Pipeline')+' '+r.version,r.platform,el('div',{},el('p',{class:'preserve'},r.notes),el('p',{class:'muted'},r.auto_update_enabled?'Automatic updates · Windows x64 · '+(r.kind==='app'?'NSIS installer':'Processing archive · Player '+r.app_range):'Manual download only'),r.status==='draft'?button('Edit draft',()=>{d.close();releaseEditor(r);},true):null,uploadPanel(file,{releaseId:r.id,limit:limits.releaseBytes}),file?.state==='verified'&&r.status!=='published'?button('Publish release',()=>{d.close();confirmAction('Publish release','This release will be available to all active T1–T3 members.','publish',{kind:'release',id:r.id,revision:r.revision,versionId:null});}):null,r.status==='published'?button('Retire release',()=>{d.close();confirmAction('Retire release','Disable new download links for this release.','archive',{kind:'release',id:r.id,revision:r.revision});},true):null));}
+async function releases(ticket){const data=await list('releases');if(ticket!==sequence)return;toolbar('Software releases','Publish versioned Player installers and processing pipelines.',button('Create release',()=>releaseEditor()));content.append(searchForm('releases'),data.items.length?table(['Release','Platform','Status','File',''],data.items.map(r=>el('tr',{},el('td',{},el('strong',{},(r.kind==='app'?'Player':'Pipeline')+' '+r.version),el('small',{class:'table-sub'},r.minimum_app_version?'Player '+r.minimum_app_version+'+':'')),el('td',{},r.platform),el('td',{},stateLabel(r.status)),el('td',{},r.files[0]?stateLabel(r.files[0].state):'No file'),el('td',{},button('Open',()=>releaseDetail(r),true))))):empty('No software releases yet','Create a draft release and upload its installer or package.'));pagination(data);}
 async function activity(ticket){const data=await list('activity');if(ticket!==sequence)return;toolbar('Activity','Permission changes, publication and download-link activity. Link issuance is not proof of a completed download.');content.append(searchForm('events'),table(['Time','Event','Actor','Resource'],data.items.map(e=>el('tr',{},el('td',{},new Date(e.created_at).toLocaleString()),el('td',{},e.action.replaceAll('_',' ')),el('td',{class:'id-cell'},e.actor_id||'System'),el('td',{class:'id-cell'},e.resource_id||e.subject_id||'—')))));pagination(data);}
 async function render(){const ticket=++sequence;try{
   if(!auth)return;if(!await auth.getToken()){location.replace('/portal/?login');return;}if(auth.needsPassword()){auth.showPassword();return;}

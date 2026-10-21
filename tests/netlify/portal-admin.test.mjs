@@ -8,6 +8,15 @@ function fixture(role='owner',aal='aal2'){
 }
 const req=(action,body)=>new Request('https://quadrion.ai/api/portal-admin?action='+action,{method:body?'POST':'GET',headers:{authorization:'Bearer valid',origin:config.origin,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
 
+test('release drafts accept typed updater metadata and revision edits, rejecting malformed eligibility',async()=>{
+  const f=fixture(),data={kind:'pipeline',version:'0.20.0',platform:'windows',notes:'Kit',autoUpdateEnabled:true,architecture:'x64',packageFormat:'tar.gz',appRange:'>=0.25.0 <2.0.0',pipelineReleaseId:null};
+  assert.equal((await f.handler(req('release',data),context)).status,200);
+  assert.equal((await f.handler(req('release',{...data,id:'10000000-0000-4000-8000-000000000009',revision:2}),context)).status,200);
+  assert.equal(f.calls[1].args.p_data.revision,2);
+  for(const extra of [{version:'0.20.0-beta.1'},{appRange:'*'},{appRange:'>=2.0.0 <1.0.0'},{appRange:'>=0.25.0 <2.0.0\n'},{architecture:'arm64'},{autoUpdateEnabled:'true'},{kind:'app',packageFormat:'nsis'},{id:'',revision:1},{id:0,revision:1},{revision:0,id:'10000000-0000-4000-8000-000000000009'}])assert.equal((await f.handler(req('release',{...data,...extra}),context)).status,400);
+  assert.equal(f.calls.length,2);
+});
+
 test('administrators can see upload readiness without receiving the verification credential',async()=>{
   for(const [verifySecret,ready] of [[undefined,false],['too short',false],['x'.repeat(32),true]]){
     const f=fixture('owner','aal1');
