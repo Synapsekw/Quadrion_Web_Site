@@ -1,5 +1,6 @@
 import {available,uploadsConfigured} from './config.mjs';
 import {canAdminister} from './policy.mjs';
+import {validateReleaseMetadata} from './updates.mjs';
 import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
 const reads=['overview','users','invitations','releases','projects','activity'];
 const revision=v=>{if(!Number.isSafeInteger(v)||v<1)fail('invalid');return v;};
@@ -75,7 +76,7 @@ export function createAdminHandler({config,backend,clock=Date.now,uploads}){
       keys(body,['projectId','version','minimumAppVersion','notes']);uuid(body.projectId);string(body.version,80,{empty:false});string(body.minimumAppVersion||'',80);string(body.notes||'',16000);
       result=await backend.rpc('portal_save_version',{...base,p_data:body});
     }else if(action==='release'){
-      keys(body,['kind','version','platform','minimumAppVersion','notes']);if(!['app','pipeline'].includes(body.kind)||!['windows','macos','linux','all'].includes(body.platform))fail('invalid');string(body.version,80,{empty:false});string(body.minimumAppVersion||'',80);string(body.notes||'',16000);
+      keys(body,['id','revision','kind','version','platform','minimumAppVersion','notes','autoUpdateEnabled','architecture','packageFormat','appRange','pipelineReleaseId']);if(body.id!=null){uuid(body.id);revision(body.revision);}else if(body.revision!==undefined)fail('invalid');if(!['app','pipeline'].includes(body.kind)||!['windows','macos','linux','all'].includes(body.platform))fail('invalid');string(body.version,80,{empty:false});string(body.minimumAppVersion||'',80);string(body.notes||'',16000);validateReleaseMetadata(body);
       result=await backend.rpc('portal_save_release',{...base,p_data:body});
     }else if(action==='publish'||action==='archive'){
       keys(body,action==='publish'?['kind','id','revision','versionId']:['kind','id','revision']);uuid(body.id);revision(body.revision);if(!['project','release'].includes(body.kind))fail('invalid');

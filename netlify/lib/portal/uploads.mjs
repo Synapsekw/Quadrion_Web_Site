@@ -21,7 +21,7 @@ export function createUploadActions({config,backend,dispatch=id=>dispatchVerific
       const extension=filename.toLowerCase().split('.').pop();let mimeType='application/octet-stream';
       if(body.kind==='preview'){
         if(body.releaseId||!['png','jpg','jpeg','webp'].includes(extension))fail('invalid');mimeType=extension==='png'?'image/png':extension==='webp'?'image/webp':'image/jpeg';
-      }else if(body.kind!=='binary'||!(body.releaseId?['exe','msi','zip','dmg','pkg','deb','appimage'].includes(extension):extension==='aio'))fail('invalid');
+      }else if(body.kind!=='binary'||!(body.releaseId?(['exe','msi','zip','dmg','pkg','deb','appimage'].includes(extension)||/\.tar\.gz$/i.test(filename)):extension==='aio'))fail('invalid');
       const maxBytes=body.kind==='preview'?10000000:body.releaseId?config.releaseMaxBytes:config.projectMaxBytes;
       if(!Number.isSafeInteger(body.bytes)||body.bytes<=0||!Number.isSafeInteger(maxBytes)||maxBytes<=0||body.bytes>maxBytes)fail('too_large');
       if(typeof body.sha256!=='string'||!/^[a-f0-9]{64}$/.test(body.sha256))fail('invalid');
