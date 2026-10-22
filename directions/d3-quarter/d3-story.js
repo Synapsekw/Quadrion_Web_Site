@@ -518,10 +518,22 @@
   function tixShow(on) { if (on !== tixLive) { tixLive = on; tixEl.classList.toggle('is-live', on); } }
   function navAt(id) { if (id === navCur) return; navCur = id; Object.keys(navLinks).forEach(function (k) { navLinks[k].classList.toggle('is-current', k === id); if (k === id) navLinks[k].setAttribute('aria-current', 'true'); else navLinks[k].removeAttribute('aria-current'); }); }
   var tixLinks = $$('.tix a');
+  // Document positions of the closing sections and the stage's end. Measured once per layout
+  // change rather than every frame: reading rects right after GSAP writes forced a layout per frame.
+  var geo = null;
+  function measureGeo() {
+    var y = window.scrollY || 0, g = {};
+    ['trust', 'features', 'oneview'].forEach(function (id) { var el = document.getElementById(id); g[id] = el ? el.getBoundingClientRect().top + y : Infinity; });
+    g.stageBottom = $('#stage').getBoundingClientRect().bottom + y;
+    geo = g;
+  }
+  function viewTop(key) { if (!geo) measureGeo(); return geo[key] - (window.scrollY || 0); }
+  ScrollTrigger.addEventListener('refresh', function () { geo = null; });
+  if (window.ResizeObserver) new ResizeObserver(function () { geo = null; }).observe(document.body);
   function sectionAt(stageT) {
     var mid = innerHeight * 0.45, ids = ['trust', 'features', 'oneview'];
-    for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el && el.getBoundingClientRect().top < mid) return ids[i]; }
-    var st = $('#stage').getBoundingClientRect();
+    for (var i = 0; i < ids.length; i++) { if (viewTop(ids[i]) < mid) return ids[i]; }
+    var st = { bottom: viewTop('stageBottom') };
     if (st.bottom > mid) {
       if (!motion) { var r = $('#shot-road').getBoundingClientRect(); return r.top < mid ? 'tour' : $('#four').getBoundingClientRect().top < mid ? 'four' : ''; }
       return stageT >= 4.3 ? 'tour' : stageT >= 0.9 ? 'four' : '';
@@ -703,8 +715,8 @@
   gsap.ticker.add(function () {
     var t = tl.time(), idx = -1, p = 0;
     for (var i = 0; i < CH.length; i++) if (t >= CH[i][0] - 0.12) { idx = i; p = clamp01((t - CH[i][0]) / (CH[i][1] - CH[i][0])); }
-    var past = $('#stage').getBoundingClientRect().bottom < innerHeight * 0.5;
-    tixShow(t >= 5.3 && $('#stage').getBoundingClientRect().bottom > innerHeight * 0.98);
+    var stageBottom = viewTop('stageBottom'), past = stageBottom < innerHeight * 0.5;
+    tixShow(t >= 5.3 && stageBottom > innerHeight * 0.98);
     var key = idx + ':' + p.toFixed(3) + ':' + past;
     if (key !== lastKey) {
       lastKey = key;
