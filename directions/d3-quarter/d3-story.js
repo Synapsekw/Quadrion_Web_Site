@@ -14,6 +14,8 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var DATA_URL = '../data/';
+  // Downscaled WebP copy of a data photo (scripts/make-thumbs.mjs): 'tank/photos/F01.jpg' -> 'tank/photos/thumbs/F01-240.webp'.
+  function thumb(path, w) { return path.replace(/([^/]+)\.(jpg|webp)$/, 'thumbs/$1-' + w + '.webp'); }
 
   /* ---------- Real data used by the DOM (extracted from directions/data) ---------- */
   var DATA = {
@@ -241,10 +243,10 @@
   };
   function issueHTML(ds) {
     var out = '';
-    if (ds === 'tank') DATA.tank.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'tank/' + f.img + '" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + '</b><span class="sev s' + f.s + '">' + sevName[f.s] + '</span> <span class="mono">' + f.id + ' · ' + f.h.toFixed(2) + ' m</span></div></li>'; });
-    else if (ds === 'flare') DATA.flare.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'flare/patches/' + f.id + '.webp" alt="' + f.comp + '" width="54" height="40"><div><b>' + f.comp + '</b><span class="sev s2">Moderate rust</span> <span class="mono">' + f.id + ' · ' + f.y.toFixed(1) + ' m</span></div></li>'; });
-    else if (ds === 'road') DATA.road.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'road/closeups/' + f.img + '.webp" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + ', ' + fmt(f.a, 1) + ' m²</b><span class="sev sv' + f.s + '">' + roadSev[f.s] + '</span> <span class="mono">' + f.id + ' · ' + f.km.toFixed(2) + ' km</span></div></li>'; });
-    else if (ds === 'facade') DATA.facade.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'facade/photos/' + f.img + '.jpg" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + '</b><span class="sev sv' + f.s + '">' + (f.s > 1 ? 'Moderate' : 'Minor') + '</span> <span class="mono">' + f.id + ' · ' + f.side + ' · ' + f.h.toFixed(1) + ' m</span></div></li>'; });
+    if (ds === 'tank') DATA.tank.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + thumb('tank/' + f.img, 240) + '" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + '</b><span class="sev s' + f.s + '">' + sevName[f.s] + '</span> <span class="mono">' + f.id + ' · ' + f.h.toFixed(2) + ' m</span></div></li>'; });
+    else if (ds === 'flare') DATA.flare.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'flare/patches/thumbs/' + f.id + '-240.webp" alt="' + f.comp + '" width="54" height="40"><div><b>' + f.comp + '</b><span class="sev s2">Moderate rust</span> <span class="mono">' + f.id + ' · ' + f.y.toFixed(1) + ' m</span></div></li>'; });
+    else if (ds === 'road') DATA.road.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'road/closeups/thumbs/' + f.img + '-240.webp" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + ', ' + fmt(f.a, 1) + ' m²</b><span class="sev sv' + f.s + '">' + roadSev[f.s] + '</span> <span class="mono">' + f.id + ' · ' + f.km.toFixed(2) + ' km</span></div></li>'; });
+    else if (ds === 'facade') DATA.facade.forEach(function (f) { out += '<li class="iss"><img data-src="' + DATA_URL + 'facade/photos/thumbs/' + f.img + '-240.webp" alt="' + f.t + '" width="54" height="40"><div><b>' + f.t + '</b><span class="sev sv' + f.s + '">' + (f.s > 1 ? 'Moderate' : 'Minor') + '</span> <span class="mono">' + f.id + ' · ' + f.side + ' · ' + f.h.toFixed(1) + ' m</span></div></li>'; });
     else if (ds === 'stock') DATA.piles.slice().sort(function (p, q) { return Math.abs(q[2] - q[1]) - Math.abs(p[2] - p[1]); }).slice(0, 9).forEach(function (p) {
       var mx = 14687, d = p[2] - p[1];
       out += '<li class="vol-row"><span>' + p[0] + '</span><span class="bars"><i style="width:' + (p[1] / mx * 100).toFixed(1) + '%"></i><i style="width:' + (p[2] / mx * 100).toFixed(1) + '%"></i></span><em>' + (d < 0 ? '−' : '+') + fmt(Math.abs(d)) + '</em></li>';
@@ -305,7 +307,7 @@
 
   /* =================== Chapters content (real data) =================== */
   var pgrid = $('#pgrid');
-  if (pgrid) pgrid.innerHTML = DATA.tank.map(function (f) { return '<figure><img data-src="' + DATA_URL + 'tank/' + f.img + '" alt="' + f.t + '" width="1280" height="960"><figcaption><span class="sev s' + f.s + '">' + sevName[f.s] + ' · ' + f.c + '</span>' + f.t + '</figcaption></figure>'; }).join('');
+  if (pgrid) pgrid.innerHTML = DATA.tank.map(function (f) { return '<figure><img data-src="' + DATA_URL + thumb('tank/' + f.img, 640) + '" alt="' + f.t + '" width="1280" height="960"><figcaption><span class="sev s' + f.s + '">' + sevName[f.s] + ' · ' + f.c + '</span>' + f.t + '</figcaption></figure>'; }).join('');
   var vbars = $('#vol .vbars');
   if (vbars) {
     var top = DATA.piles.slice().sort(function (p, q) { return Math.abs(q[2] - q[1]) - Math.abs(p[2] - p[1]); }).slice(0, 6);
@@ -405,7 +407,9 @@
 
   /* ---------- Lenis ---------- */
   var lenis = null;
-  if (motion && window.Lenis) {
+  // Touch devices keep native scrolling: Lenis adds non-passive touch listeners that route
+  // every scroll through the main thread, which stutters while the 3D data loads.
+  if (motion && window.Lenis && !matchMedia('(pointer: coarse)').matches) {
     try {
       lenis = new window.Lenis({ lerp: 0.085, smoothWheel: true, wheelMultiplier: 0.95 });
       lenis.on('scroll', ScrollTrigger.update);
@@ -514,10 +518,25 @@
   function tixShow(on) { if (on !== tixLive) { tixLive = on; tixEl.classList.toggle('is-live', on); } }
   function navAt(id) { if (id === navCur) return; navCur = id; Object.keys(navLinks).forEach(function (k) { navLinks[k].classList.toggle('is-current', k === id); if (k === id) navLinks[k].setAttribute('aria-current', 'true'); else navLinks[k].removeAttribute('aria-current'); }); }
   var tixLinks = $$('.tix a');
+  // Document positions of the closing sections and the stage's end. Measured once per layout
+  // change rather than every frame: reading rects right after GSAP writes forced a layout per frame.
+  // scrollY itself forces a layout in Chrome when styles are dirty, so it is sampled in the scroll
+  // event (layout is clean there) instead of inside the GSAP tick.
+  var geo = null, sy = window.scrollY || 0;
+  addEventListener('scroll', function () { sy = window.scrollY || 0; }, { passive: true });
+  function measureGeo() {
+    var y = sy = window.scrollY || 0, g = {};
+    ['trust', 'features', 'oneview'].forEach(function (id) { var el = document.getElementById(id); g[id] = el ? el.getBoundingClientRect().top + y : Infinity; });
+    g.stageBottom = $('#stage').getBoundingClientRect().bottom + y;
+    geo = g;
+  }
+  function viewTop(key) { if (!geo) measureGeo(); return geo[key] - sy; }
+  ScrollTrigger.addEventListener('refresh', function () { geo = null; });
+  if (window.ResizeObserver) new ResizeObserver(function () { geo = null; }).observe(document.body);
   function sectionAt(stageT) {
     var mid = innerHeight * 0.45, ids = ['trust', 'features', 'oneview'];
-    for (var i = 0; i < ids.length; i++) { var el = document.getElementById(ids[i]); if (el && el.getBoundingClientRect().top < mid) return ids[i]; }
-    var st = $('#stage').getBoundingClientRect();
+    for (var i = 0; i < ids.length; i++) { if (viewTop(ids[i]) < mid) return ids[i]; }
+    var st = { bottom: viewTop('stageBottom') };
     if (st.bottom > mid) {
       if (!motion) { var r = $('#shot-road').getBoundingClientRect(); return r.top < mid ? 'tour' : $('#four').getBoundingClientRect().top < mid ? 'four' : ''; }
       return stageT >= 4.3 ? 'tour' : stageT >= 0.9 ? 'four' : '';
@@ -699,8 +718,8 @@
   gsap.ticker.add(function () {
     var t = tl.time(), idx = -1, p = 0;
     for (var i = 0; i < CH.length; i++) if (t >= CH[i][0] - 0.12) { idx = i; p = clamp01((t - CH[i][0]) / (CH[i][1] - CH[i][0])); }
-    var past = $('#stage').getBoundingClientRect().bottom < innerHeight * 0.5;
-    tixShow(t >= 5.3 && $('#stage').getBoundingClientRect().bottom > innerHeight * 0.98);
+    var stageBottom = viewTop('stageBottom'), past = stageBottom < innerHeight * 0.5;
+    tixShow(t >= 5.3 && stageBottom > innerHeight * 0.98);
     var key = idx + ':' + p.toFixed(3) + ':' + past;
     if (key !== lastKey) {
       lastKey = key;

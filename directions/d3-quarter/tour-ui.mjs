@@ -60,9 +60,13 @@ async function updateScene(scene) {
   $('.workflow-follow', c.controls).hidden = !state.manual;
   const oldVideo = $('video', c.evidence);
   oldVideo?.pause();
-  c.evidence.hidden = true;
-  c.evidence.className = 'workflow-evidence';
-  c.evidence.replaceChildren();
+  // A fresh panel per view: reusing one element that changes size and anchor between views
+  // registers as a layout shift (CLS) every time the tour moves on.
+  const panel = c.evidence.cloneNode(false);
+  panel.hidden = true;
+  panel.className = 'workflow-evidence';
+  c.evidence.replaceWith(panel);
+  c.evidence = panel;
   try {
     if (scene === 'plant' && state.id === 'elevation') {
       c.evidence.classList.add('evidence-wide');

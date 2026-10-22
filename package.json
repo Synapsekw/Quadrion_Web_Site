@@ -9,7 +9,10 @@
     "dev": "node scripts/quori-server.mjs",
     "test": "node --test tests/*.test.mjs tests/netlify/*.test.mjs",
     "check:public": "node scripts/check-quori-public.mjs",
-    "build:portal": "node scripts/build-portal.mjs"
+    "build:portal": "node scripts/build-portal.mjs",
+    "build:data": "node scripts/compress-data.mjs",
+    "pack:plant-cloud": "node scripts/pack-plant-cloud.mjs",
+    "build:thumbs": "node scripts/make-thumbs.mjs"
   },
   "dependencies": {
     "@netlify/database": "2.0.1",
@@ -20,6 +23,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",
     "esbuild": "0.28.2",
-    "pg": "8.16.3"
+    "meshoptimizer": "0.22.0",
+    "pg": "8.16.3",
+    "sharp": "0.33.5"
   }
 }

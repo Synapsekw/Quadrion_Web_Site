@@ -1,7 +1,7 @@
 # Static marketing pages plus Quori's server-side chat and enquiry functions.
 [build]
   publish = "directions"
-  command = "npm run build:portal && npm run check:public"
+  command = "npm run build:portal && npm run build:data && npm run check:public"
   functions = "netlify/functions"
 
 [build.environment]
@@ -65,7 +65,7 @@
 [[headers]]
   for = "/data/*"
   [headers.values]
-    Cache-Control = "public, max-age=86400"
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
     Access-Control-Allow-Origin = "*"
 
 # The install manifest and worker must be checked for updates on every visit.
@@ -74,6 +74,12 @@
   [headers.values]
     Cache-Control = "no-cache"
     Service-Worker-Allowed = "/"
+
+# Third-party libraries, self-hosted under versioned paths: a path never changes content.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/assets/fonts/*.woff2"
