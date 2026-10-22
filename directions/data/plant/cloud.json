@@ -13,5 +13,21 @@
    75.62879943847656,
    414.4768371582031
   ]
+ },
+ "packed": {
+  "file": "cloud-q.bin",
+  "layout": "Bytes 0..xyzBytes-1: meshopt vertex buffer, count x 8 bytes (uint16 x,y,z + 0). Then count x 3 uint8 r,g,b.",
+  "xyzBytes": 1578206,
+  "position_decode": "metres = uint16 * scale + offset (per axis)",
+  "scale": [
+   0.032429047224586574,
+   0.001337129769412933,
+   0.015569314907915379
+  ],
+  "offset": [
+   -940.7203979492188,
+   -12,
+   -605.8582153320312
+  ]
  }
 }

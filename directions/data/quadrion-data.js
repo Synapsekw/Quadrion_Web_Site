@@ -2,7 +2,7 @@
 // Requires an importmap mapping "three" and "three/addons/" (three@0.160.0).
 //
 // Assets (neutral names, no client identifiers):
-//   plant     - industrial plant: engineering model (site.glb), 379k-point photogrammetry cloud with RGB, orthomosaic
+//   plant     - industrial plant: engineering model (site.glb), 379k-point photogrammetry cloud with RGB (cloud-q.bin), orthomosaic
 //   tank      - storage tank: model (tank.glb), 280k-point interior LiDAR scan with intensity, 6 graded findings with photos
 //   flare     - flare stack: textured model (stack.glb), 78 mapped corrosion patches, source photos + class masks
 //   stockpile - stockpile site surveyed on two dates: textured terrain meshes e1/e2 with pile meshes, volumes per pile
@@ -22,9 +22,29 @@ const BASE = new URL('./', import.meta.url).href;
 const gltfLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();
 const once = (key, fn) => { if (!cache.has(key)) cache.set(key, fn()); return cache.get(key); };
-const bin = (p) => fetch(BASE + p).then((r) => { if (!r.ok) throw new Error(`${p}: ${r.status}`); return r.arrayBuffer(); });
+const raw = (p) => fetch(BASE + p).then((r) => { if (!r.ok) throw new Error(`${p}: ${r.status}`); return r.arrayBuffer(); });
+// Binary 3D data is served uncompressed by the CDN, so the build writes a gzip sibling
+// (scripts/compress-data.mjs). Inflate it natively off the main thread; use the original
+// file when the sibling is missing (local preview) or the browser lacks DecompressionStream.
+const inflate = typeof DecompressionStream === 'function';
+const bin = async (p) => {
+  if (inflate) {
+    try {
+      const r = await fetch(BASE + p + '.gz');
+      if (r.ok) {
+        const buf = await r.arrayBuffer(), head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+        // A transport that already decoded the gzip hands back the original bytes.
+        if (head[0] !== 0x1f || head[1] !== 0x8b) return buf;
+        return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+      }
+    } catch { /* fall back to the uncompressed file */ }
+  }
+  return raw(p);
+};
 const json = (p) => fetch(BASE + p).then((r) => { if (!r.ok) throw new Error(`${p}: ${r.status}`); return r.json(); });
-const gltf = (p) => gltfLoader.loadAsync(BASE + p).then((g) => g.scene);
+const gltf = (p) => bin(p).then((buf) => gltfLoader.parseAsync(buf, BASE + p.replace(/[^/]*$/, ''))).then((g) => g.scene);
+// sRGB byte -> linear float, identical to Color.setRGB(v / 255, ..., SRGBColorSpace) per channel.
+const SRGB_TO_LINEAR = (() => { const t = new Float32Array(256), c = new THREE.Color(); for (let i = 0; i < 256; i++) { c.setRGB(i / 255, 0, 0, THREE.SRGBColorSpace); t[i] = c.r; } return t; })();
 
 export const ASSETS = {
   plant: { label: 'Industrial plant', kind: 'Photogrammetry cloud + engineering model', stat: '757,579 captured points' },
@@ -37,14 +57,19 @@ export const ASSETS = {
 
 // ---------- plant ----------
 export const loadPlant = () => once('plant', async () => {
-  const [model, xyzBuf, rgbBuf, meta, orthoMeta] = await Promise.all([
-    gltf('plant/site.glb'), bin('plant/cloud.xyz'), bin('plant/cloud.rgb'), json('plant/cloud.json'), json('plant/ortho.json'),
+  // cloud-q.bin: meshopt-encoded uint16 positions + uint8 RGB (scripts/pack-plant-cloud.mjs).
+  const [model, packed, meta, orthoMeta] = await Promise.all([
+    gltf('plant/site.glb'), bin('plant/cloud-q.bin'), json('plant/cloud.json'), json('plant/ortho.json'), MeshoptDecoder.ready,
   ]);
-  const xyz = new Float32Array(xyzBuf), rgb = new Uint8Array(rgbBuf);
+  const n = meta.count, { xyzBytes, scale, offset } = meta.packed;
+  const q = new Uint16Array(n * 4);
+  MeshoptDecoder.decodeVertexBuffer(new Uint8Array(q.buffer), n, 8, new Uint8Array(packed, 0, xyzBytes));
+  const xyz = new Float32Array(n * 3), rgb = new Uint8Array(packed, xyzBytes, n * 3);
+  for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) xyz[i * 3 + a] = q[i * 4 + a] * scale[a] + offset[a];
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(xyz, 3));
-  const lin = new Float32Array(rgb.length), sc = new THREE.Color();
-  for (let i = 0; i < rgb.length; i += 3) { sc.setRGB(rgb[i] / 255, rgb[i + 1] / 255, rgb[i + 2] / 255, THREE.SRGBColorSpace); lin[i] = sc.r; lin[i + 1] = sc.g; lin[i + 2] = sc.b; }
+  const lin = new Float32Array(rgb.length);
+  for (let i = 0; i < rgb.length; i++) lin[i] = SRGB_TO_LINEAR[rgb[i]];
   geometry.setAttribute('color', new THREE.BufferAttribute(lin, 3)); // linear RGB
   geometry.computeBoundingBox(); geometry.computeBoundingSphere();
   const cloud = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 1.5, sizeAttenuation: false, vertexColors: true }));
@@ -223,18 +248,22 @@ export async function samplePoints(name, N = 120000, radius = 10) {
 }
 
 function fromCloud(points, N, { clipToModel } = {}) {
-  const p = points.geometry.attributes.position, c = points.geometry.attributes.color;
-  let idx = [...Array(p.count).keys()];
+  // Both attributes are plain, non-interleaved Float32 (itemSize 3), so read the arrays directly.
+  const p = points.geometry.attributes.position.array, c = points.geometry.attributes.color.array, count = p.length / 3;
+  let idx = new Uint32Array(count), m = 0;
   if (clipToModel) {
     // Keep cloud points near the engineering model so the sample frames the plant, not the whole survey area.
-    const box = new THREE.Box3().setFromObject(clipToModel).expandByScalar(40);
-    idx = idx.filter((i) => box.containsPoint(new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i))));
-  }
+    const { min, max } = new THREE.Box3().setFromObject(clipToModel).expandByScalar(40);
+    for (let i = 0; i < count; i++) {
+      const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
+      if (x >= min.x && x <= max.x && y >= min.y && y <= max.y && z >= min.z && z <= max.z) idx[m++] = i;
+    }
+  } else for (; m < count; m++) idx[m] = m;
   const positions = new Float32Array(N * 3), colors = new Float32Array(N * 3);
   for (let k = 0; k < N; k++) {
-    const i = idx[Math.floor(Math.random() * idx.length)];
-    positions[k * 3] = p.getX(i); positions[k * 3 + 1] = p.getY(i); positions[k * 3 + 2] = p.getZ(i);
-    colors[k * 3] = c.getX(i); colors[k * 3 + 1] = c.getY(i); colors[k * 3 + 2] = c.getZ(i);
+    const i = idx[Math.floor(Math.random() * m)] * 3;
+    positions[k * 3] = p[i]; positions[k * 3 + 1] = p[i + 1]; positions[k * 3 + 2] = p[i + 2];
+    colors[k * 3] = c[i]; colors[k * 3 + 1] = c[i + 1]; colors[k * 3 + 2] = c[i + 2];
   }
   return { positions, colors };
 }
