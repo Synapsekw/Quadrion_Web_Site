@@ -16,7 +16,9 @@ Then open:
 - http://127.0.0.1:5180/ for the overview of all directions
 - http://127.0.0.1:5180/d3-quarter/ for the current page
 
-There is no build step. Pages load three.js, GSAP and Lenis from pinned CDN versions.
+There is no bundling step. The Quarter loads three.js, GSAP and Lenis from self-hosted, versioned copies under `directions/vendor/` (earlier directions still use the CDN).
+
+The Netlify build also runs `npm run build:data`, which writes a gzip sibling (`*.glb.gz`, `*.bin.gz`) next to each binary dataset, because Netlify does not compress those types. `quadrion-data.js` prefers the sibling and falls back to the original file, so local previews work without it. After changing photos, run `npm run build:thumbs` to regenerate the WebP thumbnails; after changing the plant cloud, run `npm run pack:plant-cloud`.
 
 ## Deploy
 
