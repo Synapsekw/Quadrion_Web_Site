@@ -520,14 +520,17 @@
   var tixLinks = $$('.tix a');
   // Document positions of the closing sections and the stage's end. Measured once per layout
   // change rather than every frame: reading rects right after GSAP writes forced a layout per frame.
-  var geo = null;
+  // scrollY itself forces a layout in Chrome when styles are dirty, so it is sampled in the scroll
+  // event (layout is clean there) instead of inside the GSAP tick.
+  var geo = null, sy = window.scrollY || 0;
+  addEventListener('scroll', function () { sy = window.scrollY || 0; }, { passive: true });
   function measureGeo() {
-    var y = window.scrollY || 0, g = {};
+    var y = sy = window.scrollY || 0, g = {};
     ['trust', 'features', 'oneview'].forEach(function (id) { var el = document.getElementById(id); g[id] = el ? el.getBoundingClientRect().top + y : Infinity; });
     g.stageBottom = $('#stage').getBoundingClientRect().bottom + y;
     geo = g;
   }
-  function viewTop(key) { if (!geo) measureGeo(); return geo[key] - (window.scrollY || 0); }
+  function viewTop(key) { if (!geo) measureGeo(); return geo[key] - sy; }
   ScrollTrigger.addEventListener('refresh', function () { geo = null; });
   if (window.ResizeObserver) new ResizeObserver(function () { geo = null; }).observe(document.body);
   function sectionAt(stageT) {
