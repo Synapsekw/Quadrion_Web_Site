@@ -70,3 +70,14 @@ test('expired or invalid uploads can be abandoned and replaced without losing th
     assert.equal((await rpc(db,'portal_upload_command',[ids.admin,'aal2',next.id,'status'])).state,'verified');
   }finally{await db.close();}
 });
+
+test('a 6.4 GB software release is accepted under the 10 GB release limit and refused above it',async()=>{
+  const db=await portalDb();try{
+    const release=await rpc(db,'portal_save_release',[ids.admin,'aal2',{kind:'app',version:'large',platform:'windows'}]);
+    const input={releaseId:release.id,projectVersionId:null,kind:'binary',filename:'app.exe',bytes:6400000000,sha256:'a'.repeat(64),mimeType:'application/octet-stream',maxBytes:10000000000};
+    const session=await rpc(db,'portal_upload_begin',[ids.admin,'aal2',input]);
+    const file=(await db.query('select bucket,bytes::text as bytes from public.artifact_files where id=$1',[session.artifact_id])).rows[0];
+    assert.deepEqual(file,{bucket:'quadrion-software',bytes:'6400000000'});
+    await assert.rejects(rpc(db,'portal_upload_begin',[ids.admin,'aal2',{...input,filename:'app2.exe',bytes:10000000001}]),/portal:/);
+  }finally{await db.close();}
+});

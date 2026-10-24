@@ -37,7 +37,7 @@ Administration is separate from tier. T3 does not grant dashboard access. Only O
 ## Publish software and datasets
 
 1. Create a release under **Releases**, or a project and version under **Projects**. New content starts as a draft. Choose its category, tier and audience deliberately.
-2. Upload the installer/pipeline package or `.aio` file. AIO project files are limited to **100,000,000,000 bytes (100 GB decimal)**; software files to 1,000,000,000 bytes; JPG/PNG/WebP covers to 10,000,000 bytes.
+2. Upload the installer/pipeline package or `.aio` file. AIO project files are limited to **100,000,000,000 bytes (100 GB decimal)**; software files to 10,000,000,000 bytes (10 GB decimal, `PORTAL_RELEASE_MAX_BYTES`); JPG/PNG/WebP covers to 10,000,000 bytes.
 3. Keep the tab open while the browser hashes and uploads. Hashing uses a worker and upload uses resumable chunks directly to private Storage. The server then verifies the entire object independently before publication.
 4. If interrupted, reopen the draft, select **Resume** and choose the same original file. The filename, size and hash must match. Retry verification when offered. Abandon an incomplete upload before replacing it; replacements receive a new immutable object path.
 5. Publish only after every required file is verified. Selected-users projects need an eligible assignment. Published binary paths cannot be overwritten; create another version for an update. Archive projects or retire releases to remove availability.
@@ -48,7 +48,7 @@ The 100 GB limit is implemented, but a real 100 GB upload/resume/verification/do
 
 Use only Supabase project `oxjrkodcmflxejdwsuac` and Netlify site `quadrionai`. Migrations 001–006 were applied manually on 15 October 2026. After the user's explicit rollout approval, 002–006 were applied together in one transaction, preserving the existing Owner. Do not replay these migrations or bootstrap the Owner again; reconcile their manual application before adopting CLI migration history. Keep RLS enabled/forced and browser roles without direct table/RPC access.
 
-The live private buckets are `quadrion-software` (1,000,000,000-byte file limit) and `quadrion-projects` (100,000,000,000-byte file limit). The account holder disabled the organization's spend cap, accepting usage charges beyond included quotas. This was verified in Billing before setting the global file limit to **100,000,000,000 bytes**. Supabase displays that saved limit as 93.13225746154785 GB using binary conversion. Do not add public/client Storage policies; authorized upload tokens and short-lived download links are issued by the server.
+The live private buckets are `quadrion-software` (10,000,000,000-byte file limit, set by migration `202610240001_release_bucket_limit.sql`; it was 1,000,000,000 bytes before that migration is applied) and `quadrion-projects` (100,000,000,000-byte file limit). The account holder disabled the organization's spend cap, accepting usage charges beyond included quotas. This was verified in Billing before setting the global file limit to **100,000,000,000 bytes**. Supabase displays that saved limit as 93.13225746154785 GB using binary conversion. Do not add public/client Storage policies; authorized upload tokens and short-lived download links are issued by the server.
 
 The approved Auth Site URL `https://quadrion.ai/portal/` and sole allowed redirect `https://quadrion.ai/portal/account/` are saved and verified after reload. Keep public signup and anonymous login disabled. Leave email confirmation enabled generally: the Owner create-user API confirms only the account the Owner deliberately creates. The TOTP provider remains enabled in Supabase, but the Owner has canceled enrollment and requested password-only portal access. Resend custom SMTP is saved. The Owner received and completed a production password reset on 15 October 2026; invitation delivery still needs a live test.
 
@@ -62,6 +62,7 @@ Set these variables only for Netlify **Production / Functions**. Never give prod
 | `SUPABASE_SECRET_KEY` | Quadrion's server-only key |
 | `PORTAL_VERIFY_SECRET` | Random server-only secret, at least 32 characters |
 | `PORTAL_PROJECT_MAX_BYTES` | `100000000000` |
+| `PORTAL_RELEASE_MAX_BYTES` | `10000000000` (optional; 10 GB is the default when unset) |
 | `PORTAL_ENABLED` | `true` only after configuration is ready |
 
 Keep `PORTAL_LOCAL_DEV` unset/false in production. The Synapse-Solutions Netlify team is on the credit-based Pro plan, verified in its billing UI on 15 October 2026; the existing plan supports Background Functions. The account holder saved `SUPABASE_SECRET_KEY` and `PORTAL_VERIFY_SECRET` as secrets scoped to Production / Functions. The origin, Supabase URL, publishable key and 100 GB limit are also saved for Production / Functions. `PORTAL_ENABLED=true` is saved and the published production configuration endpoint responds successfully. Secret values were not retrieved during setup. The verification worker checkpoints bounded ranges and resumes across executions; it is not a single 100 GB in-memory request. Disabling `PORTAL_ENABLED` and redeploying closes portal access without deleting data.

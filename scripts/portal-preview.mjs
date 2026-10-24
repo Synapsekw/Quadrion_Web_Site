@@ -28,7 +28,7 @@ createServer(async(req,res)=>{
     if(url.pathname==='/api/portal-admin'&&isAdmin){
       if(req.headers.authorization!==`Bearer ${token}`)return respond({message:'Sign in to the local preview.'},401);
       const action=url.searchParams.get('action');let body={};if(req.method==='POST'){let raw='';for await(const chunk of req)raw+=chunk;body=JSON.parse(raw);}
-      if(action==='overview')return respond({members:3,invited:0,projects:0,releases:0,limits:{projectBytes:100000000000,releaseBytes:1000000000}});
+      if(action==='overview')return respond({members:3,invited:0,projects:0,releases:0,limits:{projectBytes:100000000000,releaseBytes:10000000000}});
       if(action==='users')return respond({items:[{user_id:user.id,email:user.email,role:'owner',tier:null,status:'active',revision:1},...[1,2,3].map(tier=>({user_id:`10000000-0000-4000-8000-00000000003${tier}`,email:`tier${tier}@quadrion.invalid`,display_name:`Preview T${tier}`,role:'member',tier,status:'active',revision:1})),...manualUsers],total:4+manualUsers.length,offset:0});
       if(action==='creations')return respond({items:manualCreations});
       if(action==='createUser'){

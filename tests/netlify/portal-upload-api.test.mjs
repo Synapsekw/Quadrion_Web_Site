@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createUploadActions} from '../../netlify/lib/portal/uploads.mjs';
+import {portalConfig} from '../../netlify/lib/portal/config.mjs';
 import {errorResponse} from '../../netlify/lib/portal/http.mjs';
 
 for(const action of ['upload','resumeUpload'])test(action+' pairs its signed token with the signed TUS endpoint',async()=>{
   const file={bucket:'quadrion-software',object_path:'release/file/team.zip',filename:'team.zip',bytes:100,sha256:'a'.repeat(64),mime_type:'application/octet-stream'};
   const session={id:'10000000-0000-4000-8000-000000000001',state:'pending',verified_bytes:0,expires_at:'2099-01-01T00:00:00Z',file};
   const backend={rpc:async()=>session,service:{storage:{from(bucket){assert.equal(bucket,'quadrion-software');return {createSignedUploadUrl:async(path,options)=>{assert.equal(path,'release/file/team.zip');assert.equal(options.upsert,false);return {data:{token:'file-scoped-test-token'},error:null};}};}}}};
-  const actions=createUploadActions({config:{url:'https://fixture.supabase.co',verifySecret:'x'.repeat(32),releaseMaxBytes:1000000000},backend});
+  const actions=createUploadActions({config:{url:'https://fixture.supabase.co',verifySecret:'x'.repeat(32),releaseMaxBytes:10000000000},backend});
   const input=action==='upload'?{releaseId:session.id,projectVersionId:null,kind:'binary',filename:file.filename,bytes:file.bytes,sha256:file.sha256}:{id:session.id,filename:file.filename,bytes:file.bytes,sha256:file.sha256};
   const result=await actions(action,input,{});
   assert.equal(result.endpoint,'https://fixture.storage.supabase.co/storage/v1/upload/resumable/sign');
@@ -27,7 +28,7 @@ test('unconfigured verification refuses uploads with an actionable error before 
   }
 });
 test('upload allocation validates file type, configured size and forbids paths before contacting Storage',async()=>{
-  let calls=0;const actions=createUploadActions({config:{verifySecret:'x'.repeat(32),projectMaxBytes:100000000000,releaseMaxBytes:1000000000},backend:{rpc:async()=>{calls++;}},dispatch:async()=>{}});
+  let calls=0;const actions=createUploadActions({config:{verifySecret:'x'.repeat(32),projectMaxBytes:100000000000,releaseMaxBytes:10000000000},backend:{rpc:async()=>{calls++;}},dispatch:async()=>{}});
   const user={userId:'10000000-0000-4000-8000-000000000001',aal:'aal2'},base={projectVersionId:'10000000-0000-4000-8000-000000000002',releaseId:null,kind:'binary',filename:'site.aio',bytes:100000000001,sha256:'a'.repeat(64)};
   await assert.rejects(actions('upload',base,user),/portal:too_large/);
   await assert.rejects(actions('upload',{...base,bytes:100,filename:'../../site.aio'},user),/portal:invalid/);
@@ -44,4 +45,38 @@ test('resuming with a different file returns a specific recovery error without i
     });
   }
   assert.equal(signed,0);
+});
+
+test('software release limit defaults to 10 GB and follows PORTAL_RELEASE_MAX_BYTES',async()=>{
+  const env={SUPABASE_URL:'https://fixture.supabase.co',PORTAL_VERIFY_SECRET:'x'.repeat(32)};
+  assert.equal(portalConfig(env).releaseMaxBytes,10000000000);
+  assert.equal(portalConfig({...env,PORTAL_RELEASE_MAX_BYTES:''}).releaseMaxBytes,10000000000);
+  assert.equal(portalConfig({...env,PORTAL_RELEASE_MAX_BYTES:'20000000000'}).releaseMaxBytes,20000000000);
+  const release='10000000-0000-4000-8000-000000000003',user={userId:'10000000-0000-4000-8000-000000000001',aal:'aal2'};
+  const input=bytes=>({releaseId:release,projectVersionId:null,kind:'binary',filename:'installer.exe',bytes,sha256:'a'.repeat(64)});
+  const run=(config,bytes)=>{
+    const calls=[];
+    const file={bucket:'quadrion-software',object_path:'release/file/installer.exe',filename:'installer.exe',bytes,sha256:'a'.repeat(64),mime_type:'application/octet-stream'};
+    const backend={rpc:async(name,args)=>{calls.push(args.p_data);return {id:release,state:'pending',verified_bytes:0,expires_at:'2099-01-01T00:00:00Z',file};},service:{storage:{from:()=>({createSignedUploadUrl:async()=>({data:{token:'t'},error:null})})}}};
+    return {calls,result:createUploadActions({config,backend})('upload',input(bytes),user)};
+  };
+  const accepted=run(portalConfig(env),6400000000);
+  assert.equal((await accepted.result).bytes,6400000000);
+  assert.equal(accepted.calls[0].maxBytes,10000000000);
+  const over=run(portalConfig(env),10000000001);
+  await assert.rejects(over.result,/portal:too_large/);assert.equal(over.calls.length,0);
+  await assert.rejects(run(portalConfig({...env,PORTAL_RELEASE_MAX_BYTES:'5000000000'}),6400000000).result,/portal:too_large/);
+  assert.equal((await run(portalConfig({...env,PORTAL_RELEASE_MAX_BYTES:'20000000000'}),15000000000).result).bytes,15000000000);
+  for(const bad of ['abc','-1','1.5'])await assert.rejects(run(portalConfig({...env,PORTAL_RELEASE_MAX_BYTES:bad}),100).result,/portal:too_large/);
+});
+
+test('release bucket migration sets the quadrion-software file limit to 10 GB only',async()=>{
+  const {PGlite}=await import('@electric-sql/pglite');const {readFile}=await import('node:fs/promises');
+  const db=new PGlite();
+  try{
+    await db.exec("create schema storage; create table storage.buckets(id text primary key,file_size_limit bigint); insert into storage.buckets values ('quadrion-software',1000000000),('quadrion-projects',100000000000);");
+    await db.exec(await readFile(new URL('../../supabase/migrations/202610240001_release_bucket_limit.sql',import.meta.url),'utf8'));
+    const rows=(await db.query('select id,file_size_limit::text as l from storage.buckets order by id')).rows;
+    assert.deepEqual(rows.map(r=>[r.id,r.l]),[['quadrion-projects','100000000000'],['quadrion-software','10000000000']]);
+  }finally{await db.close();}
 });
