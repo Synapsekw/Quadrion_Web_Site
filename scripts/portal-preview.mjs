@@ -11,6 +11,27 @@ const release={id:'10000000-0000-4000-8000-000000000011',artifact_id:'10000000-0
 const projects=['Coastal infrastructure','Industrial facility','Terrain & earthworks'].map((title,i)=>({id:`10000000-0000-4000-8000-00000000002${i}`,title,description:'Local preview of an authorized AIO project in your library.',category:i===1?'oil_gas':'basic',minimum_tier:i===1?3:2,version:'1.0',bytes:(i+12)*1024**3}));
 const adminProjects=projects.map(p=>({...p,status:'draft',audience:'assigned',revision:1,versions:[],assignments:[]}));
 const adminReleases=[],manualUsers=[],manualCreations=[],uploads=new Map();
+// Feedback fixtures: made-up lines and items only (two stages, five lines, three items in different states).
+const lineIds=['walk:open-map:0a1b2c3d4e','walk:open-map:1b2c3d4e5f','walk:measure:2c3d4e5f60','report:export-pdf:3d4e5f6071','report:export-pdf:4e5f607182'];
+const testContent={version:1,title:'Sample test round',guide:'Made-up preview content.',stages:[
+  {id:'walk',title:'Stage 1: Getting around',lines:[
+    {id:lineIds[0],html:'Open the sample project and switch to <b>Map</b>',sub:['<code>Zoom in</code> twice'],plain:'Open the sample project and switch to Map',subPlain:['`Zoom in` twice']},
+    {id:lineIds[1],html:'Pan the map with the mouse',sub:[],plain:'Pan the map with the mouse',subPlain:[]},
+    {id:lineIds[2],html:'Draw a line between two points',sub:['Read the length'],plain:'Draw a line between two points',subPlain:['Read the length']}]},
+  {id:'report',title:'Stage 2: Reports',lines:[
+    {id:lineIds[3],html:'Export the sample report to PDF',sub:[],plain:'Export the sample report to PDF',subPlain:[]},
+    {id:lineIds[4],html:'Open the exported PDF',sub:[],plain:'Open the exported PDF',subPlain:[]}]}]};
+const feedbackAnswers=[{line_id:lineIds[0],status:'pass',comment:'',build:'0.26.0',updated_at:'2026-10-24T10:00:00Z'},{line_id:lineIds[2],status:'fail',comment:'The length shows zero.',build:'0.26.0',updated_at:'2026-10-24T10:05:00Z'}];
+const feedbackItems=[
+  {id:'20000000-0000-4000-8000-000000000001',number:1,kind:'bug',title:'Line length shows zero',status:'fixed',priority:'high',build:'0.26.0',fixed_in_build:'0.26.1',screen:'map',line_id:lineIds[2],reporter_id:user.id,reporter_name:'Tester One',revision:3,created_at:'2026-10-24T10:05:00Z',updated_at:'2026-10-25T08:00:00Z',confirmed:false},
+  {id:'20000000-0000-4000-8000-000000000002',number:2,kind:'feature',title:'Remember the last map position',status:'triaged',priority:'normal',build:'0.26.0',fixed_in_build:null,screen:'map',line_id:null,reporter_id:user.id,reporter_name:'Tester One',revision:2,created_at:'2026-10-24T11:00:00Z',updated_at:'2026-10-24T12:00:00Z',confirmed:false},
+  {id:'20000000-0000-4000-8000-000000000003',number:3,kind:'bug',title:'PDF export stalls',status:'question',priority:'normal',build:'unknown',fixed_in_build:null,screen:'report',line_id:lineIds[3],reporter_id:'10000000-0000-4000-8000-000000000041',reporter_name:'Tester Two',revision:2,created_at:'2026-10-23T09:00:00Z',updated_at:'2026-10-25T09:00:00Z',confirmed:false}];
+const feedbackEvents={
+  [feedbackItems[0].id]:[{id:'30000000-0000-4000-8000-000000000001',kind:'answer',body:'The length shows zero.',actor_name:'Tester One',created_at:'2026-10-24T10:05:00Z'},{id:'30000000-0000-4000-8000-000000000002',kind:'fixed',body:'Fixed in 0.26.1.',actor_name:'Owner',created_at:'2026-10-25T08:00:00Z'}],
+  [feedbackItems[1].id]:[{id:'30000000-0000-4000-8000-000000000003',kind:'comment',body:'It would help to reopen the map where I left it.',actor_name:'Tester One',created_at:'2026-10-24T11:00:00Z'}],
+  [feedbackItems[2].id]:[{id:'30000000-0000-4000-8000-000000000004',kind:'comment',body:'The export never finishes.',actor_name:'Tester Two',created_at:'2026-10-23T09:00:00Z'},{id:'30000000-0000-4000-8000-000000000005',kind:'question',body:'Which sample report did you use?',actor_name:'Owner',created_at:'2026-10-25T09:00:00Z'}]};
+const feedbackCounts=()=>Object.fromEntries(['new','triaged','question','fixed','confirmed','reopened','parked','declined','merged'].map(s=>[s,feedbackItems.filter(i=>i.status===s).length]));
+const feedbackDetail=id=>{const item=feedbackItems.find(i=>i.id===id);return item?{item,events:feedbackEvents[id]||[],attachments:[]}:null;};
 createServer(async(req,res)=>{
   const respond=(body,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
   try{
@@ -25,6 +46,32 @@ createServer(async(req,res)=>{
       if(action==='projects')return respond({items:projects.filter(p=>p.title.toLowerCase().includes((url.searchParams.get('search')||'').toLowerCase())),total:projects.length});
       return respond({message:'This action is disabled in the local preview.'},503);
     }
+    if(url.pathname==='/api/portal-feedback'){
+      if(req.headers.authorization!==`Bearer ${token}`)return respond({message:'Sign in to the local preview.'},401);
+      const action=url.searchParams.get('action');let body={};if(req.method==='POST'){let raw='';for await(const chunk of req)raw+=chunk;body=JSON.parse(raw);}
+      if(action==='content')return respond({content:testContent,version:testContent.version});
+      if(action==='answers')return respond({items:feedbackAnswers});
+      if(action==='mine'){const mine=feedbackItems.filter(i=>i.reporter_id===user.id);return respond({items:mine,total:mine.length});}
+      if(action==='counts')return respond(feedbackCounts());
+      if(action==='item'){const detail=feedbackDetail(body.itemId||url.searchParams.get('itemId'));return detail?respond(detail):respond({message:'Item not found.'},404);}
+      if(action==='answer'){
+        if(!lineIds.includes(body.lineId))return respond({error:'conflict',message:'This line was retired. Reload the page.'},409);
+        if(body.status==='fail'&&!String(body.comment||'').trim())return respond({message:'A failed line needs a comment.'},400);
+        const answer={line_id:body.lineId,status:body.status,comment:body.comment||'',build:body.build||'unknown',updated_at:new Date().toISOString()};
+        const at=feedbackAnswers.findIndex(a=>a.line_id===body.lineId);if(at<0)feedbackAnswers.push(answer);else feedbackAnswers[at]=answer;return respond(answer);
+      }
+      if(action==='create'){
+        const item={id:crypto.randomUUID(),number:feedbackItems.length+1,kind:body.kind==='feature'?'feature':'bug',title:body.title||'Untitled',status:'new',priority:'normal',build:body.build||'unknown',fixed_in_build:null,screen:body.screen||null,line_id:null,reporter_id:user.id,reporter_name:'Tester One',revision:1,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),confirmed:false};
+        feedbackItems.push(item);feedbackEvents[item.id]=[{id:crypto.randomUUID(),kind:'comment',body:body.body||'',actor_name:'Tester One',created_at:item.created_at}];return respond(feedbackDetail(item.id));
+      }
+      if(action==='act'){
+        const item=feedbackItems.find(i=>i.id===body.itemId);if(!item)return respond({message:'Item not found.'},404);
+        if(body.revision!=null&&body.revision!==item.revision)return respond({error:'conflict',message:'This item changed. Reload and try again.'},409);
+        const next={confirm:'confirmed',reopen:'reopened'}[body.act];if(next){item.status=next;item.confirmed=next==='confirmed';}
+        item.revision++;feedbackEvents[item.id].push({id:crypto.randomUUID(),kind:body.act==='confirm'?'confirm':body.act==='reopen'?'reopen':'comment',body:body.body||'',actor_name:'Tester One',created_at:new Date().toISOString()});return respond(feedbackDetail(item.id));
+      }
+      return respond({message:'Attachments are disabled in the local preview.'},503);
+    }
     if(url.pathname==='/api/portal-admin'&&isAdmin){
       if(req.headers.authorization!==`Bearer ${token}`)return respond({message:'Sign in to the local preview.'},401);
       const action=url.searchParams.get('action');let body={};if(req.method==='POST'){let raw='';for await(const chunk of req)raw+=chunk;body=JSON.parse(raw);}
@@ -37,6 +84,12 @@ createServer(async(req,res)=>{
         const item={user_id:crypto.randomUUID(),email:body.email,role:'member',tier:body.tier,status:'active',expires_at:body.expiresAt,revision:1};manualUsers.push(item);
         const result={id:crypto.randomUUID(),email:body.email,tier:body.tier,status:'created',user_id:item.user_id};manualCreations.unshift(result);return respond(result);
       }
+      if(action==='feedbackInbox')return respond({items:feedbackItems.filter(i=>!url.searchParams.get('status')||i.status===url.searchParams.get('status')),total:feedbackItems.length,counts:feedbackCounts()});
+      if(action==='feedbackCounts')return respond(feedbackCounts());
+      if(action==='feedbackItem'){const detail=feedbackDetail(url.searchParams.get('itemId')||body.itemId);return detail?respond(detail):respond({message:'Item not found.'},404);}
+      if(action==='feedbackProgress')return respond({testers:[{id:'tester-1',name:'Tester One',pass:1,fail:1,skip:0,open:3},{id:'tester-2',name:'Tester Two',pass:0,fail:0,skip:0,open:5}],lines:lineIds.length});
+      if(action==='testContentStatus')return respond({loaded:true,version:testContent.version,title:testContent.title,stages:testContent.stages.length,lines:lineIds.length,builtAt:'2026-10-24T09:00:00Z'});
+      if(action==='feedbackAction'){const item=feedbackItems.find(i=>i.id===body.itemId);if(!item)return respond({message:'Item not found.'},404);if(body.revision!=null&&body.revision!==item.revision)return respond({error:'conflict',message:'This item changed. Reload and try again.'},409);if(body.status)item.status=body.status;if(body.priority)item.priority=body.priority;if(body.fixedInBuild)item.fixed_in_build=body.fixedInBuild;item.revision++;feedbackEvents[item.id].push({id:crypto.randomUUID(),kind:body.body?'comment':'status',body:body.body||'',actor_name:'Owner',created_at:new Date().toISOString()});return respond(feedbackDetail(item.id));}
       if(action==='invitations'||action==='activity')return respond({items:[],total:0,offset:0});
       if(action==='projects')return respond({items:adminProjects,total:adminProjects.length,offset:0});
       if(action==='releases')return respond({items:adminReleases,total:adminReleases.length,offset:0});
