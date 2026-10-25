@@ -321,7 +321,8 @@ begin
   perform public.portal_require_admin(p_actor,p_aal);
   select coalesce(jsonb_agg(jsonb_build_object('id',i.id,'number',i.number,'kind',i.kind,'title',i.title,'body',i.body,'priority',i.priority,'status',i.status,
       'build',i.build_seen,'screen',i.screen,'lineId',i.line_id,
-      'line',(select jsonb_build_object('plain',l->'plain','sub',l->'sub') from public.portal_feedback_line(i.line_id) l where l is not null),
+      -- The stored sub-points are Markdown, so they go out as subPlain (the formatter strips `sub` as HTML).
+      'line',(select jsonb_build_object('plain',l->'plain','subPlain',l->'sub') from public.portal_feedback_line(i.line_id) l where l is not null),
       'retired',i.line_id is not null and public.portal_feedback_line(i.line_id) is null,
       'thread',(select coalesce(jsonb_agg(jsonb_build_object('kind',e.kind,'body',e.body,'role',case when a.role in ('admin','owner') then 'quadrion' else 'tester' end) order by e.created_at,e.id),'[]')
         from public.feedback_events e join public.portal_members a on a.user_id=e.actor_id

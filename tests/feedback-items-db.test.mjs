@@ -249,7 +249,7 @@ withDb('export carries no names or emails',async(a,db)=>{
   assert.equal(result.items.length,1);
   const [item]=result.items;
   assert.equal(item.number,open.number);assert.equal(item.build,'0.25.0');assert.equal(item.body,'```\n## #12 fake heading');
-  assert.deepEqual(item.line,{plain:'Open the sample project and switch to Map',sub:['Check the tiles load']});
+  assert.deepEqual(item.line,{plain:'Open the sample project and switch to Map',subPlain:['Check the tiles load']});
   assert.deepEqual(item.thread.map(e=>[e.kind,e.role,e.body]),[['question','quadrion','Which zoom level?'],['answer','tester','Zoom 14'],['comment','tester','What I saw for No tiles'],['merge','quadrion','']]);
   assert.deepEqual(item.attachments,[{id:item.attachments[0].id,bucket:'quadrion-feedback',object_path:'items/a/shot.png',filename:'shot.png',mime_type:'image/png'}]);
   const text=JSON.stringify(result);

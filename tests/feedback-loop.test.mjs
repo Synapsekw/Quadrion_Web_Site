@@ -219,7 +219,7 @@ withLoop('the Copy for AI export of the loop fences tester text and lists the li
   assert.match(text,/````\n## #12 fake heading\n```\nclosing fence\n````/);
 });
 
-// Known seams found by this loop; each is a todo until the landed code is changed.
+// Seams this loop found, now fixed.
 withLoop('seam: a tester can open an attachment merged into their item',async(loop)=>{
   const {ok,a,b}=loop;
   const first=(await fail(loop,a,'The map stays blank','0.25.0')).itemId;
@@ -230,11 +230,11 @@ withLoop('seam: a tester can open an attachment merged into their item',async(lo
   assert.deepEqual(listed,[file],'the kept item lists the merged-in file to its first reporter');
   const opened=await a.feedback('attachmentUrl',{id:file});
   assert.equal(opened.status,200,'a listed attachment opens: '+opened.text);
-},{todo:'portal_feedback_attachment_get checks visibility on the merged item, not the item that lists it'});
+});
 
 withLoop('seam: Copy for AI keeps Markdown sub-points that hold angle brackets',async(loop)=>{
   const {ok,owner,a}=loop;
   await fail(loop,a,'The scale bar is wrong','0.25.0');
   const {text}=await ok(owner.admin('feedbackExport'));
   assert.ok(text.includes('- Check the scale bar reads < 50 m and > 10 m'),text);
-},{todo:'the export SQL emits the Markdown sub-points as `sub`, which formatForAgent strips as HTML'});
+});

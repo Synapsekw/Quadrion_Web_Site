@@ -10,6 +10,8 @@ const ownerActions=['priority','triage','ask','comment','park','decline','restor
 const contentKeys=['format','builtAt','title','source','owner','unit','guide','testers','stages'];
 const linePattern=/^[a-z][a-z0-9-]*(:[a-z0-9-]+)+:[0-9a-f]{10}(-[0-9]+)?$/;
 const build=v=>{if(typeof v!=='string')fail('invalid');const t=v.trim();if(t!=='unknown'&&!/^[0-9A-Za-z][0-9A-Za-z._+ -]{0,79}$/.test(t))fail('invalid');return t;};
+// A fix names a real build; 'unknown' only stands for answers whose build was not recorded.
+const fixBuild=v=>{const t=build(v);if(t==='unknown')fail('invalid');return t;};
 const revision=v=>{if(!Number.isSafeInteger(v)||v<1)fail('invalid');return v;};
 const word=(v,list)=>{if(!list.includes(v))fail('invalid');return v;};
 const text=(v,max)=>string(v,max,{empty:false});
@@ -33,7 +35,7 @@ function ownerData(action,data){
     if(action==='decline')return one('reason',v=>text(v,2000));
     keys(data,['reason']);return data.reason===undefined?{}:{reason:string(data.reason,2000)};
   }
-  if(action==='fix')return one('build',build);
+  if(action==='fix')return one('build',fixBuild);
   if(action==='merge')return one('into',uuid);
   keys(data,[]);return {};
 }
@@ -62,7 +64,7 @@ export function createFeedbackAdminActions({config,backend,clock=Date.now}){
     if(action==='feedbackBulkFix'){
       keys(body,['ids','build']);
       if(!Array.isArray(body.ids)||!body.ids.length||body.ids.length>200)fail('invalid');body.ids.forEach(uuid);
-      return backend.rpc('portal_feedback_bulk_fix',{...base,p_ids:[...new Set(body.ids)],p_build:build(body.build)});
+      return backend.rpc('portal_feedback_bulk_fix',{...base,p_ids:[...new Set(body.ids)],p_build:fixBuild(body.build)});
     }
     if(action==='feedbackAttachmentUrl'){
       keys(body,['id']);

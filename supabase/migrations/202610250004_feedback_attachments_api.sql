@@ -75,7 +75,9 @@ declare a public.feedback_attachments;
 begin
   perform public.portal_feedback_attachment_actor(p_actor,p_aal);
   select * into a from public.feedback_attachments where id=p_id and state='verified';
-  if a.id is null or not public.portal_feedback_visible(p_actor,a.item_id) then raise exception 'portal:not_found'; end if;
+  -- Visible through the merge chain, as the item listing is: the file's item or any item it was merged into.
+  if a.id is null or not exists(with recursive up(id) as (select a.item_id union select i.merged_into from public.feedback_items i join up on i.id=up.id where i.merged_into is not null)
+    select 1 from up where public.portal_feedback_visible(p_actor,up.id)) then raise exception 'portal:not_found'; end if;
   return to_jsonb(a);
 end; $$;
 

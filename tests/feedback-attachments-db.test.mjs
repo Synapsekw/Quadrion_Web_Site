@@ -76,6 +76,23 @@ test('a pending attachment is never returned by get',async()=>{
   await assert.rejects(get(ids.t1,a.id),/portal:not_found/);
 });
 
+test('get follows the merge chain to the item that lists the file',async()=>{
+  const get=(actor,id)=>rpc(db,'portal_feedback_attachment_get',[actor,'aal1',id]);
+  const merge=async(from,into)=>rpc(db,'portal_feedback_owner_action',[ids.owner,'aal1',from,(await one('select revision from public.feedback_items where id=$1',[from])).revision,'merge',JSON.stringify({into})]);
+  const kept=await bug(ids.testerA),middle=await bug(ids.testerA),dup=await bug(ids.testerB);
+  const file=await begin(ids.testerB,input(dup,{filename:'merged.png'}));
+  await command(ids.testerB,file.id,'finalize');await verify(file.id);
+  await assert.rejects(get(ids.testerA,file.id),/portal:not_found/);
+  await merge(dup,middle);await merge(middle,kept);
+  // The middle item's reporters fold into the kept one, so only the chain gives A access here.
+  await db.query('delete from public.feedback_reporters where item_id=any($1) and tester_id=$2',[[middle,dup],ids.testerA]);
+  assert.equal((await get(ids.testerA,file.id)).id,file.id);
+  assert.equal((await get(ids.testerB,file.id)).id,file.id);
+  const own=await begin(ids.testerA,input(await bug(ids.testerA),{filename:'own.png'}));
+  await command(ids.testerA,own.id,'finalize');await verify(own.id);
+  await assert.rejects(get(ids.testerB,own.id),/portal:not_found/);
+});
+
 test('verification queue and cleanup follow their release twins',async()=>{
   const item=await bug(ids.testerB),a=await begin(ids.testerB,input(item)),stale=await begin(ids.testerB,input(item,{filename:'stale.png'}));
   await command(ids.testerB,a.id,'finalize');
