@@ -42,3 +42,15 @@ test('network and malformed responses provide an error to the fallback view',asy
     });
   }
 });
+
+test('feedback scope reaches its own endpoint and refuses admin-only actions',async()=>{
+  const urls=[];const fetcher=async url=>{urls.push(url);return new Response('{}');};
+  const feedback=createPortalApi({scope:'feedback',getToken:async()=>'fixture-token',fetcher});
+  await feedback.get('mine');await feedback.post('answer',{lineId:'a:b:0123456789'});
+  await assert.rejects(feedback.get('feedbackInbox'),/Unknown/);await assert.rejects(feedback.get('projects'),/Unknown/);
+  await createPortalApi({admin:true,getToken:async()=>'fixture-token',fetcher}).get('feedbackInbox');
+  await createPortalApi({scope:'admin',getToken:async()=>'fixture-token',fetcher}).post('memberTester',{});
+  await createPortalApi({getToken:async()=>'fixture-token',fetcher}).get('me');
+  assert.deepEqual(urls,['/api/portal-feedback?action=mine','/api/portal-feedback?action=answer','/api/portal-admin?action=feedbackInbox','/api/portal-admin?action=memberTester','/api/portal?action=me']);
+  assert.throws(()=>createPortalApi({scope:'root',getToken:async()=>''}),/Unknown portal scope/);
+});

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeMember, canAdminister, canReadProject, canReadSoftware } from '../netlify/lib/portal/policy.mjs';
+import { activeMember, canAdminister, canReadProject, canReadSoftware, isTester } from '../netlify/lib/portal/policy.mjs';
 const now = Date.parse('2026-10-15T12:00:00Z');
 const member = { userId:'u1',role:'member',tier:3,status:'active',expiresAt:null };
 const project = { id:'p1',category:'oil_gas',minimumTier:3,audience:'assigned',status:'published',currentVersionId:'v1' };
@@ -40,4 +40,10 @@ test('T3 never grants administration; active administrators can use password ses
     assert.equal(canAdminister({member:m,aal:'aal2',now}),true);
     assert.equal(canReadProject({member:m,project,aal:'aal2',now}),true);
   }
+});
+test('tester flag counts only on an active membership', () => {
+  assert.equal(isTester({...member,tier:1,tester:true},now),true);
+  assert.equal(isTester({...member,role:'owner',tier:null,tester:true},now),true);
+  for(const m of [{...member,tester:false},member,{...member,tester:'true'},{...member,tester:true,status:'suspended'},
+    {...member,tester:true,expiresAt:new Date(now).toISOString()},{...member,role:'owner',tier:null},null]) assert.equal(isTester(m,now),false);
 });
