@@ -1,6 +1,7 @@
 import {available,uploadsConfigured} from './config.mjs';
 import {canAdminister} from './policy.mjs';
 import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
+import {feedbackAdminActions} from './feedback-admin-api.mjs';
 const reads=['overview','users','invitations','releases','projects','activity'];
 const revision=v=>{if(!Number.isSafeInteger(v)||v<1)fail('invalid');return v;};
 const expiry=v=>{if(v===null)return null;if(typeof v!=='string'||!Number.isFinite(Date.parse(v)))fail('invalid');return new Date(v).toISOString();};
@@ -9,12 +10,13 @@ function roleTier(body,member){
   if(member.role!=='owner'&&body.role!=='member')fail('forbidden');
   if(body.role==='member'?![1,2,3].includes(body.tier):body.tier!==null)fail('invalid');
 }
-export function createAdminHandler({config,backend,clock=Date.now,uploads}){
+export function createAdminHandler({config,backend,clock=Date.now,uploads,feedback}){
   return async(request,context)=>{try{
     if(!available(config,request,context))fail('unavailable');checkOrigin(request,config);
     const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
     if(!canAdminister({member,aal:user.aal,now:clock()}))fail('forbidden');
     const url=new URL(request.url),action=url.searchParams.get('action'),base={p_actor:user.userId,p_aal:user.aal};
+    if(feedback&&feedbackAdminActions.has(action))return json(await feedback(action,{request,url,user,member}));
     if(action==='creations'){
       if(member.role!=='owner')fail('forbidden');if(request.method!=='GET')fail('method');
       return json(await backend.rpc('portal_user_creation_list',base));
