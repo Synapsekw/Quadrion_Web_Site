@@ -1,4 +1,4 @@
-import {el,button,link,field,heading,empty,notice,date} from './ui.mjs';
+import {el,button,link,field,heading,empty,notice,date,busy} from './ui.mjs';
 import {statusBadge,statusLabel,buildLabel,threadView,attachmentView,testerMessage} from './feedback-ui.mjs';
 import {submitMutation} from './mutations.mjs';
 // ctx: {api, member, content, navigate(path), dialog(title,description,body), render(), search, origin, clipboard}.
@@ -14,7 +14,7 @@ export function filterFromSearch(search){
 // render() builds a new <main>, so a notice for the owner goes into ctx.content as it is after the render.
 export async function showAfterRender(ctx,build){await ctx.render();ctx.content.prepend(build());}
 // A button that stays disabled while its request runs, so a double click sends one request.
-const busyButton=(label,run)=>{const node=button(label,async()=>{node.disabled=true;try{await run();}finally{node.disabled=false;}},true);return node;};
+const busyButton=(label,run)=>{const node=button(label,async()=>{const done=busy(node);try{await run();}finally{done();}},true);return node;};
 export async function copyForAi({api,search,clipboard}){
   const result=await api.get('feedbackExport',filterFromSearch(search));
   try{await clipboard.writeText(result.text);}catch{throw new Error('Copy was blocked by the browser. Allow clipboard access for this page and try again.');}
@@ -57,9 +57,17 @@ function selectField(label,name,options,value){
 }
 const clock=value=>value?new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'';
 const priorityTag=priority=>el('span',{class:'priority priority-'+priority},priority);
-async function testerList(ctx){
-  const progress=await ctx.api.get('feedbackProgress');
-  return (progress.testers||[]).map(t=>({id:t.userId,name:t.name}));
+// Tester names for the filters come from the progress report, the only list there is; it is kept for five minutes
+// so the inbox does not fetch the whole report on every visit. Saving a member's tester flag forgets it.
+let testerCache=null;
+const testerNames=progress=>(progress.testers||[]).map(t=>({id:t.userId,name:t.name}));
+export function forgetTesters(){testerCache=null;}
+function testerList(ctx,now=Date.now()){
+  if(testerCache&&testerCache.api===ctx.api&&now-testerCache.at<300000)return testerCache.promise;
+  const promise=ctx.api.get('feedbackProgress').then(testerNames);
+  testerCache={api:ctx.api,at:now,promise};
+  promise.catch(()=>{if(testerCache?.promise===promise)testerCache=null;});
+  return promise;
 }
 // Runs one owner action against the item's current revision; the item is repainted on success.
 function actions(ctx,detail,repaint,showError,onFixed){
@@ -67,7 +75,7 @@ function actions(ctx,detail,repaint,showError,onFixed){
   const act=(action,data={},refresh=repaint)=>submitMutation({send:()=>ctx.api.post('feedbackAction',{id:item.id,revision:item.revision,action,data}),refresh,showError});
   const form=(fields,label,run,{secondary=true}={})=>{
     const submit=el('button',{type:'submit',class:secondary?'secondary':'primary'},label);
-    return el('form',{class:'fb-action',onsubmit:async e=>{e.preventDefault();submit.disabled=true;try{await run();}finally{submit.disabled=false;}}},...fields,submit);
+    return el('form',{class:'fb-action',onsubmit:async e=>{e.preventDefault();const done=busy(submit,'Saving…');try{await run();}finally{done();}}},...fields,submit);
   };
   const priority=selectField('Priority','fb-priority',[['high','High'],['normal','Normal'],['low','Low']],item.priority);
   const ask=el('textarea',{id:'fb-ask',rows:3,maxlength:8000,required:true,'aria-label':'Question for the tester'});
@@ -142,8 +150,10 @@ async function openItem(ctx,summary){
     if(detail.item.owner_attention)ctx.api.post('feedbackAction',{id:detail.item.id,revision:detail.item.revision,action:'seen',data:{}}).then(()=>{changed=true;},()=>{});
   }catch(error){showError(error.message);}
 }
+// testers is a promise: the inbox draws without waiting for it and the Tester list fills in when it arrives.
 function filterForm(ctx,testers,current){
-  const tester=selectField('Tester','fb-f-tester',[['','Anyone'],...testers.map(t=>[t.id,t.name])],current.tester||'');
+  const tester=selectField('Tester','fb-f-tester',[['','Anyone'],...(current.tester?[[current.tester,'Selected tester']]:[])],current.tester||'');
+  testers.then(list=>{const chosen=tester.input.value||current.tester||'';tester.input.replaceChildren(...[['','Anyone'],...list.map(t=>[t.id,t.name])].map(([v,text])=>el('option',{value:v,selected:String(v)===String(chosen)},text)));},()=>{});
   const kind=selectField('Kind','fb-f-kind',[['','Bugs and features'],['bug','Bugs'],['feature','Features']],current.kind||'');
   const status=selectField('Status','fb-f-status',[['','Any status'],[OPEN,'Open'],...['new','triaged','question','fixed','confirmed','reopened','parked','declined','merged'].map(s=>[s,statusLabel(s,'owner')])],current.status||'');
   const priority=selectField('Priority','fb-f-priority',[['','Any priority'],['high','High'],['normal','Normal'],['low','Low']],current.priority||'');
@@ -158,23 +168,23 @@ function filterForm(ctx,testers,current){
 export async function renderInbox(ctx){
   const current=filterFromSearch(ctx.search),query=new URLSearchParams(ctx.search||'');
   const offset=Math.max(0,Number(query.get('offset'))||0);
-  const [data,testers]=await Promise.all([ctx.api.get('feedbackInbox',{...current,...(offset?{offset}:{})}),testerList(ctx)]);
+  const testers=testerList(ctx),data=await ctx.api.get('feedbackInbox',{...current,...(offset?{offset}:{})});
   head(ctx,'Feedback inbox','Bugs and feature requests from testers, newest attention first.');
   const selected=new Set(),message=el('div',{'aria-live':'polite'}),count=el('span',{class:'muted'},'0 selected');
   const fixBuild=field('Fixed in build','fb-bulk-build',{maxLength:80});
   const fixButton=el('button',{type:'button',class:'primary',onclick:async()=>{
-    fixButton.disabled=true;
+    const done=busy(fixButton,'Marking…');
     try{
       const result=await bulkFix({api:ctx.api,ids:[...selected],build:fixBuild.input.value,origin:ctx.origin});
       await showAfterRender(ctx,()=>fixedNotice(ctx,'Marked '+plural(result.fixed,'item','items')+' fixed in '+result.build+' for '+plural(result.testers||0,'tester','testers')+'.',result.message));
     }catch(error){message.replaceChildren(notice(error.message,'error'));}
-    finally{fixButton.disabled=false;}
+    finally{done();}
   }},'Mark fixed');
   const copyButton=el('button',{type:'button',class:'secondary',onclick:async()=>{
-    copyButton.disabled=true;
+    const done=busy(copyButton,'Copying…');
     try{message.replaceChildren(notice(await copyForAi({api:ctx.api,search:ctx.search,clipboard:ctx.clipboard})));}
     catch(error){message.replaceChildren(notice(error.message,'error'));}
-    finally{copyButton.disabled=false;}
+    finally{done();}
   }},'Copy for AI');
   const update=()=>{count.textContent=selected.size+' selected';};
   const all=el('input',{type:'checkbox','aria-label':'Select all on this page',onchange:e=>{for(const box of ctx.content.querySelectorAll('.fb-pick')){box.checked=e.target.checked;box.dispatchEvent(new Event('change'));}}});
@@ -200,6 +210,7 @@ export async function renderInbox(ctx){
 }
 export async function renderProgress(ctx){
   const data=await ctx.api.get('feedbackProgress');
+  testerCache={api:ctx.api,at:Date.now(),promise:Promise.resolve(testerNames(data))};
   head(ctx,'Test progress','Per tester and stage, with the last build each tester answered on.');
   const names=new Map((data.testers||[]).map(t=>[t.userId,t.name]));
   const blocks=(data.testers||[]).map(t=>el('section',{class:'section-block'},el('h2',{},t.name),t.stages.length?el('div',{class:'table-scroll'},el('table',{class:'data-table'},el('thead',{},el('tr',{},['Stage','Answered','Pass','Fail','Skip','Last build'].map(h=>el('th',{scope:'col'},h)))),el('tbody',{},t.stages.map(s=>el('tr',{},el('td',{},s.title),el('td',{},s.answered+' of '+s.total),el('td',{},s.pass),el('td',{class:s.fail?'fail-count':''},s.fail),el('td',{},s.skip),el('td',{},buildLabel(s.lastBuild))))))):el('p',{class:'muted'},'No test content uploaded yet.')));
@@ -220,12 +231,12 @@ export async function renderContent(ctx){
   const upload=el('input',{type:'file',id:'fb-content-file',accept:'.json,application/json'}),uploadMessage=el('div',{'aria-live':'polite'});
   const uploadButton=el('button',{type:'submit',class:'primary'},'Upload test content');
   const uploadForm=el('form',{class:'fb-upload',onsubmit:async e=>{
-    e.preventDefault();uploadButton.disabled=true;
+    e.preventDefault();const done=busy(uploadButton,'Uploading…');
     try{
       const model=await readJsonFile(upload,4000000),result=await ctx.api.post('testContentUpload',model);
       await showAfterRender(ctx,()=>notice('Uploaded version '+result.version+' with '+plural(result.lines,'line','lines')+'. '+result.kept+' answers kept, '+result.retired+' retired.'));
     }catch(error){uploadMessage.replaceChildren(notice(error.message,'error'));}
-    finally{uploadButton.disabled=false;}
+    finally{done();}
   }},el('div',{class:'field'},el('label',{for:'fb-content-file'},'Test content file (.json)'),upload),uploadButton,uploadMessage);
   const results=el('input',{type:'file',id:'fb-results-file',accept:'.json,application/json'}),importMessage=el('div',{'aria-live':'polite'}),fileTester=el('p',{class:'muted'});
   const member=selectField('Member','fb-import-member',testers.length?testers.map(t=>[t.id,t.name]):[['','No testers yet']],testers[0]?.id||'');
@@ -235,13 +246,13 @@ export async function renderContent(ctx){
   });
   const importButton=el('button',{type:'submit',class:'primary'},'Import answers');
   const importForm=el('form',{class:'fb-upload',onsubmit:async e=>{
-    e.preventDefault();importButton.disabled=true;
+    e.preventDefault();const done=busy(importButton,'Importing…');
     try{
       if(!member.input.value)throw new Error('Mark a member as a tester in Users first.');
       const file=await readJsonFile(results,1000000),result=await ctx.api.post('testImport',{testerId:member.input.value,file});
       importMessage.replaceChildren(notice('Imported '+result.imported+', skipped '+result.skipped+', retired '+result.retired+'; '+plural(result.bugs,'bug','bugs')+' raised.'));
     }catch(error){importMessage.replaceChildren(notice(error.message,'error'));}
-    finally{importButton.disabled=false;}
+    finally{done();}
   }},el('div',{class:'field'},el('label',{for:'fb-results-file'},'Results file (.json)'),results),fileTester,member.node,importButton,importMessage);
   ctx.content.append(el('div',{class:'feedback-admin'},
     el('section',{class:'fb-current'},loaded?el('div',{},el('h2',{},'Version '+status.version),el('p',{class:'muted'},plural(status.lines,'line','lines')+' · uploaded '+clock(status.uploadedAt)+' · '+plural(status.retiredAnswers||0,'retired answer','retired answers'))):el('div',{},el('h2',{},'No test content yet'),el('p',{class:'muted'},'Upload the file from the private test board build.'))),

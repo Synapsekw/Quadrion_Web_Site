@@ -1,7 +1,7 @@
 import {available,uploadsConfigured} from './config.mjs';
 import {canAdminister} from './policy.mjs';
-import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
-import {feedbackAdminActions} from './feedback-admin-api.mjs';
+import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,bearer,alongside,fail} from './http.mjs';
+import {feedbackAdminActions,feedbackAdminReads} from './feedback-admin-api.mjs';
 const reads=['overview','users','invitations','releases','projects','activity'];
 const revision=v=>{if(!Number.isSafeInteger(v)||v<1)fail('invalid');return v;};
 const expiry=v=>{if(v===null)return null;if(typeof v!=='string'||!Number.isFinite(Date.parse(v)))fail('invalid');return new Date(v).toISOString();};
@@ -13,21 +13,31 @@ function roleTier(body,member){
 export function createAdminHandler({config,backend,clock=Date.now,uploads,feedback}){
   return async(request,context)=>{try{
     if(!available(config,request,context))fail('unavailable');checkOrigin(request,config);
-    const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
-    if(!canAdminister({member,aal:user.aal,now:clock()}))fail('forbidden');
+    const user=await identity(request,backend),token=bearer(request);
     const url=new URL(request.url),action=url.searchParams.get('action'),base={p_actor:user.userId,p_aal:user.aal};
+    // The administrator check: Supabase Auth confirms the session is still live (a signed-out admin token stops
+    // here, not at expiry) while the membership lookup runs; an Auth refusal wins over a membership one.
+    const admin=async()=>{
+      const [session,account]=await Promise.allSettled([backend.confirmSession(token,user),backend.account(user.userId)]);
+      if(session.status==='rejected')throw session.reason;if(account.status==='rejected')throw account.reason;
+      const member=memberDto(account.value);if(!canAdminister({member,aal:user.aal,now:clock()}))fail('forbidden');return member;
+    };
+    // Reads (portal_require_admin inside each RPC, nothing written) run alongside the check; their result is only
+    // returned once it has passed. Writes, uploads and the export (which signs links) wait for the check.
+    if(request.method==='GET'){
+      if(feedback&&feedbackAdminReads.has(action)&&action!=='feedbackExport')return json(await alongside(admin,async()=>feedback(action,{request,url,user})));
+      if(action==='creations')return json(await alongside(async()=>{const member=await admin();if(member.role!=='owner')fail('forbidden');return member;},async()=>backend.rpc('portal_user_creation_list',base)));
+      if(reads.includes(action))return json(await alongside(admin,async()=>{
+        const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)fail('invalid');
+        const result=await backend.rpc('portal_admin_list',{...base,p_kind:action,p_search:string(url.searchParams.get('search')||'',160),p_offset:offset});
+        return {...result,...(action==='overview'?{limits:{releaseBytes:config.releaseMaxBytes,projectBytes:config.projectMaxBytes,uploadsReady:uploadsConfigured(config)}}:{})};
+      }));
+    }
+    const member=await admin();
     if(feedback&&feedbackAdminActions.has(action))return json(await feedback(action,{request,url,user,member}));
-    if(action==='creations'){
-      if(member.role!=='owner')fail('forbidden');if(request.method!=='GET')fail('method');
-      return json(await backend.rpc('portal_user_creation_list',base));
-    }
-    if(reads.includes(action)){
-      if(request.method!=='GET')fail('method');const offset=Number(url.searchParams.get('offset')||0);
-      if(!Number.isInteger(offset)||offset<0||offset>100000)fail('invalid');
-      const result=await backend.rpc('portal_admin_list',{...base,p_kind:action,p_search:string(url.searchParams.get('search')||'',160),p_offset:offset});
-      return json({...result,...(action==='overview'?{limits:{releaseBytes:config.releaseMaxBytes,projectBytes:config.projectMaxBytes,uploadsReady:uploadsConfigured(config)}}:{})});
-    }
-    if(request.method!=='POST')fail('method');const body=await readJson(request);let result;
+    // The GET reads returned above; reaching here with one means the wrong method.
+    if(action==='creations'&&member.role!=='owner')fail('forbidden');
+    if(action==='creations'||reads.includes(action)||request.method!=='POST')fail('method');const body=await readJson(request);let result;
     if(action==='createUser'){
       if(member.role!=='owner')fail('forbidden');
       keys(body,['email','password','tier','expiresAt','idempotencyKey']);

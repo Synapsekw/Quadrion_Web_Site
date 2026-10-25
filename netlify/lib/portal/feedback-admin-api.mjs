@@ -4,6 +4,7 @@ import {formatForAgent} from './feedback-export.mjs';
 const gets=new Set(['feedbackInbox','feedbackItem','feedbackProgress','feedbackExport','feedbackCounts','testContentStatus']);
 const posts=new Set(['feedbackAction','feedbackBulkFix','feedbackAttachmentUrl','testContentUpload','testImport','memberTester']);
 export const feedbackAdminActions=new Set([...gets,...posts]);
+export const feedbackAdminReads=gets;
 const ownerOnly=new Set(['testContentUpload','testImport','memberTester']);
 const statuses=['new','triaged','question','fixed','confirmed','reopened','parked','declined','merged'];
 const ownerActions=['priority','triage','ask','comment','park','decline','restore','fix','merge','seen'];
@@ -43,7 +44,8 @@ export function createFeedbackAdminActions({config,backend,clock=Date.now}){
   return async(action,{request,url,user,member})=>{
     if(!feedbackAdminActions.has(action))fail('not_found');
     if(request.method!==(gets.has(action)?'GET':'POST'))fail('method');
-    if(ownerOnly.has(action)&&member.role!=='owner')fail('forbidden');
+    // Reads run alongside the administrator check and get no member: an owner-only action without one is refused.
+    if(ownerOnly.has(action)&&member?.role!=='owner')fail('forbidden');
     const base={p_actor:user.userId,p_aal:user.aal};
     if(action==='feedbackInbox')return backend.rpc('portal_feedback_inbox',{...base,p_filter:filter(url,{paged:true})});
     if(action==='feedbackItem')return backend.rpc('portal_feedback_item',{...base,p_id:uuid(url.searchParams.get('id'))});

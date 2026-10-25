@@ -22,19 +22,24 @@ test('clearing a failed upload removes private content but leaves its error and 
 test('a failing feedback count leaves the admin page standing with no badge',async()=>{
   const {createPortalApi}=await import('../portal/src/api.mjs');
   const source=(await readFile(new URL('../portal/src/admin.mjs',import.meta.url),'utf8')).replace(/^import .+;\r?\n/gm,'');
-  const node=(tag,attrs={},...kids)=>({tag,attrs,kids:kids.flat(Infinity).filter(k=>k!=null),append(...k){this.kids.push(...k);},replaceChildren(...k){this.kids=k;},querySelector:()=>null});
+  const {createCache,sessionSeed}=await import('../portal/src/cache.mjs');
+  const all=[];
+  const node=(tag,attrs={},...kids)=>{const n={tag,attrs,kids:kids.flat(Infinity).filter(k=>k!=null),isConnected:true,append(...k){this.kids.push(...k);},replaceChildren(...k){this.kids=k;},querySelector:()=>null,
+    getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},classList:{toggle(){},add(){},remove(){}},
+    replaceWith(next){for(const p of all){const i=p.kids.indexOf(this);if(i>=0)p.kids[i]=next;}}};all.push(n);return n;};
   const text=n=>n==null?'':typeof n!=='object'?String(n):(n.kids||[]).map(text).join(' ');
   const root=node('div'),events=[],calls=[];
   const document={querySelector:()=>root,querySelectorAll:()=>[],addEventListener(){},body:node('body')};
   const window={addEventListener(){},dispatchEvent:event=>events.push(event.type)};
-  const replies={me:[200,{member:{role:'owner',displayName:'Owner'}}],overview:[200,{limits:{}}],feedbackCounts:[503,{error:'unavailable',message:'Down'}]};
+  const replies={me:[200,{member:{userId:'u1',role:'owner',displayName:'Owner'}}],overview:[200,{limits:{}}],feedbackCounts:[503,{error:'unavailable',message:'Down'}]};
   const fetcher=async url=>{const action=new URL(url,'https://x.test').searchParams.get('action');calls.push(action);const [status,body]=replies[action];return {ok:status<400,status,json:async()=>body};};
-  const auth={getToken:async()=>'token',needsPassword:()=>false,signOut:async()=>{}};
-  const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection'];
+  const auth={getToken:async()=>'token',userId:async()=>'u1',needsPassword:()=>false,signOut:async()=>{}};
+  const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection','createCache','sessionSeed','skeleton','busy','progressBar'];
   const run=compileFunction('return (async()=>{'+source+'\n})();',params);
   await run(document,window,{pathname:'/admin/nowhere/',search:'',origin:'https://x.test',replace(){}},{pushState(){}},async()=>auth,
     options=>createPortalApi({...options,fetcher}),node,label=>node('button',{},label),(label,href)=>node('a',{href},label),()=>({}),(...t)=>node('h1',{},...t),
-    title=>node('section',{},title),message=>node('p',{},message),()=>'',()=>'',()=>({}),async()=>{},async()=>{},async()=>{},async()=>{},()=>null);
+    title=>node('section',{},title),message=>node('p',{},message),()=>'',()=>'',()=>({}),async()=>{},async()=>{},async()=>{},async()=>{},()=>null,createCache,sessionSeed,()=>node('div',{},'Loading'),()=>()=>{},()=>({track:()=>()=>{}}));
+  await new Promise(resolve=>setTimeout(resolve,10));
   assert.ok(calls.includes('feedbackCounts'));
   assert.equal(events.includes('quadrion:signout'),false);
   const page=text(root);

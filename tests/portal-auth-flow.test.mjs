@@ -9,7 +9,7 @@ import {loginDestination} from '../portal/src/routing.mjs';
 const source=(await readFile(new URL('../portal/src/auth.mjs',import.meta.url),'utf8'))
   .replace(/^import .+;\r?\n/gm,'').replace(/^export /gm,'');
 const loadAuth=compileFunction(source+'\nreturn createPortalAuth;',[
-  'createClient','el','field','button','link','notice','loginDestination',
+  'createClient','el','field','button','link','notice','busy','loginDestination',
   'location','history','sessionStorage','fetch',
 ]);
 function node(tag,attrs={},...children){
@@ -32,7 +32,7 @@ async function fixture(role,path,{signedIn=false}={}){
     signInWithPassword:async()=>{signedIn=true;return {data:{session:{access_token:'fixture-token'}},error:null};},
     updateUser:async()=>({data:{user:{id:'fixture-user'}},error:null}),
   }};
-  const createPortalAuth=loadAuth(()=>client,node,field,()=>node('button'),()=>node('a'),()=>node('notice'),
+  const createPortalAuth=loadAuth(()=>client,node,field,()=>node('button'),()=>node('a'),()=>node('notice'),()=>()=>{},
     loginDestination,location,history,storage,async()=>({ok:true,json:async()=>({url:'https://fixture.invalid',publishableKey:'fixture-key'})}));
   let auth;
   auth=await createPortalAuth({root,onChange:async()=>{
@@ -89,4 +89,18 @@ test('signed-in administrators can deliberately open the client library without 
     assert.equal(f.location.search,'?search=survey');
     assert.deepEqual(f.redirects,[]);
   }
+});
+
+test('the public config is fetched once per tab session and reused on the next load',async()=>{
+  const stored=new Map(),storage={getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value),removeItem:key=>stored.delete(key)};
+  let fetches=0;const fetch=async()=>{fetches++;return {ok:true,json:async()=>({url:'https://fixture.invalid',publishableKey:'fixture-key'})};};
+  const seen=[];const createClient=(url,key)=>{seen.push([url,key]);return {auth:{onAuthStateChange(){},getSession:async()=>({data:{session:null}})}};};
+  const load=()=>loadAuth(createClient,node,()=>({input:{},node:node('field')}),()=>node('button'),()=>node('a'),()=>node('notice'),()=>()=>{},
+    loginDestination,new URL('https://quadrion.ai/admin/'),{replaceState(){}},storage,fetch)({root:node('root'),onChange:async()=>{}});
+  await load();await load();
+  assert.equal(fetches,1);
+  assert.deepEqual(seen,[['https://fixture.invalid','fixture-key'],['https://fixture.invalid','fixture-key']]);
+  stored.set('quadrion-config','not json');
+  await load();
+  assert.equal(fetches,2,'a damaged entry falls back to the request');
 });

@@ -40,15 +40,18 @@ test('a logged-out request gets 401 and no data',async()=>{
   assert.equal(f.calls.length,0);
 });
 
-test('a member without the tester flag gets 403 before any RPC',async()=>{
+test('a member without the tester flag gets 403 before any write RPC and no read result',async()=>{
+  const reads=new Set(['portal_tests_content','portal_feedback_mine','portal_feedback_counts','portal_feedback_item']);
   for(const opts of [{tester:false},{tester:false,role:'owner',tier:null},{tester:null}]){
     const f=fixture(opts);
-    for(const [action,body,query] of [['content'],['mine'],['counts'],['item',undefined,'&id='+itemId],['answer',{lineId,status:'pass',comment:'',build:'0.25.2'}],['create',{kind:'bug',title:'Blank map'}],['attachmentStatus',{id:itemId}]])
-      assert.equal(await status(f,action,body,{query}),403,action);
-    assert.deepEqual(f.rpcs(),[]);assert.deepEqual(f.attachmentCalls,[]);
+    for(const [action,body,query] of [['content'],['mine'],['counts'],['item',undefined,'&id='+itemId],['answer',{lineId,status:'pass',comment:'',build:'0.25.2'}],['create',{kind:'bug',title:'Blank map'}],['attachmentStatus',{id:itemId}]]){
+      const r=await f.handler(req(action,body,{query}),production);
+      assert.equal(r.status,403,action);assert.deepEqual(await r.json(),{error:'forbidden',message:'Your account does not have access.'},action);
+    }
+    assert.deepEqual(f.rpcs().filter(c=>!reads.has(c.name)),[]);assert.deepEqual(f.attachmentCalls,[]);
   }
   const f=fixture();f.backend.account=async()=>({user_id:userId,role:'member',tier:2,status:'disabled',expires_at:null,tester:true});
-  assert.equal(await status(f,'content'),403);assert.deepEqual(f.rpcs(),[]);
+  assert.equal(await status(f,'content'),403);assert.deepEqual(f.rpcs().filter(c=>!reads.has(c.name)),[]);
 });
 
 test('reads map to the tester RPCs with the token actor',async()=>{

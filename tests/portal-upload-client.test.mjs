@@ -15,7 +15,7 @@ async function uploadFixture({existing=null,post=async()=>{throw new Error('Uplo
   class Worker{constructor(){workers++;}terminate(){}postMessage(){queueMicrotask(()=>{this.onmessage({data:{progress:1}});this.onmessage({data:{sha256:'a'.repeat(64)}});});}}
   const storage={getItem:()=>null,setItem(){},removeItem(){}};
   const window={addEventListener(){},removeEventListener(){}};
-  const create=compileFunction(source+'\nreturn uploadControl;',['el','button','notice','bytes','Worker','sessionStorage','window','Upload'])(el,button,notice,String,Worker,storage,window,class{});
+  const create=compileFunction(source+'\nreturn uploadControl;',['el','button','notice','bytes','Worker','sessionStorage','window','loadUpload'])(el,button,notice,String,Worker,storage,window,async()=>class{});
   create({api:{post},releaseId:'release-fixture',limit:1000000000,existing});
   return {nodes,buttons,input:nodes.find(n=>n.tag==='input'),workers:()=>workers};
 }

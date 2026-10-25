@@ -27,6 +27,7 @@ export function pgliteBackend(db,{tokens={}}={}){
       const email=(await db.query('select email from auth.users where id=$1',[userId])).rows[0]?.email||'';
       return {userId,email,emailConfirmed:true,aal:'aal1'};
     },
+    async confirmSession(token,user){if(!tokens[token]||tokens[token]!==user?.userId)throw new Error('portal:unauthorized');},
     account:userId=>rpc('portal_account',{p_actor:userId}),
     async signDownload(file,ttl,download=true){
       signed.push({id:file.id,ttl,download});

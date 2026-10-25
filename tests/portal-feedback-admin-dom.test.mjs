@@ -5,6 +5,8 @@ class FakeNode{
   constructor(tag,text){this.tagName=tag;this.children=[];this.attributes={};this.listeners={};this.className='';this.text=text;this.style={};}
   replaceChildren(...nodes){this.children=nodes;}
   setAttribute(k,v){this.attributes[k]=v;}
+  removeAttribute(k){delete this.attributes[k];}
+  get childNodes(){return this.children;}
   getAttribute(k){return this.attributes[k]??null;}
   addEventListener(type,fn){this.listeners[type]=fn;}
   append(...nodes){this.children.push(...nodes);}
@@ -52,4 +54,17 @@ test('a single Mark fixed offers the tester message to copy, after one render',a
   const copy=block.find(n=>n.tagName==='button'&&n.textContent==='Copy message for testers');
   await copy.listeners.click();
   assert.deepEqual(copied,['1 fix in 0.26.1 is ready to re-check: https://quadrion.ai/portal/tests/']);
+});
+
+test('the inbox draws without waiting for tester names, and the progress report is fetched once for them',async()=>{
+  const calls=[];let release;
+  const api={get:async action=>{calls.push(action);if(action==='feedbackProgress')return new Promise(resolve=>{release=resolve;});return {items:[],total:0};}};
+  const ctx={api,member:{role:'owner'},content:new FakeNode('main'),navigate(){},search:'',origin:'https://quadrion.ai'};
+  await renderInbox(ctx);
+  assert.ok(ctx.content.find(n=>n.textContent==='Feedback inbox'),'drawn while the names are still loading');
+  release({testers:[{userId:'t1',name:'Tester One'}]});await tick();
+  const select=ctx.content.find(n=>n.attributes.id==='fb-f-tester');
+  assert.ok(select.find(n=>n.tagName==='option'&&n.textContent==='Tester One'),'names fill in when they arrive');
+  ctx.content=new FakeNode('main');await renderInbox(ctx);
+  assert.equal(calls.filter(a=>a==='feedbackProgress').length,1);
 });
