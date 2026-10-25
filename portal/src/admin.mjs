@@ -148,7 +148,9 @@ async function releases(ticket){const [data]=await Promise.all([list('releases')
 async function activity(ticket){const data=await list('activity');if(ticket!==sequence)return;toolbar('Activity','Permission changes, publication and download-link activity. Link issuance is not proof of a completed download.');content.append(searchForm('events'),table(['Time','Event','Actor','Resource'],data.items.map(e=>el('tr',{},el('td',{},new Date(e.created_at).toLocaleString()),el('td',{},e.action.replaceAll('_',' ')),el('td',{class:'id-cell'},e.actor_id||'System'),el('td',{class:'id-cell'},e.resource_id||e.subject_id||'—')))));pagination(data);}
 function feedbackContext(){return {api,member,get content(){return content;},navigate,dialog,render:changed,search:location.search,origin:location.origin,clipboard:navigator.clipboard};}
 async function render(){const ticket=++sequence;markNav();try{
-  if(!auth)return;if(!await auth.getToken()){meCache.clear();location.replace('/portal/?login');return;}if(auth.needsPassword()){shellKey='';auth.showPassword();return;}
+  if(!auth)return;if(!await auth.getToken()){meCache.clear();location.replace('/portal/?login');return;}if(auth.needsPassword()){shellKey='';meCache.clear();auth.showPassword();return;}
+  // The remembered me must be this session's user (a tab can switch users through an invite or recovery link).
+  meCache.ownedBy(await auth.userId());
   // me and the inbox count come from memory after the first load; only the page's own data is waited for.
   const me=await meCache.get();if(ticket!==sequence)return;member=me.member;
   if(member.role==='member'){location.replace('/portal/');return;}
@@ -164,7 +166,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setInterval(()=>{if(member&&document.visibilityState!=='hidden')countsCache.revalidate();},60000)?.unref?.();
 // Page requests drive the top progress bar; the background refreshes (me, the badge) stay silent.
 try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true,track:bar.track});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
-  meCache=createCache(()=>memberApi.get('me'),{seed:sessionSeed('quadrion-me'),onChange:me=>{const m=me.member;if(member&&(m.role!==member.role||m.displayName!==member.displayName))render();}});
+  meCache=createCache(()=>memberApi.get('me'),{seed:sessionSeed('quadrion-me'),ownerOf:me=>me.member.userId,onChange:me=>{const m=me.member;if(member&&(m.role!==member.role||m.displayName!==member.displayName))render();}});
   // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
   countsCache=createCache(()=>badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0),{onChange:n=>{feedbackInbox=n;updateBadge();}});
   await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

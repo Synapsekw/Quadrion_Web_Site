@@ -82,7 +82,9 @@ async function render(){
   const ticket=++sequence;markNav();
   try{
     if(!auth)return;if(!await auth.getToken()){member=null;shellKey='';meCache.clear();auth.showLogin();return;}
-    if(auth.needsPassword()){shellKey='';auth.showPassword();return;}
+    // The remembered me must be this session's user; a password-setup link is a new user's first visit.
+    if(auth.needsPassword()){shellKey='';meCache.clear();auth.showPassword();return;}
+    meCache.ownedBy(await auth.userId());
     // me comes from memory after the first load (refreshed in the background); only the page's own data is waited for.
     const me=await meCache.get();if(ticket!==sequence)return;member=me.member;
     if(auth.enterWorkspace(member))return;
@@ -113,7 +115,7 @@ setInterval(()=>{if(member&&document.visibilityState!=='hidden')refreshCount(tru
 try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,track:bar.track});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,track:bar.track,onDenied:status=>{if(status===401||status===403)clear();}});
   // me is read through an API that clears the page only for a lost session, so a background refresh that hits a network blip leaves the page alone.
   const meApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
-  meCache=createCache(()=>meApi.get('me'),{seed:sessionSeed('quadrion-me'),onChange:me=>{const m=me.member;if(member&&[m.role,m.tier,m.tester,m.displayName].join('|')!==shellKey)render();}});
+  meCache=createCache(()=>meApi.get('me'),{seed:sessionSeed('quadrion-me'),ownerOf:me=>me.member.userId,onChange:me=>{const m=me.member;if(member&&[m.role,m.tier,m.tester,m.displayName].join('|')!==shellKey)render();}});
   const badgeApi=createPortalApi({scope:'feedback',getToken:auth.getToken});
   countCache=createCache(()=>badgeApi.get('counts').then(c=>Number(c.waiting)||0),{onChange:showCount});
   releaseCache=createCache(()=>api.get('releases'),{maxAge:300000});

@@ -63,3 +63,19 @@ test('a session seed draws the shell on reload, then refreshes; storage failures
   const guarded=createCache(async()=>'fresh',{seed:sessionSeed('k',throwing)});
   assert.equal(await guarded.get(),'fresh');
 });
+
+test('a remembered me of another user is dropped when the session user differs',async()=>{
+  const store=new Map();const storage={getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)};
+  const opts=()=>({seed:sessionSeed('quadrion-me',storage),ownerOf:me=>me.member.userId});
+  await createCache(async()=>({member:{userId:'user-a',role:'owner'}}),opts()).get();
+  let loads=0;
+  const cache=createCache(async()=>{loads++;return {member:{userId:'user-b',role:'member'}};},opts());
+  cache.ownedBy('user-a');
+  assert.equal(cache.peek().member.userId,'user-a','the same user keeps the seed');
+  cache.ownedBy('user-b');
+  assert.equal(cache.peek(),undefined,'an invite link for user B drops user A');
+  assert.equal((await cache.get()).member.userId,'user-b');
+  assert.equal(loads,1);
+  cache.ownedBy(null);
+  assert.equal(cache.peek(),undefined,'no session user, nothing remembered');
+});

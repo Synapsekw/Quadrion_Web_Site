@@ -2,7 +2,8 @@
 // get() answers from memory when it can and only waits on the very first load; a value older than maxAge
 // still answers at once and starts one quiet refresh. onChange runs after every successful load.
 // seed: an optional {read(),write(value)} store (sessionStorage) so a reload can draw before the first answer.
-export function createCache(load,{maxAge=60000,now=Date.now,onChange=()=>{},seed=null}={}){
+// ownerOf (optional) names whose value it is; ownedBy(id) drops a value that belongs to another user.
+export function createCache(load,{maxAge=60000,now=Date.now,onChange=()=>{},seed=null,ownerOf=null}={}){
   let value,at=0,inflight=null,version=0;
   try{const stored=seed?.read();if(stored&&now()-stored.at<maxAge*10){value=stored.value;at=0;}}catch{}
   function refresh(){
@@ -23,6 +24,8 @@ export function createCache(load,{maxAge=60000,now=Date.now,onChange=()=>{},seed
       return Promise.resolve(value);
     },
     peek:()=>value,
+    // A tab can switch users (an invite or recovery link opened in it): another user's remembered value is dropped.
+    ownedBy(id){if(value===undefined||!ownerOf)return;let owner;try{owner=ownerOf(value);}catch{owner=undefined;}if(!id||owner!==id)this.clear();},
     // Starts a refresh unless one is already running; never throws.
     revalidate(){return (inflight||refresh()).catch(()=>{});},
     refresh,

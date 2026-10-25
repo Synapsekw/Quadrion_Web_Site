@@ -31,9 +31,9 @@ test('a failing feedback count leaves the admin page standing with no badge',asy
   const root=node('div'),events=[],calls=[];
   const document={querySelector:()=>root,querySelectorAll:()=>[],addEventListener(){},body:node('body')};
   const window={addEventListener(){},dispatchEvent:event=>events.push(event.type)};
-  const replies={me:[200,{member:{role:'owner',displayName:'Owner'}}],overview:[200,{limits:{}}],feedbackCounts:[503,{error:'unavailable',message:'Down'}]};
+  const replies={me:[200,{member:{userId:'u1',role:'owner',displayName:'Owner'}}],overview:[200,{limits:{}}],feedbackCounts:[503,{error:'unavailable',message:'Down'}]};
   const fetcher=async url=>{const action=new URL(url,'https://x.test').searchParams.get('action');calls.push(action);const [status,body]=replies[action];return {ok:status<400,status,json:async()=>body};};
-  const auth={getToken:async()=>'token',needsPassword:()=>false,signOut:async()=>{}};
+  const auth={getToken:async()=>'token',userId:async()=>'u1',needsPassword:()=>false,signOut:async()=>{}};
   const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection','createCache','sessionSeed','skeleton','busy','progressBar'];
   const run=compileFunction('return (async()=>{'+source+'\n})();',params);
   await run(document,window,{pathname:'/admin/nowhere/',search:'',origin:'https://x.test',replace(){}},{pushState(){}},async()=>auth,

@@ -23,6 +23,7 @@ export async function createPortalAuth({root,onChange}){
   const client=createClient(config.url,config.publishableKey,{auth:{storage:sessionStorage,storageKey:'quadrion-auth',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});
   client.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY')sessionStorage.setItem('quadrion-password-setup','true');if(['SIGNED_OUT','TOKEN_REFRESHED','PASSWORD_RECOVERY'].includes(event))setTimeout(onChange,0);});
   const getToken=async()=>{const {data}=await client.auth.getSession();return data.session?.access_token||null;};
+  const userId=async()=>{const {data}=await client.auth.getSession();return data.session?.user?.id||null;};
   function frame(title,description,...content){root.replaceChildren(el('section',{class:'auth-layout'},el('div',{class:'auth-brand'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:180}),'/d3-quarter/'),el('p',{class:'eyebrow'},'YOUR QUADRION WORKSPACE'),el('h1',{},'From capture.',el('br'),'To clarity.'),el('p',{},'Your software, processing pipelines and project library. In one place.'),el('div',{class:'auth-diagram','aria-hidden':'true'},el('div'),el('div'),el('div'))),el('div',{class:'auth-panel'},el('div',{class:'auth-form'},el('span',{class:'badge'},'PRIVATE ACCESS'),el('h2',{},title),el('p',{class:'muted'},description),...content),link('← Back to Quadrion','/d3-quarter/','back-link'))));}
   function showLogin(mode='login'){
     const reset=mode==='reset',email=field('Email address','email',{type:'email',required:true,autocomplete:'email'}),password=field('Password','password',{type:'password',required:true,autocomplete:'current-password'});
@@ -46,5 +47,5 @@ export async function createPortalAuth({root,onChange}){
     history.replaceState(null,'',destination);return false;
   }
   async function signOut(){window.dispatchEvent(new Event('quadrion:signout'));root.replaceChildren();await client.auth.signOut({scope:'local'});clearSessionData(sessionStorage);location.replace('/portal/?login');}
-  return {client,getToken,showLogin,showPassword,enterWorkspace,signOut,needsPassword:()=>sessionStorage.getItem('quadrion-password-setup')==='true'};
+  return {client,getToken,userId,showLogin,showPassword,enterWorkspace,signOut,needsPassword:()=>sessionStorage.getItem('quadrion-password-setup')==='true'};
 }
