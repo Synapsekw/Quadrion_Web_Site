@@ -31,22 +31,24 @@ export function uploadControl({api,releaseId=null,projectVersionId=null,kind='bi
     if(!limit||file.size>limit){feedback.replaceChildren(notice('The file exceeds the configured upload limit.','error'));return;}
     if(expectedFile&&(file.name!==expectedFile.filename||file.size!==Number(expectedFile.bytes))){status.textContent='Upload not started.';feedback.replaceChildren(notice('This upload expects '+expectedFile.filename+'. Select that file, or use Abandon and replace.','error'));return;}
     cancelled=false;start.disabled=true;feedback.replaceChildren();progress.value=0;status.textContent='Calculating the source checksum…';
+    // The upload library loads while the checksum runs, and before any upload session is opened on the server.
+    const library=loadUpload();library.catch(()=>{});
     try{
       const sha256=await new Promise((resolve,reject)=>{rejectPending=reject;worker=new Worker('/assets/portal/hash-worker.js',{type:'module'});worker.onmessage=({data})=>{if(data.progress!==undefined)progress.value=data.progress*100;if(data.sha256){worker.terminate();resolve(data.sha256);}if(data.error){worker.terminate();reject(new Error(data.error));}};worker.onerror=()=>reject(new Error('The checksum worker could not start.'));worker.postMessage({file});});rejectPending=null;
       if(cancelled)return;
       status.textContent='Source checksum complete. Preparing upload…';
+      const Upload=await library;if(cancelled)return;
       const prior=sessionId,input={releaseId,projectVersionId,kind,filename:file.name,bytes:file.size,sha256};
       const session=prior?await api.post('resumeUpload',{id:prior,filename:file.name,bytes:file.size,sha256}):await api.post('upload',input);
       expectedFile={filename:file.name,bytes:file.size};expectedLabel.textContent='Upload file: '+file.name+' · '+bytes(file.size)+'. Select this same file to resume.';
       sessionId=session.id;sessionStorage.setItem(key,sessionId);status.textContent='Uploading to the private library…';progress.value=0;
-      const Upload=await loadUpload();if(cancelled)return;
       await new Promise((resolve,reject)=>{
         rejectPending=reject;
         current=new Upload(file,{endpoint:session.endpoint,headers:{'x-signature':session.token,'x-upsert':'false'},chunkSize:6*1024*1024,uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,urlStorage,fingerprint:async()=>session.objectPath+':'+sha256,retryDelays:[0,3000,5000,10000,20000],metadata:{bucketName:session.bucket,objectName:session.objectPath,contentType:session.contentType,cacheControl:'0'},onProgress:(done,total)=>{progress.value=done/total*100;status.textContent='Uploading · '+bytes(done)+' of '+bytes(total);},onError:()=>reject(new Error('Upload paused. Select the same file and resume.')),onSuccess:resolve});
         current.findPreviousUploads().then(previous=>{if(cancelled)return;if(previous.length)current.resumeFromPreviousUpload(previous[0]);current.start();}).catch(reject);
       });rejectPending=null;
       if(cancelled)return;await api.post('finalize',{id:sessionId});poll();
-    }catch(error){if(!cancelled){status.textContent='Upload stopped. Review the message below.';feedback.replaceChildren(notice(error.message,'error'));}start.disabled=false;}
+    }catch(error){if(!cancelled){status.textContent='Upload stopped. Review the message below.';feedback.replaceChildren(notice(error.message,'error'),error.reload?button('Reload page',()=>location.reload(),true):null);}start.disabled=false;}
   }
   const start=button('Upload / resume',begin),pause=button('Pause',cancel,true);
   if(!limit)start.disabled=true;
