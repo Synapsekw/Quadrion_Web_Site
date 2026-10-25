@@ -29,10 +29,27 @@ export function keys(value,allowed){if(Object.keys(value).some(k=>!allowed.inclu
 export function uuid(value){if(typeof value!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))fail('invalid');return value;}
 export function string(value,max,{empty=true}={}){if(typeof value!=='string'||value.length>max||(!empty&&!value.trim()))fail('invalid');return value.trim();}
 export function memberDto(m){return {userId:m.user_id,role:m.role,tier:m.tier,status:m.status,expiresAt:m.expires_at,displayName:m.display_name||'',company:m.company||'',revision:m.revision,tester:m.tester===true};}
-export async function identity(request,backend){
+export function bearer(request){
   const token=/^Bearer ([A-Za-z0-9._-]+)$/.exec(request.headers.get('authorization')||'')?.[1];
   if(!token||token.length>16000)fail('unauthorized');
-  const user=await backend.verifyUser(token);
+  return token;
+}
+export async function identity(request,backend){
+  const user=await backend.verifyUser(bearer(request));
   if(!user?.userId||!user.emailConfirmed||!['aal1','aal2'].includes(user.aal))fail('unauthorized');
   return user;
+}
+// Runs a read alongside the membership check instead of after it. The read's result is only used once the
+// check has passed, exactly as before; if the check fails its error is returned and the read is dropped
+// (onDropped tidies a result that must not be left behind). A read that fails while the check passes is run
+// once more in order, so a request whose own membership check changed something (an accepted invitation)
+// gets the answer the sequential check-then-read would have given. Only for reads that change nothing, or
+// for portal_download whose failure leaves nothing behind.
+export async function alongside(check,read,{onDropped}={}){
+  const [gate,first]=await Promise.allSettled([check(),read()]);
+  if(gate.status==='rejected'){if(first.status==='fulfilled'&&onDropped)await Promise.resolve().then(()=>onDropped(first.value)).catch(()=>{});throw gate.reason;}
+  if(first.status==='fulfilled')return first.value;
+  const code=/^portal:([a-z_]+)$/.exec(first.reason?.message||'')?.[1];
+  if(!code||code==='unavailable')throw first.reason;
+  return read();
 }

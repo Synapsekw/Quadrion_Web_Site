@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createAdminHandler} from '../../netlify/lib/portal/admin-api.mjs';
 const config={enabled:true,origin:'https://quadrion.ai',url:'https://example.supabase.co'},context={deploy:{context:'production',published:true}};
 function fixture(role='owner',aal='aal2'){
-  const calls=[];const backend={verifyUser:async()=>({userId:'10000000-0000-4000-8000-000000000001',emailConfirmed:true,aal}),account:async()=>({user_id:'10000000-0000-4000-8000-000000000001',role,tier:role==='member'?3:null,status:'active',expires_at:null}),rpc:async(name,args)=>{calls.push({name,args});return {items:[]};}};
+  const calls=[];const backend={verifyUser:async()=>({userId:'10000000-0000-4000-8000-000000000001',emailConfirmed:true,aal}),confirmSession:async()=>{},account:async()=>({user_id:'10000000-0000-4000-8000-000000000001',role,tier:role==='member'?3:null,status:'active',expires_at:null}),rpc:async(name,args)=>{calls.push({name,args});return {items:[]};}};
   return {calls,backend,handler:createAdminHandler({config,backend})};
 }
 const req=(action,body)=>new Request('https://quadrion.ai/api/portal-admin?action='+action,{method:body?'POST':'GET',headers:{authorization:'Bearer valid',origin:config.origin,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
@@ -20,7 +20,9 @@ test('administrators can see upload readiness without receiving the verification
 });
 test('T3 members cannot administer; password-authenticated admins and owners can',async()=>{
   for(const [role,aal] of [['member','aal2'],['member','aal1']]){
-    const f=fixture(role,aal);assert.equal((await f.handler(req('users'),context)).status,403);assert.equal(f.calls.length,0);
+    // The read may run alongside the check, but its result never leaves: the body is the refusal only.
+    const f=fixture(role,aal),r=await f.handler(req('users'),context);assert.equal(r.status,403);assert.deepEqual(await r.json(),{error:'forbidden',message:'Your account does not have access.'});
+    assert.deepEqual(f.calls.map(c=>c.name).filter(n=>n!=='portal_admin_list'),[]);
   }
   for(const role of ['admin','owner']){
     const f=fixture(role,'aal1');assert.equal((await f.handler(req('users'),context)).status,200);assert.equal(f.calls.length,1);

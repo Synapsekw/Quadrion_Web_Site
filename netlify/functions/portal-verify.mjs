@@ -1,13 +1,13 @@
 import {timingSafeEqual} from 'node:crypto';
 import {portalConfig,available} from '../lib/portal/config.mjs';
-import {createBackend} from '../lib/portal/supabase.mjs';
+import {getBackend} from '../lib/portal/supabase.mjs';
 import {readJson,keys,uuid} from '../lib/portal/http.mjs';
 import {verifySlice} from '../lib/portal/verification.mjs';
 export default async(request,context)=>{
   const settings=portalConfig(),provided=request.headers.get('x-portal-verify')||'';
   if(!available(settings,request,context)||request.method!=='POST'||settings.verifySecret.length<32||Buffer.byteLength(provided)!==Buffer.byteLength(settings.verifySecret)||!timingSafeEqual(Buffer.from(provided),Buffer.from(settings.verifySecret)))return;
   const body=await readJson(request);keys(body,['id']);uuid(body.id);
-  const backend=createBackend(settings),job=await backend.rpc('portal_verify_claim',{p_id:body.id});if(!job)return;
+  const backend=getBackend(settings),job=await backend.rpc('portal_verify_claim',{p_id:body.id});if(!job)return;
   try{
     const signed=await backend.service.storage.from(job.bucket).createSignedUrl(job.object_path,600);
     if(signed.error||!signed.data?.signedUrl)throw new Error('storage_unavailable');

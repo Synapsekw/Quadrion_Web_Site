@@ -1,7 +1,8 @@
 import {available} from './config.mjs';
 import {isTester} from './policy.mjs';
-import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,fail} from './http.mjs';
-// The tester side of the feedback loop. Every RPC re-checks the tester flag; this frame refuses non-testers before any RPC.
+import {json,errorResponse,checkOrigin,readJson,keys,uuid,string,memberDto,identity,alongside,fail} from './http.mjs';
+// The tester side of the feedback loop. Every RPC re-checks the tester flag; this frame refuses non-testers before
+// any write RPC, and never returns a read's result before the same check has passed.
 const gets=new Set(['content','answers','mine','item','counts']);
 const attachmentActions=new Set(['attachmentBegin','attachmentResume','attachmentFinalize','attachmentStatus','attachmentAbandon','attachmentUrl']);
 const posts=new Set(['answer','create','act',...attachmentActions]);
@@ -19,14 +20,18 @@ export function createFeedbackHandler({config,backend,clock=Date.now,attachments
     const url=new URL(request.url),action=url.searchParams.get('action')||'';
     if(!gets.has(action)&&!posts.has(action))fail('not_found');
     if(request.method!==(gets.has(action)?'GET':'POST'))fail('method');
-    const user=await identity(request,backend),member=memberDto(await backend.account(user.userId));
-    if(!isTester(member,clock()))fail('forbidden');
-    const actor={p_actor:user.userId};
-    if(action==='content')return json(await backend.rpc('portal_tests_content',actor));
-    if(action==='answers')return json(await backend.rpc('portal_tests_answers',actor));
-    if(action==='mine')return json(await backend.rpc('portal_feedback_mine',actor));
-    if(action==='counts')return json(await backend.rpc('portal_feedback_counts',actor));
-    if(action==='item')return json(await backend.rpc('portal_feedback_item',{...actor,p_aal:user.aal,p_id:uuid(url.searchParams.get('id'))}));
+    const user=await identity(request,backend),actor={p_actor:user.userId};
+    const tester=async()=>{const member=memberDto(await backend.account(user.userId));if(!isTester(member,clock()))fail('forbidden');return member;};
+    // Reads (each RPC re-checks the tester flag and changes nothing) run alongside the check; the result is only
+    // returned once the check has passed. Writes still wait for the check.
+    if(gets.has(action))return json(await alongside(tester,async()=>{
+      if(action==='content')return backend.rpc('portal_tests_content',actor);
+      if(action==='answers')return backend.rpc('portal_tests_answers',actor);
+      if(action==='mine')return backend.rpc('portal_feedback_mine',actor);
+      if(action==='counts')return backend.rpc('portal_feedback_counts',actor);
+      return backend.rpc('portal_feedback_item',{...actor,p_aal:user.aal,p_id:uuid(url.searchParams.get('id'))});
+    }));
+    await tester();
     const body=await readJson(request,{maxBytes:131072});
     if(attachmentActions.has(action)){if(!attachments)fail('unavailable');return json(await attachments(action,body,user));}
     if(action==='answer'){

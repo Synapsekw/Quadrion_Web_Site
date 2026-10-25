@@ -7,7 +7,7 @@ const actor='10000000-0000-4000-8000-000000000001',itemId='20000000-0000-4000-80
 const line=n=>`walk:open-map:${String(n).padStart(10,'0')}`;
 function fixture(role='owner',reply={}){
   const calls=[],signed=[];
-  const backend={verifyUser:async()=>({userId:actor,emailConfirmed:true,aal:'aal1'}),account:async()=>({user_id:actor,role,tier:role==='member'?3:null,status:'active',expires_at:null}),
+  const backend={verifyUser:async()=>({userId:actor,emailConfirmed:true,aal:'aal1'}),confirmSession:async()=>{},account:async()=>({user_id:actor,role,tier:role==='member'?3:null,status:'active',expires_at:null}),
     rpc:async(name,args)=>{calls.push({name,args});return reply[name]??{ok:true};},
     signDownload:async(file,ttl,download)=>{signed.push({file,ttl,download});return `https://files.example.com/${file.id}?ttl=${ttl}`;}};
   return {calls,signed,backend,handler:createAdminHandler({config,backend,feedback:createFeedbackAdminActions({config,backend,clock:()=>Date.parse('2026-10-25T10:00:00Z')})})};
@@ -19,10 +19,13 @@ const everything=[['feedbackInbox'],['feedbackItem',null,'&id='+itemId],['feedba
   ['feedbackAction',{id:itemId,revision:1,action:'triage'}],['feedbackBulkFix',{ids:[itemId],build:'0.26.0'}],['feedbackAttachmentUrl',{id:itemId}],
   ['testContentUpload',content()],['testImport',{testerId:actor,file:{format:'quadrion-test-results/1',results:{}}}],['memberTester',{userId:actor,revision:1,tester:true}]];
 
-test('members get 403 and no RPC runs',async()=>{
+test('members get 403, no write RPC runs and no read result leaves',async()=>{
+  // Reads (not the export) run alongside the administrator check; their result is dropped when it refuses.
+  const reads=new Set(['feedbackInbox','feedbackItem','feedbackProgress','feedbackCounts','testContentStatus']);
   for(const [action,body,query] of everything){
     const f=fixture('member');const r=await f.handler(req(action,body||undefined,query||''),context);
-    assert.equal(r.status,403,action);assert.equal(f.calls.length,0,action);
+    assert.equal(r.status,403,action);assert.deepEqual(await r.json(),{error:'forbidden',message:'Your account does not have access.'},action);
+    assert.ok(f.calls.length<=(reads.has(action)?1:0),action);assert.equal(f.signed.length,0,action);
   }
 });
 test('admins triage but only owners upload content, import or set the tester flag',async()=>{
