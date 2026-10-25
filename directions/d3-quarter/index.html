@@ -34,7 +34,7 @@
     else d.classList.add('motion');
   })();
 </script>
-<script type="importmap">{"imports":{"three":"/quori/vendor/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"/quori/vendor/three.module.js","three/addons/":"/vendor/three@0.160.0/examples/jsm/"}}</script>
 <link rel="stylesheet" href="demo.css">
 <style>
 :root {
@@ -663,6 +663,13 @@ html.motion .tour-hud { justify-content: flex-end; }
   .tix a.is-on .l { display: inline; }
   html.motion .tour-hud { top: 108px; }
 }
+/* Phones: a live blur over the redrawing WebGL canvas re-rasterises every frame while scrolling.
+   Near-solid fills read the same without the compositor cost. */
+@media (max-width: 760px), (pointer: coarse) {
+  .nav.is-scrolled, .tix { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .nav.is-scrolled { background: rgba(11, 15, 19, .94); }
+  .tix { background: rgba(11, 15, 19, .94); }
+}
 
 /* Side HUD (top-left, under the index) */
 .side-hud { position: relative; }
@@ -949,11 +956,11 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       </div>
       <div class="cards-col">
         <div class="callout c1" data-anchor="road:D0941"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard rcard" data-closeup="D0941"><div class="rc-img"><img data-src="../data/road/closeups/f0941.webp" alt="Patched section of asphalt at the kerb, outlined" width="1200" height="796"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Patching</span><b>Patch, 22.9 m²</b><span class="mono">D0941 · km 3.714 · screening</span></figcaption></figure></div>
+          <figure class="ccard rcard" data-closeup="D0941"><div class="rc-img"><img data-src="../data/road/closeups/thumbs/f0941-640.webp" alt="Patched section of asphalt at the kerb, outlined" width="1200" height="796"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Patching</span><b>Patch, 22.9 m²</b><span class="mono">D0941 · km 3.714 · screening</span></figcaption></figure></div>
         <div class="callout c2" data-anchor="road:D0991"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard rcard" data-closeup="D0991"><div class="rc-img"><img data-src="../data/road/closeups/f0991.webp" alt="Alligator cracking across a traffic lane, outlined" width="1200" height="841"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Alligator cracking</span><b>Alligator cracking, 64.4 m²</b><span class="mono">D0991 · km 3.804 · screening</span></figcaption></figure></div>
+          <figure class="ccard rcard" data-closeup="D0991"><div class="rc-img"><img data-src="../data/road/closeups/thumbs/f0991-640.webp" alt="Alligator cracking across a traffic lane, outlined" width="1200" height="841"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Alligator cracking</span><b>Alligator cracking, 64.4 m²</b><span class="mono">D0991 · km 3.804 · screening</span></figcaption></figure></div>
         <div class="callout c3" data-anchor="road:D0920"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard rcard" data-closeup="D0920"><div class="rc-img"><img data-src="../data/road/closeups/f0920.webp" alt="Block cracking along a carriageway, outlined" width="1200" height="699"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Block cracking</span><b>Block cracking, 955.8 m²</b><span class="mono">D0920 · km 3.963 · screening</span></figcaption></figure></div>
+          <figure class="ccard rcard" data-closeup="D0920"><div class="rc-img"><img data-src="../data/road/closeups/thumbs/f0920-640.webp" alt="Block cracking along a carriageway, outlined" width="1200" height="699"><svg class="poly" aria-hidden="true"><polygon pathLength="1"/></svg></div><figcaption><span class="sev sv3">High · Block cracking</span><b>Block cracking, 955.8 m²</b><span class="mono">D0920 · km 3.963 · screening</span></figcaption></figure></div>
       </div>
     </div>
 
@@ -984,11 +991,11 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       </div>
       <div class="cards-col">
         <div class="callout c1" data-anchor="tank:F02"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard"><img data-src="../data/tank/photos/F02_106_0172.jpg" alt="Patch damage on the tank roof plate" width="1280" height="960"><figcaption><span class="sev s4">Severity 4 · Patch damage</span><b>Top plate patch damage</b><span class="mono">F02 · Roof · 8.48 m</span></figcaption></figure></div>
+          <figure class="ccard"><img data-src="../data/tank/photos/thumbs/F02_106_0172-640.webp" alt="Patch damage on the tank roof plate" width="1280" height="960"><figcaption><span class="sev s4">Severity 4 · Patch damage</span><b>Top plate patch damage</b><span class="mono">F02 · Roof · 8.48 m</span></figcaption></figure></div>
         <div class="callout c2" data-anchor="tank:F09"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard"><img data-src="../data/tank/photos/F09_105_0144.jpg" alt="Coating blister on a vertical shell joint" width="1280" height="960"><figcaption><span class="sev s3">Severity 3 · Blister</span><b>Vertical joint, 3 o'clock</b><span class="mono">F09 · Shell · 4.74 m</span></figcaption></figure></div>
+          <figure class="ccard"><img data-src="../data/tank/photos/thumbs/F09_105_0144-640.webp" alt="Coating blister on a vertical shell joint" width="1280" height="960"><figcaption><span class="sev s3">Severity 3 · Blister</span><b>Vertical joint, 3 o'clock</b><span class="mono">F09 · Shell · 4.74 m</span></figcaption></figure></div>
         <div class="callout c3" data-anchor="tank:F01"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard"><img data-src="../data/tank/photos/F01_109_0256.jpg" alt="Crack in the bottom plate of the storage tank" width="1280" height="960"><figcaption><span class="sev s5">Severity 5 · Crack</span><b>Crack in bottom plate</b><span class="mono">F01 · Bottom plate · 0.04 m</span></figcaption></figure></div>
+          <figure class="ccard"><img data-src="../data/tank/photos/thumbs/F01_109_0256-640.webp" alt="Crack in the bottom plate of the storage tank" width="1280" height="960"><figcaption><span class="sev s5">Severity 5 · Crack</span><b>Crack in bottom plate</b><span class="mono">F01 · Bottom plate · 0.04 m</span></figcaption></figure></div>
       </div>
     </div>
 
@@ -1006,9 +1013,9 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       </div>
       <div class="cards-col">
         <div class="callout c1" data-anchor="flare:F04"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard"><img data-src="../data/flare/patches/F04.webp" alt="Moderate rust on the flare neck bolted connection" width="1600" height="1067"><figcaption><span class="sev s2">Moderate visible rust</span><b>Flare neck / bolted connection</b><span class="mono">F04 · Flare head · 76.7 m</span></figcaption></figure></div>
+          <figure class="ccard"><img data-src="../data/flare/patches/thumbs/F04-640.webp" alt="Moderate rust on the flare neck bolted connection" width="1600" height="1067"><figcaption><span class="sev s2">Moderate visible rust</span><b>Flare neck / bolted connection</b><span class="mono">F04 · Flare head · 76.7 m</span></figcaption></figure></div>
         <div class="callout c2" data-anchor="flare:F44"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard"><img data-src="../data/flare/patches/F44.webp" alt="Moderate rust along a stack cladding seam" width="1600" height="1067"><figcaption><span class="sev s2">Moderate visible rust</span><b>Stack cladding / seam</b><span class="mono">F44 · Stack / access · 55.3 m</span></figcaption></figure></div>
+          <figure class="ccard"><img data-src="../data/flare/patches/thumbs/F44-640.webp" alt="Moderate rust along a stack cladding seam" width="1600" height="1067"><figcaption><span class="sev s2">Moderate visible rust</span><b>Stack cladding / seam</b><span class="mono">F44 · Stack / access · 55.3 m</span></figcaption></figure></div>
       </div>
     </div>
 
@@ -1030,9 +1037,9 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
       </div>
       <div class="cards-col">
         <div class="callout c1" data-anchor="facade:D159"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard fcard" data-fphoto="p3038"><div class="rc-img"><img data-src="../data/facade/photos/p3038.jpg" alt="Roof canopy fascia with grey run-off streaks, class overlay on top" width="1600" height="1200"><img class="ov" data-src="../data/facade/photos/p3038-overlay.png" alt="" width="1600" height="1200"><svg class="boxes" aria-hidden="true"></svg></div><figcaption><span class="sev sv1">Minor · Staining or run-off</span><b>Run-off on the roof canopy fascia</b><span class="mono">D159 · North elevation · 64.7 m</span></figcaption></figure></div>
+          <figure class="ccard fcard" data-fphoto="p3038"><div class="rc-img"><img data-src="../data/facade/photos/thumbs/p3038-640.webp" alt="Roof canopy fascia with grey run-off streaks, class overlay on top" width="1600" height="1200"><img class="ov" data-src="../data/facade/photos/p3038-overlay.png" alt="" width="1600" height="1200"><svg class="boxes" aria-hidden="true"></svg></div><figcaption><span class="sev sv1">Minor · Staining or run-off</span><b>Run-off on the roof canopy fascia</b><span class="mono">D159 · North elevation · 64.7 m</span></figcaption></figure></div>
         <div class="callout c2" data-anchor="facade:D397"><span class="adot"><i></i></span><svg class="aline" aria-hidden="true"><path pathLength="1"/></svg>
-          <figure class="ccard tcard"><div class="tw" data-tw><img data-src="../data/facade/photos/p2675.jpg" alt="West wall cladding in visible light" width="1600" height="1200"><img class="tw-ir" data-src="../data/facade/photos/p2736.jpg" alt="West wall cladding in thermal, a warm spot lower right" width="640" height="512"><span class="tw-rule" aria-hidden="true"></span><button class="tw-tog mono" type="button" aria-pressed="false"><span>RGB</span><span>Thermal</span></button></div><figcaption><span class="sev sv2">Moderate · Thermal anomaly</span><b>Warm spot behind white cladding</b><span class="mono">D397 · West elevation · 36.3 m</span></figcaption></figure></div>
+          <figure class="ccard tcard"><div class="tw" data-tw><img data-src="../data/facade/photos/thumbs/p2675-640.webp" alt="West wall cladding in visible light" width="1600" height="1200"><img class="tw-ir" data-src="../data/facade/photos/p2736.jpg" alt="West wall cladding in thermal, a warm spot lower right" width="640" height="512"><span class="tw-rule" aria-hidden="true"></span><button class="tw-tog mono" type="button" aria-pressed="false"><span>RGB</span><span>Thermal</span></button></div><figcaption><span class="sev sv2">Moderate · Thermal anomaly</span><b>Warm spot behind white cladding</b><span class="mono">D397 · West elevation · 36.3 m</span></figcaption></figure></div>
       </div>
       <div class="fx-tip" role="status" aria-live="polite"></div>
     </div>
@@ -1280,7 +1287,7 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
           <div class="ch-shot"><div class="chat" id="chat">
             <div class="msg u">Which tank findings need action first?</div>
             <div class="msg a" data-type><span data-full="Two findings are severity 4 or above: F01, a crack in the bottom plate (5), and F02, patch damage on the roof plate (4). Both have photos linked."></span>
-              <div class="refs"><img data-src="../data/tank/photos/F01_109_0256.jpg" alt="F01 photo"><img data-src="../data/tank/photos/F02_106_0172.jpg" alt="F02 photo"></div></div>
+              <div class="refs"><img data-src="../data/tank/photos/thumbs/F01_109_0256-240.webp" alt="F01 photo"><img data-src="../data/tank/photos/thumbs/F02_106_0172-240.webp" alt="F02 photo"></div></div>
             <div class="msg u">Where is the road in the worst condition?</div>
             <div class="msg a" data-type><span data-full="Km 3.50 to 3.75, with a PCI of 75.7 under the medium assumption. The whole 7.55 km scores 87.6, and 29 of the 2,115 mapped defects are high severity."></span></div>
             <div class="chat-foot"><span>Provider: <b>your choice</b></span><span>Cloud AI: <b>off by default</b></span></div>
@@ -1381,9 +1388,9 @@ html.motion [data-reveal] { opacity: 0; visibility: hidden; }
   </div>
 </dialog>
 
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script defer src="/vendor/gsap@3.12.5/gsap.min.js"></script>
+<script defer src="/vendor/gsap@3.12.5/ScrollTrigger.min.js"></script>
+<script defer src="/vendor/lenis@1.1.13/lenis.min.js"></script>
 <script defer src="d3-story.js"></script>
 <script type="module" src="tour-ui.mjs"></script>
 <script type="module" src="scene-entry.js"></script>

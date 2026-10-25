@@ -11,3 +11,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Build output: gzip siblings of the 3D data (scripts/compress-data.mjs)
+directions/data/**/*.gz
