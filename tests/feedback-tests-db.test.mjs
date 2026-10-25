@@ -53,15 +53,59 @@ test('testers never receive tester names',()=>withDb(async db=>{
   assert.equal(text.includes('tester-1'),false);
 }));
 
-test('a member without the flag and an admin without it get forbidden from tester RPCs',()=>withDb(async db=>{
+test('a member without the flag gets forbidden from tester RPCs',()=>withDb(async db=>{
   await upload(db);
-  for(const actor of [ids.t1,ids.admin,ids.owner]){
+  for(const actor of [ids.t1,ids.t2,ids.t3]){
     await assert.rejects(rpc(db,'portal_tests_content',[actor]),/portal:forbidden/);
     await assert.rejects(rpc(db,'portal_tests_answers',[actor]),/portal:forbidden/);
     await assert.rejects(answer(db,actor,lineA,'pass'),/portal:forbidden/);
+    await assert.rejects(rpc(db,'portal_feedback_mine',[actor]),/portal:forbidden/);
+    await assert.rejects(rpc(db,'portal_feedback_counts',[actor]),/portal:forbidden/);
+    await assert.rejects(rpc(db,'portal_feedback_create',[actor,{kind:'bug',title:'Blank map',body:'',lineId:null,build:'',screen:null}]),/portal:forbidden/);
   }
+  assert.equal((await one(db,'select count(*)::int as n from public.test_answers')).n,0);
+  assert.equal((await one(db,'select count(*)::int as n from public.feedback_items')).n,0);
   await db.query("update public.portal_members set status='suspended' where user_id=$1",[ids.testerB]);
   await assert.rejects(rpc(db,'portal_tests_content',[ids.testerB]),/portal:forbidden/);
+}));
+
+test('an active owner or admin is a tester without the flag; an inactive one is not',()=>withDb(async db=>{
+  await upload(db);
+  const team=[ids.owner,ids.admin];
+  assert.deepEqual((await db.query('select tester from public.portal_members where user_id = any($1)',[team])).rows,[{tester:false},{tester:false}]);
+  const before=await rpc(db,'portal_tests_progress',[ids.owner,'aal2']);
+  assert.deepEqual(before.testers.map(t=>t.userId).sort(),[ids.testerA,ids.testerB].sort(),'team members who have not answered are not listed');
+  for(const actor of team){
+    assert.equal((await rpc(db,'portal_tests_content',[actor])).version,1);
+    await answer(db,actor,lineA,'pass');
+    const failed=await answer(db,actor,lineB,'fail','Second map line breaks');
+    assert.ok(failed.itemId);
+    assert.deepEqual((await rpc(db,'portal_tests_answers',[actor])).map(a=>[a.lineId,a.status]).sort(),[[lineA,'pass'],[lineB,'fail']].sort());
+    const mine=(await rpc(db,'portal_feedback_mine',[actor])).items;
+    assert.deepEqual(mine.map(i=>i.id),[failed.itemId]);
+    assert.equal((await rpc(db,'portal_feedback_counts',[actor])).waiting,0);
+    await db.query("update public.feedback_items set status='fixed',fixed_in='0.25.2' where id=$1",[failed.itemId]);
+    const counts=await rpc(db,'portal_feedback_counts',[actor]);
+    assert.equal(counts.waiting,1);assert.equal(typeof counts.inbox,'number');
+  }
+  const after=await rpc(db,'portal_tests_progress',[ids.owner,'aal2']);
+  assert.deepEqual(after.testers.map(t=>t.userId).sort(),[ids.testerA,ids.testerB,...team].sort());
+  const ownerRow=after.testers.find(t=>t.userId===ids.owner);
+  assert.equal(ownerRow.stages.find(s=>s.stageId==='stage-a').answered,2);
+  // The owner can import answers for a team member too.
+  assert.equal((await rpc(db,'portal_tests_import',[ids.owner,'aal2',ids.admin,{[lineC]:{s:'pass',c:'',t:'2020-10-01T10:00:00.000Z'}}])).imported,1);
+  // Not active: every tester RPC refuses, the import refuses the target and progress drops the row.
+  for(const status of ['suspended','revoked']){
+    await db.query('update public.portal_members set status=$2 where user_id=$1',[ids.admin,status]);
+    await assert.rejects(rpc(db,'portal_tests_content',[ids.admin]),/portal:forbidden/,status);
+    await assert.rejects(rpc(db,'portal_tests_answers',[ids.admin]),/portal:forbidden/,status);
+    await assert.rejects(answer(db,ids.admin,lineC,'skip'),/portal:forbidden/,status);
+    await assert.rejects(rpc(db,'portal_feedback_mine',[ids.admin]),/portal:forbidden/,status);
+    await assert.rejects(rpc(db,'portal_feedback_counts',[ids.admin]),/portal:forbidden/,status);
+    await assert.rejects(rpc(db,'portal_tests_import',[ids.owner,'aal2',ids.admin,{[lineC]:{s:'skip',c:'',t:'2021-10-01T10:00:00.000Z'}}]),/portal:invalid/,status);
+    const progress=await rpc(db,'portal_tests_progress',[ids.owner,'aal2']);
+    assert.equal(progress.testers.some(t=>t.userId===ids.admin),false,status);
+  }
 }));
 
 test('a tester reads only their own answers',()=>withDb(async db=>{

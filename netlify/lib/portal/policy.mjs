@@ -6,7 +6,8 @@ export function activeMember(member, now) {
       : ['admin','owner'].includes(member.role) && member.tier === null);
 }
 export function isTester(member, now) {
-  return activeMember(member,now) && member.tester === true;
+  // Owners and admins always have tester access; members need the tester flag (migration 202610250006).
+  return activeMember(member,now) && (member.tester === true || ['admin','owner'].includes(member.role));
 }
 export function canAdminister({ member, aal, now }) {
   return activeMember(member,now) && ['admin','owner'].includes(member.role) && ['aal1','aal2'].includes(aal);

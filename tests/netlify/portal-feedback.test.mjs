@@ -42,7 +42,7 @@ test('a logged-out request gets 401 and no data',async()=>{
 
 test('a member without the tester flag gets 403 before any write RPC and no read result',async()=>{
   const reads=new Set(['portal_tests_content','portal_feedback_mine','portal_feedback_counts','portal_feedback_item']);
-  for(const opts of [{tester:false},{tester:false,role:'owner',tier:null},{tester:null}]){
+  for(const opts of [{tester:false},{tester:null}]){
     const f=fixture(opts);
     for(const [action,body,query] of [['content'],['mine'],['counts'],['item',undefined,'&id='+itemId],['answer',{lineId,status:'pass',comment:'',build:'0.25.2'}],['create',{kind:'bug',title:'Blank map'}],['attachmentStatus',{id:itemId}]]){
       const r=await f.handler(req(action,body,{query}),production);
@@ -52,6 +52,17 @@ test('a member without the tester flag gets 403 before any write RPC and no read
   }
   const f=fixture();f.backend.account=async()=>({user_id:userId,role:'member',tier:2,status:'disabled',expires_at:null,tester:true});
   assert.equal(await status(f,'content'),403);assert.deepEqual(f.rpcs().filter(c=>!reads.has(c.name)),[]);
+});
+
+test('an active owner or admin passes the tester check without the flag; a suspended one does not',async()=>{
+  for(const role of ['owner','admin']){
+    const f=fixture({tester:false,role,tier:null});
+    for(const action of ['content','answers','mine','counts'])assert.equal(await status(f,action),200,role+' '+action);
+    assert.equal(await status(f,'answer',{lineId,status:'pass',comment:'',build:'0.25.2'}),200,role+' answer');
+    const s=fixture({tester:false,role,tier:null});s.backend.account=async()=>({user_id:userId,role,tier:null,status:'suspended',expires_at:null,tester:false});
+    assert.equal(await status(s,'content'),403,role+' suspended');assert.equal(await status(s,'answer',{lineId,status:'pass',comment:'',build:'0.25.2'}),403);
+    assert.deepEqual(s.rpcs().filter(c=>c.name==='portal_tests_answer'),[]);
+  }
 });
 
 test('reads map to the tester RPCs with the token actor',async()=>{
