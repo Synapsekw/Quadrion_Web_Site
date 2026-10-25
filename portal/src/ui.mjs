@@ -21,6 +21,12 @@ export function heading(eyebrow,title,description){return el('header',{class:'pa
 export function empty(title,text,action){return el('section',{class:'empty'},el('span',{class:'empty-symbol','aria-hidden':'true'},'◇'),el('h2',{},title),el('p',{},text),action);}
 export function bytes(value){const n=Number(value);if(!Number.isFinite(n))return '—';if(n>=1000**3)return (n/1000**3).toFixed(1)+' GB';return (n/1000**2).toFixed(1)+' MB';}
 export function date(value){return value?new Intl.DateTimeFormat('en',{dateStyle:'medium'}).format(new Date(value)):'—';}
-export async function runButton(target,fn){target.disabled=true;try{await fn();}finally{target.disabled=false;}}
+// Marks a button busy: disabled, aria-busy, and an optional label such as "Saving…". The returned function restores it.
+export function busy(target,label){
+  const kids=[...target.childNodes];target.disabled=true;target.setAttribute('aria-busy','true');if(label)target.textContent=label;
+  let restored=false;
+  return ()=>{if(restored)return;restored=true;target.disabled=false;target.removeAttribute('aria-busy');if(label)target.replaceChildren(...kids);};
+}
+export async function runButton(target,fn,label){const done=busy(target,label);try{await fn();}finally{done();}}
 // A placeholder for the content area while its first data loads; screen readers hear one "Loading" status.
 export function skeleton(rows=4){return el('div',{class:'skeleton',role:'status'},el('span',{class:'sr-only'},'Loading…'),el('span',{class:'sk sk-eyebrow','aria-hidden':'true'}),el('span',{class:'sk sk-title','aria-hidden':'true'}),Array.from({length:rows},()=>el('span',{class:'sk sk-line','aria-hidden':'true'})));}

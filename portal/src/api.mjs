@@ -4,11 +4,16 @@ for(const action of ['createUser','creationRecovery','creations'])adminActions.a
 const feedbackActions=new Set(['content','answers','mine','item','counts','answer','create','act','attachmentBegin','attachmentResume','attachmentFinalize','attachmentStatus','attachmentAbandon','attachmentUrl']);
 for(const action of ['feedbackInbox','feedbackItem','feedbackProgress','feedbackExport','feedbackCounts','testContentStatus','feedbackAction','feedbackBulkFix','feedbackAttachmentUrl','testContentUpload','testImport','memberTester'])adminActions.add(action);
 const scopes={member:['/api/portal',memberActions],admin:['/api/portal-admin',adminActions],feedback:['/api/portal-feedback',feedbackActions]};
-export function createPortalApi({fetcher=fetch,getToken,onDenied=()=>{},admin=false,scope=admin?'admin':'member'}){
+// track(): called as each request starts, returns the function to call when it ends (drives the top progress bar).
+export function createPortalApi({fetcher=fetch,getToken,onDenied=()=>{},admin=false,scope=admin?'admin':'member',track=()=>()=>{}}){
   if(!Object.hasOwn(scopes,scope))throw new Error('Unknown portal scope');
   const [endpoint,actions]=scopes[scope];
   async function call(action,params,method){
     if(!actions.has(action))throw new Error('Unknown portal action');
+    const done=track();
+    try{return await send(action,params,method);}finally{done();}
+  }
+  async function send(action,params,method){
     const token=await getToken();
     const url=new URLSearchParams({action,...(method==='GET'?params:{})});
     let response;

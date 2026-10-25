@@ -5,6 +5,7 @@ import {createPortalApi} from './api.mjs';
 import {el,button,link,field,heading,empty,notice,bytes,date,runButton,skeleton} from './ui.mjs';
 import {renderTests,renderReport} from './tests.mjs';
 import {createCache,sessionSeed} from './cache.mjs';
+import {progressBar} from './progress.mjs';
 const root=document.querySelector('#app');let auth,api,feedbackApi,member,content,mounted,sequence=0,countBadge,shellKey='',navLinks=[],meCache,countCache,releaseCache;
 function navigate(path){history.pushState(null,'',path);render();}
 document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/portal/')&&!e.ctrlKey&&!e.metaKey){if(a.hash&&a.pathname===location.pathname&&a.search===location.search)return;e.preventDefault();navigate(a.pathname+a.search+a.hash);}});
@@ -14,7 +15,7 @@ function refreshCount(force=false){if(!member?.tester||!countCache)return;(force
 window.addEventListener('quadrion:feedback-changed',()=>refreshCount(true));
 window.addEventListener('popstate',()=>render());
 function clear(){sequence++;member=null;shellKey='';meCache?.clear();content?.replaceChildren(notice('Your workspace access needs to be checked. Reload to continue.','error'),button('Reload workspace',render,true),button('Sign out',()=>auth.signOut(),true));mount();}
-async function download(file,event){await runButton(event.currentTarget,async()=>{try{const result=await api.post('download',{artifactId:file.artifact_id||file.id});const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='oxjrkodcmflxejdwsuac.supabase.co')throw new Error('The download link could not be verified.');const a=el('a',{href:url.href,download:result.filename,rel:'noreferrer'});document.body.append(a);a.click();a.remove();}catch(error){content.prepend(notice(error.message,'error'));}});}
+async function download(file,event){const target=event.currentTarget;await runButton(target,async()=>{try{const result=await api.post('download',{artifactId:file.artifact_id||file.id});const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='oxjrkodcmflxejdwsuac.supabase.co')throw new Error('The download link could not be verified.');const a=el('a',{href:url.href,download:result.filename,rel:'noreferrer'});document.body.append(a);a.click();a.remove();}catch(error){content.prepend(notice(error.message,'error'));}},'Preparing…');}
 // The shell is drawn once per member and kept; navigation swaps only the <main> and moves the highlight at once.
 const navPath=()=>location.pathname.startsWith('/portal/report')?'/portal/tests/':location.pathname;
 function markNav(){const path=navPath();for(const a of navLinks){const href=a.getAttribute('href'),on=path===href||(href!=='/portal/'&&path.startsWith(href));a.classList.toggle('active',on);if(path===href)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}}
@@ -75,7 +76,7 @@ async function project(ticket,id){
 }
 async function account(){
   const name=field('Display name','display-name',{value:member.displayName,maxLength:120,autocomplete:'name'}),company=field('Company','company',{value:member.company,maxLength:160,autocomplete:'organization'}),feedback=el('div',{'aria-live':'polite'});
-  content.append(heading('SETTINGS','Your account','Manage your profile and sign-in security.'),el('section',{class:'account-section'},el('div',{},el('h2',{},'Profile'),el('p',{class:'muted'},'Your access tier is managed by your administrator.')),el('form',{onsubmit:async e=>{e.preventDefault();const submit=e.target.querySelector('button');await runButton(submit,async()=>{try{const result=await api.post('profile',{displayName:name.input.value,company:company.input.value});member=result.member;meCache.set({...meCache.peek(),member:result.member});feedback.replaceChildren(notice('Profile saved.'));}catch(error){feedback.replaceChildren(notice(error.message,'error'));}});}},name.node,company.node,el('button',{type:'submit',class:'primary'},'Save profile'),feedback)),el('section',{class:'account-section'},el('div',{},el('h2',{},'Security'),el('p',{class:'muted'},'Sign in with your email and password. You can change your password here.')),el('div',{class:'security-actions'},button('Change password',()=>{sessionStorage.setItem('quadrion-password-setup','true');auth.showPassword();},true))),el('section',{class:'account-section'},el('h2',{},'Need different access?'),el('p',{},'Contact ',link('info@synapse-solutions.ai','mailto:info@synapse-solutions.ai'),' to discuss your tier or project assignments.')));
+  content.append(heading('SETTINGS','Your account','Manage your profile and sign-in security.'),el('section',{class:'account-section'},el('div',{},el('h2',{},'Profile'),el('p',{class:'muted'},'Your access tier is managed by your administrator.')),el('form',{onsubmit:async e=>{e.preventDefault();const submit=e.target.querySelector('button');await runButton(submit,async()=>{try{const result=await api.post('profile',{displayName:name.input.value,company:company.input.value});member=result.member;meCache.set({...meCache.peek(),member:result.member});feedback.replaceChildren(notice('Profile saved.'));}catch(error){feedback.replaceChildren(notice(error.message,'error'));}},'Saving…');}},name.node,company.node,el('button',{type:'submit',class:'primary'},'Save profile'),feedback)),el('section',{class:'account-section'},el('div',{},el('h2',{},'Security'),el('p',{class:'muted'},'Sign in with your email and password. You can change your password here.')),el('div',{class:'security-actions'},button('Change password',()=>{sessionStorage.setItem('quadrion-password-setup','true');auth.showPassword();},true))),el('section',{class:'account-section'},el('h2',{},'Need different access?'),el('p',{},'Contact ',link('info@synapse-solutions.ai','mailto:info@synapse-solutions.ai'),' to discuss your tier or project assignments.')));
 }
 async function render(){
   const ticket=++sequence;markNav();
@@ -107,11 +108,13 @@ async function render(){
 // Background refreshes: when the tab comes back, and the Tests badge every minute while the tab is in view.
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&member){meCache.revalidate();refreshCount(true);}});
 setInterval(()=>{if(member&&document.visibilityState!=='hidden')refreshCount(true);},60000)?.unref?.();
-try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
+// Page requests drive the top progress bar; the background refreshes (me, the badge) stay silent.
+try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,track:bar.track});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,track:bar.track,onDenied:status=>{if(status===401||status===403)clear();}});
   // me is read through an API that clears the page only for a lost session, so a background refresh that hits a network blip leaves the page alone.
   const meApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
   meCache=createCache(()=>meApi.get('me'),{seed:sessionSeed('quadrion-me'),onChange:me=>{const m=me.member;if(member&&[m.role,m.tier,m.tester,m.displayName].join('|')!==shellKey)render();}});
-  countCache=createCache(()=>feedbackApi.get('counts').then(c=>Number(c.waiting)||0),{onChange:showCount});
+  const badgeApi=createPortalApi({scope:'feedback',getToken:auth.getToken});
+  countCache=createCache(()=>badgeApi.get('counts').then(c=>Number(c.waiting)||0),{onChange:showCount});
   releaseCache=createCache(()=>api.get('releases'),{maxAge:300000});
   await render();}
 catch(error){root.replaceChildren(el('div',{class:'unavailable'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:180}),'/d3-quarter/'),heading('CLIENT PORTAL','Your workspace is on its way.',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

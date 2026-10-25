@@ -5,6 +5,8 @@ class FakeNode{
   constructor(tag,text){this.tagName=tag;this.children=[];this.attributes={};this.listeners={};this.className='';this.text=text;this.style={};}
   replaceChildren(...nodes){this.children=nodes;}
   setAttribute(k,v){this.attributes[k]=v;}
+  removeAttribute(k){delete this.attributes[k];}
+  get childNodes(){return this.children;}
   getAttribute(k){return this.attributes[k]??null;}
   addEventListener(type,fn){this.listeners[type]=fn;}
   append(...nodes){this.children.push(...nodes);}

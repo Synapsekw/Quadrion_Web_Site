@@ -5,9 +5,10 @@ import {createPortalAuth} from './auth.mjs';
 import {createPortalApi} from './api.mjs';
 import {uploadControl} from './upload.mjs';
 import {submitMutation} from './mutations.mjs';
-import {el,button,link,field,heading,empty,notice,bytes,date,skeleton} from './ui.mjs';
+import {el,button,link,field,heading,empty,notice,bytes,date,skeleton,busy} from './ui.mjs';
 import {renderInbox,renderProgress,renderContent,testerSection} from './feedback-admin.mjs';
 import {createCache,sessionSeed} from './cache.mjs';
+import {progressBar} from './progress.mjs';
 const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,mounted,sequence=0,limits,feedbackInbox=0,shellKey='',navLinks=[],badge,meCache,countsCache;
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
 function select(label,name,options,value){const input=el('select',{id:name,name},options.map(([v,text])=>el('option',{value:v,selected:String(v)===String(value)},text)));return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
@@ -18,7 +19,7 @@ document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.orig
 function dialog(title,description,body){const d=el('dialog',{class:'editor-dialog'},el('header',{class:'dialog-header'},el('div',{},el('h2',{},title),el('p',{class:'muted'},description)),button('Close',()=>d.close(),true)),body);d.addEventListener('close',()=>{window.dispatchEvent(new Event('quadrion:uploads-pause'));d.remove();});document.body.append(d);d.showModal();return d;}
 function saveForm(fields,action,payload,label='Save changes',confirmation){
   const feedback=el('div',{'aria-live':'polite'}),review=el('div'),save=el('button',{type:'submit',class:'primary'},label);let reviewed=false;
-  const form=el('form',{onsubmit:async e=>{e.preventDefault();if(confirmation&&!reviewed){review.replaceChildren(notice(confirmation(payload())));save.textContent='Confirm '+label.toLowerCase();reviewed=true;return;}save.disabled=true;await submitMutation({send:()=>api.post(action,payload()),refresh:async()=>{form.closest('dialog')?.close();await changed();},showError:message=>feedback.replaceChildren(notice(message,'error')),clear});save.disabled=false;}},...fields,review,el('div',{class:'actions'},save),feedback);
+  const form=el('form',{onsubmit:async e=>{e.preventDefault();if(confirmation&&!reviewed){review.replaceChildren(notice(confirmation(payload())));save.textContent='Confirm '+label.toLowerCase();reviewed=true;return;}const done=busy(save,'Saving…');await submitMutation({send:()=>api.post(action,payload()),refresh:async()=>{form.closest('dialog')?.close();await changed();},showError:message=>feedback.replaceChildren(notice(message,'error')),clear});done();}},...fields,review,el('div',{class:'actions'},save),feedback);
   form.addEventListener('input',()=>{reviewed=false;review.replaceChildren();save.textContent=label;});return form;
 }
 function confirmAction(title,description,action,payload){dialog(title,description,saveForm([],action,()=>payload,title));}
@@ -55,7 +56,7 @@ function invite(){
   const email=field('Email address','invite-email',{type:'email',required:true}),role=select('Role','invite-role',member.role==='owner'?[['member','Member'],['admin','Administrator']]:[['member','Member']],'member'),tier=select('Access tier','invite-tier',[[1,'T1 · Software and pipelines'],[2,'T2 · Basic projects'],[3,'T3 · All project categories']],1),expiry=field('Access expiry (optional)','invite-expiry',{type:'date'});let id=crypto.randomUUID();
   role.input.addEventListener('change',()=>{tier.node.hidden=role.input.value!=='member';});
   const feedback=el('div',{'aria-live':'polite'}),send=el('button',{type:'submit',class:'primary'},'Send invitation');
-  const form=el('form',{onsubmit:async e=>{e.preventDefault();send.disabled=true;try{const result=await api.post('invite',{email:email.input.value,role:role.input.value,tier:role.input.value==='member'?Number(tier.input.value):null,expiresAt:expiry.input.value?new Date(expiry.input.value+'T23:59:59').toISOString():null,idempotencyKey:id});feedback.replaceChildren(notice(result.status==='sent'?'Invitation submitted. Email delivery is tracked separately.':result.status==='failed'||result.status==='cancelled'?'Invitation did not complete. Close this form and retry from Recent invitations after the ten-minute recipient cooldown.':'Dispatch is uncertain. Use this same form to check again without sending another email.'));if(result.status==='sent')send.disabled=true;else send.textContent='Check invitation';}catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{if(send.textContent==='Check invitation'||feedback.querySelector('.error'))send.disabled=false;}}},email.node,role.node,tier.node,expiry.node,notice('Only invite recipients you intend to grant access to. Private assignments never override their tier.'),send,feedback);
+  const form=el('form',{onsubmit:async e=>{e.preventDefault();const label=send.textContent;send.disabled=true;send.setAttribute('aria-busy','true');send.textContent='Sending…';try{const result=await api.post('invite',{email:email.input.value,role:role.input.value,tier:role.input.value==='member'?Number(tier.input.value):null,expiresAt:expiry.input.value?new Date(expiry.input.value+'T23:59:59').toISOString():null,idempotencyKey:id});feedback.replaceChildren(notice(result.status==='sent'?'Invitation submitted. Email delivery is tracked separately.':result.status==='failed'||result.status==='cancelled'?'Invitation did not complete. Close this form and retry from Recent invitations after the ten-minute recipient cooldown.':'Dispatch is uncertain. Use this same form to check again without sending another email.'));if(result.status==='sent')send.disabled=true;else send.textContent='Check invitation';}catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{send.removeAttribute('aria-busy');if(send.textContent==='Sending…')send.textContent=label;if(send.textContent==='Check invitation'||feedback.querySelector('.error'))send.disabled=false;}}},email.node,role.node,tier.node,expiry.node,notice('Only invite recipients you intend to grant access to. Private assignments never override their tier.'),send,feedback);
   form.addEventListener('input',()=>{id=crypto.randomUUID();send.textContent='Send invitation';send.disabled=false;});dialog('Invite a user','Send a secure account setup link from Quadrion.',form);
 }
 function createUser(){
@@ -64,13 +65,13 @@ function createUser(){
   const reveal=button('Show password',()=>{password.input.type=password.input.type==='password'?'text':'password';reveal.textContent=password.input.type==='password'?'Show password':'Hide password';},true);
   const feedback=el('div',{'aria-live':'polite'}),save=el('button',{type:'submit',class:'primary'},'Create active user');
   const form=el('form',{autocomplete:'off',onsubmit:async e=>{
-    e.preventDefault();save.disabled=true;
+    e.preventDefault();const done=busy(save,'Creating…');
     const payload={email:email.input.value,password:password.input.value,tier:Number(tier.input.value),expiresAt:expiry.input.value?new Date(expiry.input.value+'T23:59:59').toISOString():null,idempotencyKey:id};
     password.input.value='';password.input.type='password';reveal.textContent='Show password';
     try{
       const result=await api.post('createUser',payload);d.close();await render();
       content.prepend(notice(result.status==='created'?'Account ready. Share the email, password you chose and quadrion.ai/portal/ directly. No invitation or confirmation email was sent.':result.status==='failed'?'Account creation was rejected. Check the email and password requirements, then create the user again.':'The result is not confirmed yet. Use Check account in Recent manual accounts; do not send another creation request.'));
-    }catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{payload.password='';save.disabled=false;}
+    }catch(error){feedback.replaceChildren(notice(error.message,'error'));}finally{payload.password='';done();}
   }},email.node,password.node,reveal,tier.node,expiry.node,notice('This member can sign in immediately. No invitation or confirmation email will be sent. Private projects still require the matching tier and assignment.'),save,feedback);
   form.addEventListener('input',()=>{id=crypto.randomUUID();});
   const d=dialog('Create a user','Owner access · Set the password and share the login directly.',form);
@@ -160,7 +161,8 @@ async function render(){const ticket=++sequence;markNav();try{
 function revalidate(){if(!member)return;meCache.revalidate();countsCache.revalidate();}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')revalidate();});
 setInterval(()=>{if(member&&document.visibilityState!=='hidden')countsCache.revalidate();},60000)?.unref?.();
-try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
+// Page requests drive the top progress bar; the background refreshes (me, the badge) stay silent.
+try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true,track:bar.track});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
   meCache=createCache(()=>memberApi.get('me'),{seed:sessionSeed('quadrion-me'),onChange:me=>{const m=me.member;if(member&&(m.role!==member.role||m.displayName!==member.displayName))render();}});
   // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
   countsCache=createCache(()=>badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0),{onChange:n=>{feedbackInbox=n;updateBadge();}});

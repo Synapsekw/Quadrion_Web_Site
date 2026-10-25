@@ -1,5 +1,5 @@
 import {Upload} from 'tus-js-client';
-import {el,button,link,field,heading,empty,notice} from './ui.mjs';
+import {el,button,link,field,heading,empty,notice,busy} from './ui.mjs';
 import {statusBadge,buildLabel,prefillFromQuery,buildSuggestions,attachmentKind,threadView} from './feedback-ui.mjs';
 // Tester pages: Waiting for you, My tests, My reports, Request a feature, and the report form the app opens.
 // Every tester-written or server-sent text goes in as text; only the test content's allowlisted HTML is rebuilt by richText().
@@ -327,14 +327,14 @@ export async function renderTests(ctx){
     const form=el('form',{class:compact?'inline-form feature-inline':'feature-form',onpaste:e=>picker.onPaste(e),onsubmit:async e=>{
       e.preventDefault();feedback.replaceChildren();
       if(!title.input.value.trim()){feedback.replaceChildren(notice('Give the request a short title.','error'));title.input.focus();return;}
-      submit.disabled=true;
+      const done=busy(submit,'Sending…');
       try{
         const version=currentBuild(),item=await api.post('create',{kind:'feature',title:title.input.value.trim(),body:body.input.value.trim(),...(lineId?{lineId}:{}),build:validBuild(version)?version:''});
         const upload=el('p',{class:'muted'});feedback.replaceChildren(upload);
         if(picker.files.length)await uploadAll(api,item.id,[...picker.files],upload);
         feedback.prepend(notice('Thanks. Feature request #'+item.number+' is in.'));title.input.value='';body.input.value='';picker.clear();await refresh();
       }catch(error){feedback.replaceChildren(error.status===409?answerProblem({message:RETIRED_MESSAGE,conflict:true},reload):notice(error.message,'error'));}
-      finally{submit.disabled=false;}
+      finally{done();}
     }},compact?el('p',{class:'eyebrow'},'REQUEST A FEATURE ABOUT THIS LINE'):null,title.node,body.node,picker.node,el('div',{class:'actions'},submit,compact?button('Close',()=>{form.hidden=true;},true):null),feedback);
     return form;
   }
@@ -396,7 +396,7 @@ export async function renderReport(ctx){
     const version=build.input.value.trim(),where=screen.input.value.trim(),body=what.input.value.trim()+(steps.input.value.trim()?'\n\nSteps to reproduce:\n'+steps.input.value.trim():'');
     const problem=!title.input.value.trim()?[title,'Give the report a short title.']:!what.input.value.trim()?[what,'Say what happened.']:!validBuild(version)?[build,'Enter the build like 0.26.0, as shown in Help > About.']:where&&!SCREEN.test(where)?[screen,'Use letters, numbers, colons, dashes or underscores for the screen.']:body.length>16000?[what,'Keep the description under 16,000 characters.']:null;
     if(problem){feedback.replaceChildren(notice(problem[1],'error'));problem[0].input.focus();return;}
-    submit.disabled=true;
+    const done=busy(submit,'Sending…');
     try{
       const item=await api.post('create',{kind:'bug',title:title.input.value.trim(),body,build:version,...(where?{screen:where}:{})});
       keepBuild(version);changed();
@@ -405,7 +405,7 @@ export async function renderReport(ctx){
       const done=el('section',{class:'report-done',tabindex:'-1'},el('span',{class:'eyebrow'},'REPORT SENT'),el('h2',{},'Thanks. Report #'+item.number+' is in.'),el('p',{class:'muted'},ok?'You will see replies and fixes under My reports on your Tests page.':'The report is in, but an attachment did not make it. Add it from the report thread.'),upload,
         el('div',{class:'actions'},link('Go to my reports','/portal/tests/#reports','button-link'),button('Report another problem',()=>redraw(content,()=>renderReport(ctx)),true)));
       form.replaceWith(done);done.focus();
-    }catch(error){feedback.replaceChildren(notice(error.message,'error'));submit.disabled=false;}
+    }catch(error){feedback.replaceChildren(notice(error.message,'error'));done();}
   }},el('div',{class:'form-pair'},build.node,screen.node),title.node,what.node,steps.node,picker.node,el('div',{class:'actions'},submit),feedback);
   content.append(form);
 }

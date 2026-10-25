@@ -34,11 +34,11 @@ test('a failing feedback count leaves the admin page standing with no badge',asy
   const replies={me:[200,{member:{role:'owner',displayName:'Owner'}}],overview:[200,{limits:{}}],feedbackCounts:[503,{error:'unavailable',message:'Down'}]};
   const fetcher=async url=>{const action=new URL(url,'https://x.test').searchParams.get('action');calls.push(action);const [status,body]=replies[action];return {ok:status<400,status,json:async()=>body};};
   const auth={getToken:async()=>'token',needsPassword:()=>false,signOut:async()=>{}};
-  const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection','createCache','sessionSeed','skeleton'];
+  const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection','createCache','sessionSeed','skeleton','busy','progressBar'];
   const run=compileFunction('return (async()=>{'+source+'\n})();',params);
   await run(document,window,{pathname:'/admin/nowhere/',search:'',origin:'https://x.test',replace(){}},{pushState(){}},async()=>auth,
     options=>createPortalApi({...options,fetcher}),node,label=>node('button',{},label),(label,href)=>node('a',{href},label),()=>({}),(...t)=>node('h1',{},...t),
-    title=>node('section',{},title),message=>node('p',{},message),()=>'',()=>'',()=>({}),async()=>{},async()=>{},async()=>{},async()=>{},()=>null,createCache,sessionSeed,()=>node('div',{},'Loading'));
+    title=>node('section',{},title),message=>node('p',{},message),()=>'',()=>'',()=>({}),async()=>{},async()=>{},async()=>{},async()=>{},()=>null,createCache,sessionSeed,()=>node('div',{},'Loading'),()=>()=>{},()=>({track:()=>()=>{}}));
   await new Promise(resolve=>setTimeout(resolve,10));
   assert.ok(calls.includes('feedbackCounts'));
   assert.equal(events.includes('quadrion:signout'),false);
