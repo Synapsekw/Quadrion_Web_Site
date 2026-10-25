@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {copyForAi,bulkFix,testerToggle,filterFromSearch} from '../portal/src/feedback-admin.mjs';
+import {copyForAi,bulkFix,testerToggle,filterFromSearch,showAfterRender} from '../portal/src/feedback-admin.mjs';
 
 test('Copy for AI copies the export text for the current filter',async()=>{
   const calls=[],copied=[];
@@ -36,4 +36,11 @@ test('the tester checkbox shows for owners only',()=>{
   assert.equal(toggle.checked,true);
   assert.deepEqual(toggle.payload(false),{userId:user.user_id,revision:4,tester:false});
   assert.equal(testerToggle('owner',{...user,tester:undefined}).checked,false);
+});
+test('a notice after render lands in the new content node, not the old one',async()=>{
+  const oldMain={prepended:[],prepend(n){this.prepended.push(n);}},newMain={prepended:[],prepend(n){this.prepended.push(n);}};
+  const ctx={content:oldMain,async render(){this.content=newMain;}};
+  await showAfterRender(ctx,()=>'Marked 2 items fixed');
+  assert.deepEqual(oldMain.prepended,[]);
+  assert.deepEqual(newMain.prepended,['Marked 2 items fixed']);
 });

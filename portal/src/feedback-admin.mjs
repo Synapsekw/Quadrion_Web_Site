@@ -11,6 +11,10 @@ export function filterFromSearch(search){
   for(const key of FILTER_KEYS){const value=(query.get(key)||'').trim();if(value)out[key]=value;}
   return out;
 }
+// render() builds a new <main>, so a notice for the owner goes into ctx.content as it is after the render.
+export async function showAfterRender(ctx,build){await ctx.render();ctx.content.prepend(build());}
+// A button that stays disabled while its request runs, so a double click sends one request.
+const busyButton=(label,run)=>{const node=button(label,async()=>{node.disabled=true;try{await run();}finally{node.disabled=false;}},true);return node;};
 export async function copyForAi({api,search,clipboard}){
   const result=await api.get('feedbackExport',filterFromSearch(search));
   try{await clipboard.writeText(result.text);}catch{throw new Error('Copy was blocked by the browser. Allow clipboard access for this page and try again.');}
@@ -86,10 +90,10 @@ function actions(ctx,detail,repaint,showError){
     form([el('div',{class:'field'},el('label',{for:'fb-comment'},'Comment'),comment)],'Comment',async()=>{await act('comment',{body:comment.value});}),
     open?form([fixBuild.node],'Mark fixed in build',()=>act('fix',{build:fixBuild.input.value.trim()})):null,
     el('div',{class:'actions'},
-      item.status==='new'?button('Move to the queue',()=>act('triage'),true):null,
-      open?button('Park',()=>act('park',reason.input.value.trim()?{reason:reason.input.value.trim()}:{}),true):null,
-      open?button('Decline',()=>{if(!reason.input.value.trim()){showError('Give a reason to decline this item.');return;}return act('decline',{reason:reason.input.value.trim()});},true):null,
-      closed?button('Restore',()=>act('restore'),true):null),
+      item.status==='new'?busyButton('Move to the queue',()=>act('triage')):null,
+      open?busyButton('Park',()=>act('park',reason.input.value.trim()?{reason:reason.input.value.trim()}:{})):null,
+      open?busyButton('Decline',()=>{if(!reason.input.value.trim()){showError('Give a reason to decline this item.');return;}return act('decline',{reason:reason.input.value.trim()});}):null,
+      closed?busyButton('Restore',()=>act('restore')):null),
     open?reason.node:null,
     open?mergeBox:null);
 }
@@ -123,7 +127,7 @@ async function openItem(ctx,summary){
   dlg.addEventListener('close',()=>{if(changed)ctx.render();});
   try{
     const detail=await paint();changed=false;
-    // Opening an item marks it seen; a refusal here is harmless.
+    // Only items that need attention are marked seen. Opening an item marks it seen; a refusal here is harmless.
     if(detail.item.owner_attention)ctx.api.post('feedbackAction',{id:detail.item.id,revision:detail.item.revision,action:'seen',data:{}}).then(()=>{changed=true;},()=>{});
   }catch(error){showError(error.message);}
 }
@@ -151,9 +155,10 @@ export async function renderInbox(ctx){
     fixButton.disabled=true;
     try{
       const result=await bulkFix({api:ctx.api,ids:[...selected],build:fixBuild.input.value,origin:ctx.origin});
-      await ctx.render();
-      const copy=button('Copy message for testers',async()=>{try{await ctx.clipboard.writeText(result.message);copy.textContent='Copied';}catch{copy.textContent='Copy was blocked';}},true);
-      ctx.content.prepend(el('div',{class:'fb-fixed'},notice('Marked '+plural(result.fixed,'item','items')+' fixed in '+result.build+' for '+plural(result.testers||0,'tester','testers')+'.'),el('p',{class:'fb-tester-message'},result.message),copy));
+      await showAfterRender(ctx,()=>{
+        const copy=button('Copy message for testers',async()=>{try{await ctx.clipboard.writeText(result.message);copy.textContent='Copied';}catch{copy.textContent='Copy was blocked';}},true);
+        return el('div',{class:'fb-fixed'},notice('Marked '+plural(result.fixed,'item','items')+' fixed in '+result.build+' for '+plural(result.testers||0,'tester','testers')+'.'),el('p',{class:'fb-tester-message'},result.message),copy);
+      });
     }catch(error){message.replaceChildren(notice(error.message,'error'));}
     finally{fixButton.disabled=false;}
   }},'Mark fixed');
@@ -210,8 +215,7 @@ export async function renderContent(ctx){
     e.preventDefault();uploadButton.disabled=true;
     try{
       const model=await readJsonFile(upload,4000000),result=await ctx.api.post('testContentUpload',model);
-      await ctx.render();
-      ctx.content.prepend(notice('Uploaded version '+result.version+' with '+plural(result.lines,'line','lines')+'. '+result.kept+' answers kept, '+result.retired+' retired.'));
+      await showAfterRender(ctx,()=>notice('Uploaded version '+result.version+' with '+plural(result.lines,'line','lines')+'. '+result.kept+' answers kept, '+result.retired+' retired.'));
     }catch(error){uploadMessage.replaceChildren(notice(error.message,'error'));}
     finally{uploadButton.disabled=false;}
   }},el('div',{class:'field'},el('label',{for:'fb-content-file'},'Test content file (.json)'),upload),uploadButton,uploadMessage);
