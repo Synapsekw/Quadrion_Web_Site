@@ -25,6 +25,26 @@ export async function sendAnswer(api,{lineId,status,comment='',build=''}){
 }
 // The result Save records: the choice being made, else the one already saved; null means nothing was chosen yet.
 export const saveStatus=(pending,saved)=>pending||saved||null;
+// One-click lines. The tick toggles "works"; unticking a line that still has a comment turns it into a problem.
+export const tickStatus=(saved,text)=>saved==='pass'?(String(text||'').trim()?'fail':null):'pass';
+// A comment left on a line: ticked or skipped keeps its result with the note; otherwise the comment is a problem.
+// Emptying the comment of a reported line clears the answer; undefined means there is nothing to save.
+export function commentStatus(saved,text){
+  if(saved==='pass'||saved==='skip')return saved;
+  if(String(text||'').trim())return 'fail';
+  return saved==='fail'?null:undefined;
+}
+// The step to open: the remembered one, else the first with unchecked lines, else the first.
+export function startStep(remembered,stepCounts){
+  if(Number.isInteger(remembered)&&remembered>=0&&remembered<stepCounts.length)return remembered;
+  const open=stepCounts.findIndex(c=>c.done<c.total);
+  return open<0?0:open;
+}
+// "Stage 3: Measuring" reads as "Measuring" under a "Step 3 of 8" label.
+export const stepTitle=stage=>String(stage?.title||'').replace(/^stage\s*\d+\s*[:.\-–]\s*/i,'')||'Untitled step';
+const STEP_KEY='quadrion-test-step';
+function readStep(){try{const v=sessionStorage.getItem(STEP_KEY);return v===null?null:Number(v);}catch{return null;}}
+function keepStep(i){try{sessionStorage.setItem(STEP_KEY,String(i));}catch{}}
 // After a save the comment panel closes, unless screenshots were kept back (they only go with a fail).
 export const keepDetailOpen=filesLeft=>filesLeft>0;
 // Meter segments get their width through the CSSOM: the production CSP (style-src 'self') refuses style attributes.
@@ -156,7 +176,7 @@ const itemLabel=item=>'#'+item.number+' '+(item.kind==='feature'?'Feature':'Bug'
 // --- The tester page ---
 export async function renderTests(ctx){
   const {content,api,member,releases,current}=ctx;
-  content.append(heading('TESTING','Tests','Work through each line and mark it. Anything you report comes back here when it is fixed, for you to check.'));
+  content.append(heading('TESTING','Tests','Go through the steps in order. Tick each line that works; if something is wrong, write it in its comment field. Anything you report comes back here when it is fixed.'));
   if(!member?.tester){notTester(content);return;}
   const [model,answerRows,mine]=await Promise.all([api.get('content'),api.get('answers'),api.get('mine')]);
   if(!current())return;
@@ -179,7 +199,7 @@ export async function renderTests(ctx){
     const feedback=el('div',{'aria-live':'polite'}),row=el('article',{class:'waiting-row'});
     const head=el('div',{class:'waiting-head'},el('span',{class:'item-number'},itemLabel(item)),el('h3',{},item.title),statusBadge(item.status));
     if(item.status==='fixed'){
-      const reason=textArea('What still goes wrong?','sendback-'+item.id,{rows:3}),back=el('form',{class:'inline-form',hidden:true,onsubmit:async e=>{e.preventDefault();const text=reason.input.value.trim();if(!text){feedback.replaceChildren(notice('Say what still goes wrong so it can be fixed.','error'));reason.input.focus();return;}send.disabled=true;if(!await act(item,'reopen',text,feedback))send.disabled=false;}},reason.node);
+      const reason=textArea('What still goes wrong?','sendback-'+item.id,{rows:1}),back=el('form',{class:'inline-form',hidden:true,onsubmit:async e=>{e.preventDefault();const text=reason.input.value.trim();if(!text){feedback.replaceChildren(notice('Say what still goes wrong so it can be fixed.','error'));reason.input.focus();return;}send.disabled=true;if(!await act(item,'reopen',text,feedback))send.disabled=false;}},reason.node);
       const send=el('button',{type:'submit',class:'primary'},'Send back');back.append(el('div',{class:'actions'},send,button('Cancel',()=>{back.hidden=true;open.hidden=false;open.focus();},true)));
       const confirm=button('Confirm it works',async e=>{e.currentTarget.disabled=true;const target=e.currentTarget;if(!await act(item,'confirm','',feedback))target.disabled=false;});
       const open=button('Send back',()=>{back.hidden=false;open.hidden=true;reason.input.focus();},true);
@@ -187,7 +207,7 @@ export async function renderTests(ctx){
     }else{
       const question=el('div',{class:'question-text'},el('span',{class:'muted'},'Loading the question…'));
       api.get('item',{id:item.id}).then(detail=>{const asked=[...(detail.events||[])].reverse().find(e=>e.kind==='question');question.replaceChildren(el('span',{class:'eyebrow'},'QUADRION ASKS'),el('p',{class:'preserve'},asked?.body||'Open the report below to see the question.'));}).catch(()=>question.replaceChildren(el('p',{class:'muted'},'The question could not be loaded. It is in the report thread below.')));
-      const reply=textArea('Your answer','answer-'+item.id,{rows:3});
+      const reply=textArea('Your answer','answer-'+item.id,{rows:1});
       const form=el('form',{class:'inline-form',onsubmit:async e=>{e.preventDefault();const text=reply.input.value.trim();if(!text){feedback.replaceChildren(notice('Write an answer first.','error'));reply.input.focus();return;}const submit=e.target.querySelector('button[type=submit]');submit.disabled=true;if(!await act(item,'answer',text,feedback))submit.disabled=false;}},reply.node,el('div',{class:'actions'},el('button',{type:'submit',class:'primary'},'Send answer')));
       row.append(head,question,form,feedback);
     }
@@ -225,55 +245,80 @@ export async function renderTests(ctx){
     }
     return details;
   }
-  // My tests: stages, groups and lines with their answers.
+  // My tests: one step per stage, one step open at a time, a rail to move between them.
+  // Each line is a tick (works) plus a comment field. A comment on a line that is not ticked goes in as a problem
+  // (a fail with that comment, which opens a bug as before); ticked plus a comment is a pass with a note.
   const testsBox=el('section',{class:'section-block',id:'tests','aria-labelledby':'tests-title'},el('div',{class:'section-title'},el('h2',{id:'tests-title'},'My tests')));
-  const updaters=[];const tally=()=>updaters.forEach(fn=>fn());
   function counts(lines){let pass=0,fail=0,skip=0;for(const l of lines){const s=answers.get(l.id)?.status;if(s==='pass')pass++;else if(s==='fail')fail++;else if(s==='skip')skip++;}return {pass,fail,skip,total:lines.length,done:pass+fail+skip};}
-  function progress(lines){
-    const bar=el('span',{class:'meter','aria-hidden':'true'}),text=el('span',{class:'progress-text'});
-    const node=el('span',{class:'progress'},bar,text);
-    const update=()=>{const c=counts(lines);fillMeter(bar,c);
-      text.textContent=c.done+' of '+c.total+(c.fail?' · '+c.fail+' failed':'');};
-    updaters.push(update);update();return node;
-  }
+  const plural=(n,one,many)=>n+' '+(n===1?one:many);
+  let openMenu=null,onTally=()=>{};
+  function closeMenu(focus=false){if(!openMenu)return;const m=openMenu;openMenu=null;m.menu.hidden=true;m.toggle.setAttribute('aria-expanded','false');if(focus)m.toggle.focus();}
+  document.addEventListener('click',e=>{if(openMenu&&!openMenu.wrap.contains(e.target))closeMenu();});
   function lineRow(line){
-    const id=line.id.replace(/[^a-z0-9-]/g,'-'),feedback=el('div',{class:'line-feedback','aria-live':'polite'}),meta=el('p',{class:'line-meta'});
-    const comment=textArea('Comment','comment-'+id,{rows:3,maxLength:8000,value:answers.get(line.id)?.comment||''});
+    const id=line.id.replace(/[^a-z0-9-]/g,'-'),saved=()=>answers.get(line.id),about=line.plain||'this line';
+    const feedback=el('div',{class:'line-feedback','aria-live':'polite'}),state=el('p',{class:'line-state','aria-live':'polite'});
+    const note=el('textarea',{id:'note-'+id,class:'line-note',rows:1,maxlength:8000,placeholder:'Something wrong? Write it here','aria-label':'Comment on: '+about});
+    note.value=saved()?.comment||'';
     const picker=attachmentPicker('attach-'+id,'Attach a screenshot');
-    const save=el('button',{type:'submit',class:'primary'},'Save');
-    const detail=el('form',{class:'line-detail',hidden:true,onpaste:e=>picker.onPaste(e),onsubmit:e=>{e.preventDefault();const status=saveStatus(pending,answers.get(line.id)?.status);if(status)submit(status);else feedback.replaceChildren(notice('Choose Pass, Fail or Skip first.','error'));}},comment.node,picker.node,el('div',{class:'actions'},save,button('Close',()=>{detail.hidden=true;pending=null;draw();},true)));
-    let pending=null;
-    const choices=['pass','fail','skip'].map(status=>el('button',{type:'button',class:'choice choice-'+status,'aria-pressed':'false',onclick:()=>choose(status)},{pass:'Pass',fail:'Fail',skip:'Skip'}[status]));
-    const more=el('button',{type:'button',class:'link-button',onclick:()=>{detail.hidden=false;comment.input.focus();}},'Comment');
-    const feature=el('button',{type:'button',class:'link-button',onclick:()=>{featureForm.hidden=!featureForm.hidden;if(!featureForm.hidden)featureForm.querySelector('input')?.focus();}},'Request a feature about this');
+    const tick=el('button',{type:'button',class:'tick','aria-pressed':'false','aria-label':'Works: '+about,onclick:()=>save(tickStatus(saved()?.status,note.value))});
+    const toggle=el('button',{type:'button',class:'line-more','aria-haspopup':'true','aria-expanded':'false','aria-label':'More for this line'},el('span',{'aria-hidden':'true'},'⋯'));
     const featureForm=featureRequest({lineId:line.id,idPrefix:'line-'+id,compact:true});featureForm.hidden=true;
-    const row=el('li',{class:'test-line'},el('div',{class:'line-text'},richText(line.html),line.sub?.length?el('ul',{class:'line-sub'},line.sub.map(s=>el('li',{},richText(s,'rich inline')))):null,meta),
-      el('div',{class:'line-controls'},el('div',{class:'choices',role:'group','aria-label':'Result for this line'},choices),el('div',{class:'line-links'},more,feature)),detail,featureForm,feedback);
+    const pick=fn=>()=>{closeMenu();fn();};
+    const skipItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(saved()?.status==='skip'?null:'skip'))});
+    const clearItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(null))},'Clear my answer');
+    const menuItems=[skipItem,
+      el('button',{type:'button',role:'menuitem',onclick:pick(()=>picker.node.querySelector('input[type=file]').click())},'Attach a screenshot'),
+      el('button',{type:'button',role:'menuitem',onclick:pick(()=>{featureForm.hidden=!featureForm.hidden;if(!featureForm.hidden)featureForm.querySelector('input')?.focus();})},'Request a feature about this'),
+      clearItem];
+    const menu=el('div',{class:'line-menu',role:'menu','aria-label':'More for this line',hidden:true,onkeydown:e=>{
+      const shown=menuItems.filter(b=>!b.hidden),at=shown.indexOf(document.activeElement);
+      if(e.key==='Escape'){e.preventDefault();closeMenu(true);}
+      else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();shown[(at+(e.key==='ArrowDown'?1:shown.length-1))%shown.length]?.focus();}
+      else if(e.key==='Tab')closeMenu();
+    }},menuItems);
+    const wrap=el('div',{class:'line-menu-wrap'},toggle,menu);
+    toggle.addEventListener('click',()=>{const was=openMenu?.menu===menu;closeMenu();if(was)return;draw();menu.hidden=false;toggle.setAttribute('aria-expanded','true');openMenu={menu,toggle,wrap};menuItems.find(b=>!b.hidden)?.focus();});
+    const row=el('li',{class:'test-line'},tick,
+      el('div',{class:'line-main'},el('div',{class:'line-text'},richText(line.html),line.sub?.length?el('ul',{class:'line-sub'},line.sub.map(s=>el('li',{},richText(s,'rich inline')))):null),
+        el('div',{class:'line-entry'},note,state),el('div',{class:'line-files'},picker.node),feedback,featureForm),wrap);
+    let busy=false;
     function draw(){
-      const a=answers.get(line.id),shown=pending||a?.status;row.dataset.state=a?.status||'open';
-      choices.forEach((c,i)=>c.setAttribute('aria-pressed',String(['pass','fail','skip'][i]===shown)));
-      const linked=a?.itemId&&items.find(i=>i.id===a.itemId);
-      meta.replaceChildren(...[a?el('span',{},{pass:'Passed',fail:'Failed',skip:'Skipped'}[a.status]+' on '+buildLabel(a.build)):null,a?.comment&&detail.hidden?el('span',{class:'line-comment'},a.comment):null,linked?link(itemLabel(linked)+' · '+linked.title,'#item-'+linked.id,'line-report'):null].filter(Boolean));
-      save.textContent=pending==='fail'||(!pending&&a?.status==='fail')?'Save as failed':'Save';
+      const a=saved(),status=a?.status||null,text=note.value.trim(),draft=text!==(a?.comment||'').trim();
+      const problem=draft&&text&&status!=='pass'&&status!=='skip';
+      row.dataset.state=status||'open';
+      if(problem)row.dataset.draft='problem';else delete row.dataset.draft;
+      tick.setAttribute('aria-pressed',String(status==='pass'));
+      tick.title=status==='pass'?'Works. Click again to undo.':'Click if this works';
+      note.placeholder=status==='pass'||status==='skip'?'Add a note':'Something wrong? Write it here';
+      skipItem.textContent=status==='skip'?'Undo skip':'Skip this line';
+      clearItem.hidden=!a;
+      if(busy)return;
+      const linked=a?.itemId&&items.find(i=>i.id===a.itemId),on=a?' · '+buildLabel(a.build):'';
+      state.replaceChildren(...[(problem?[el('span',{class:'tone-fail'},'Goes in as a problem when you leave the field.'),' Tick the circle first if it works and this is only a note.']
+        :draft&&text?['Your note saves when you leave the field.']
+        :draft&&status==='fail'?['Leave it empty to clear this answer.']
+        :status==='pass'?[el('span',{class:'tone-pass'},text?'Works, with a note':'Works'),on]
+        :status==='fail'?[el('span',{class:'tone-fail'},'Reported'),linked?[' as ',link(itemLabel(linked),'#item-'+linked.id,'line-report')]:' as a problem',on]
+        :status==='skip'?['Skipped',on]:[])].flat(2));
     }
-    function choose(status){
-      feedback.replaceChildren();
-      if(status==='fail'){pending='fail';detail.hidden=false;draw();comment.input.focus();return;}
-      pending=null;submit(status);
-    }
-    async function submit(status){
-      choices.forEach(c=>c.disabled=true);save.disabled=true;
-      const result=await sendAnswer(api,{lineId:line.id,status,comment:comment.input.value,build:currentBuild()});
-      if(!result.ok){feedback.replaceChildren(answerProblem(result,reload));choices.forEach(c=>c.disabled=false);save.disabled=false;if(status==='fail'&&!result.conflict)comment.input.focus();return;}
+    async function save(status){
+      if(busy)return;busy=true;feedback.replaceChildren();row.classList.add('saving');state.replaceChildren('Saving…');
+      const result=await sendAnswer(api,{lineId:line.id,status,comment:status===null?'':note.value,build:currentBuild()});
+      busy=false;row.classList.remove('saving');
+      if(!result.ok){feedback.replaceChildren(answerProblem(result,reload));draw();if(status==='fail'&&!result.conflict)note.focus();return;}
       if(result.answer)answers.set(line.id,{...result.answer,itemId:result.itemId});else answers.delete(line.id);
-      pending=null;keepBuild(currentBuild());
-      const upload=el('p',{class:'muted','aria-live':'polite'});
-      if(picker.files.length&&result.itemId){feedback.replaceChildren(upload);await uploadAll(api,result.itemId,[...picker.files],upload);picker.clear();}
-      else if(picker.files.length){feedback.replaceChildren(notice('Screenshots go with a failed line. They were kept here; mark the line failed to send them.'));}
-      detail.hidden=!keepDetailOpen(picker.files.length);
-      choices.forEach(c=>c.disabled=false);save.disabled=false;draw();tally();
+      if(status===null)note.value='';
+      keepBuild(currentBuild());
+      if(picker.files.length&&result.itemId&&status==='fail'){const upload=el('p',{class:'muted','aria-live':'polite'});feedback.replaceChildren(upload);await uploadAll(api,result.itemId,[...picker.files],upload);picker.clear();}
+      else if(picker.files.length&&status!=='fail')feedback.replaceChildren(notice('Screenshots go with a problem. They were kept here; untick the line and say what went wrong to send them.'));
+      draw();onTally();
       if(status==='fail'||result.itemId){await refresh().catch(()=>{});draw();}
     }
+    function commit(){const a=saved(),text=note.value.trim();if(text===(a?.comment||'').trim())return;const next=commentStatus(a?.status,text);if(next!==undefined)save(next);}
+    note.addEventListener('change',commit);
+    note.addEventListener('input',draw);
+    note.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();note.blur();}});
+    note.addEventListener('paste',e=>picker.onPaste(e));
     draw();return row;
   }
   function featureRequest({lineId=null,idPrefix,compact=false}){
@@ -290,19 +335,45 @@ export async function renderTests(ctx){
         feedback.prepend(notice('Thanks. Feature request #'+item.number+' is in.'));title.input.value='';body.input.value='';picker.clear();await refresh();
       }catch(error){feedback.replaceChildren(error.status===409?answerProblem({message:RETIRED_MESSAGE,conflict:true},reload):notice(error.message,'error'));}
       finally{submit.disabled=false;}
-    }},compact?el('p',{class:'eyebrow'},'REQUEST A FEATURE ABOUT THIS LINE'):null,title.node,body.node,picker.node,el('div',{class:'actions'},submit),feedback);
+    }},compact?el('p',{class:'eyebrow'},'REQUEST A FEATURE ABOUT THIS LINE'):null,title.node,body.node,picker.node,el('div',{class:'actions'},submit,compact?button('Close',()=>{form.hidden=true;},true):null),feedback);
     return form;
   }
   if(!model?.version||!model.stages?.length)testsBox.append(empty('No tests yet','The next test round will appear here when it is ready.'));
   else{
-    testsBox.append(el('div',{class:'build-bar'},build.node));
+    testsBox.querySelector('.section-title').append(el('div',{class:'build-bar'},build.node));
     if(model.guide?.length)testsBox.append(el('details',{class:'guide'},el('summary',{},'How to test'),model.guide.map(g=>el('div',{class:'guide-part'},typeof g.title==='string'&&g.title?el('h3',{},g.title):null,richText(g.html)))));
-    let opened=false;
-    for(const stage of model.stages){
-      const lines=(stage.groups||[]).flatMap(g=>g.items||[]),c=counts(lines),open=!opened&&c.done<c.total;if(open)opened=true;
-      testsBox.append(el('details',{class:'stage',open},el('summary',{},el('h3',{class:'stage-title'},stage.title||'Stage'),progress(lines)),richText(stage.intro,'rich stage-intro'),
-        (stage.groups||[]).map(group=>el('section',{class:'group'},el('div',{class:'group-head'},el('h4',{},group.title||'Checks'),progress(group.items||[])),richText(group.notes,'rich group-notes'),el('ol',{class:'test-lines'},(group.items||[]).map(lineRow))))));
+    const steps=model.stages,stepLines=steps.map(s=>(s.groups||[]).flatMap(g=>g.items||[])),allLines=stepLines.flat();
+    let current=startStep(readStep(),stepLines.map(counts));
+    const overallBar=el('span',{class:'meter','aria-hidden':'true'}),overallText=el('span',{class:'overall-text'});
+    const railItems=steps.map((s,i)=>{
+      const bar=el('span',{class:'meter','aria-hidden':'true'}),num=el('span',{class:'rail-num','aria-hidden':'true'}),meta=el('span',{class:'rail-meta'});
+      const go_=el('button',{type:'button',class:'rail-step',onclick:()=>go(i)},num,el('span',{class:'rail-body'},el('span',{class:'rail-title'},el('span',{class:'sr-only'},'Step '+(i+1)+': '),stepTitle(s)),el('span',{class:'rail-progress'},bar,meta)));
+      return {node:el('li',{},go_),button:go_,update(){
+        const c=counts(stepLines[i]),done=c.total>0&&c.done===c.total;fillMeter(bar,c);
+        meta.textContent=c.done+'/'+c.total+(c.fail?' · '+c.fail+' reported':'');
+        num.textContent=done?'✓':String(i+1);go_.dataset.done=String(done);
+        if(i===current)go_.setAttribute('aria-current','step');else go_.removeAttribute('aria-current');
+      }};
+    });
+    const rail=el('nav',{class:'rail','aria-label':'Test steps'},el('div',{class:'overall'},overallText,overallBar),el('ol',{class:'rail-steps'},railItems.map(r=>r.node)));
+    const panel=el('section',{class:'step','aria-labelledby':'step-title'});
+    let stepUpdate=()=>{};
+    onTally=()=>{const c=counts(allLines);fillMeter(overallBar,c);overallText.textContent=c.done+' of '+c.total+' checked'+(c.fail?' · '+c.fail+' reported':'');railItems.forEach(r=>r.update());stepUpdate();};
+    function renderStep(focus){
+      const s=steps[current],lines=stepLines[current],count=el('p',{class:'step-count'}),left=el('p',{class:'step-left'});
+      const title=el('h2',{id:'step-title',tabindex:'-1'},stepTitle(s));
+      stepUpdate=()=>{const c=counts(lines),open=c.total-c.done;count.textContent=c.done+' of '+c.total+' checked'+(c.fail?' · '+c.fail+' reported':'');
+        left.textContent=open?plural(open,'line','lines')+' in this step '+(open===1?'is':'are')+' not checked yet. You can come back to '+(open===1?'it':'them')+' later.':'Every line in this step is checked.';};
+      const nextStep=current<steps.length-1?el('button',{type:'button',class:'primary next-step',onclick:()=>go(current+1)},'Next step: '+stepTitle(steps[current+1]),el('span',{'aria-hidden':'true'},' →')):null;
+      panel.replaceChildren(el('header',{class:'step-head'},el('p',{class:'eyebrow'},'STEP '+(current+1)+' OF '+steps.length),title,count),richText(s.intro,'rich stage-intro'),
+        ...(s.groups||[]).map(g=>el('section',{class:'group'},el('div',{class:'group-head'},el('h3',{},g.title||'Checks'),el('span',{class:'count'},plural((g.items||[]).length,'line','lines'))),richText(g.notes,'rich group-notes'),el('ol',{class:'test-lines'},(g.items||[]).map(lineRow)))),
+        el('footer',{class:'step-foot'},left,el('div',{class:'actions'},current>0?button('Previous step',()=>go(current-1),true):null,nextStep||el('p',{class:'step-end'},'This is the last step. Thank you for going all the way through.'))));
+      onTally();
+      if(focus){panel.scrollIntoView({block:'start'});title.focus({preventScroll:true});const b=railItems[current].button,list=b.closest('.rail-steps');if(list&&list.scrollWidth>list.clientWidth)list.scrollLeft=b.parentElement.offsetLeft-list.offsetLeft-16;}
     }
+    function go(i){closeMenu();current=i;keepStep(i);renderStep(true);}
+    testsBox.append(el('div',{class:'journey'},rail,panel));
+    renderStep(false);
   }
   const featureBox=el('section',{class:'section-block',id:'feature','aria-labelledby':'feature-title'},el('div',{class:'section-title'},el('h2',{id:'feature-title'},'Request a feature')),el('p',{class:'muted quiet'},'Something you wish the app did? Describe it here.'),featureRequest({idPrefix:'page'}));
   fillWaiting();fillReports();

@@ -13,7 +13,7 @@ class FakeNode{
 }
 globalThis.Node=FakeNode;
 globalThis.document={createElement:tag=>new FakeNode(tag),createTextNode:text=>new FakeNode('#text',text)};
-const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE,saveStatus,keepDetailOpen,fillMeter,createAct,sendThreadNote}=await import('../portal/src/tests.mjs');
+const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE,saveStatus,keepDetailOpen,fillMeter,createAct,sendThreadNote,tickStatus,commentStatus,startStep,stepTitle}=await import('../portal/src/tests.mjs');
 test('a saved action whose refresh fails says it was saved and offers Reload',async()=>{
   const posts=[];let reloads=0,after=0;
   const api={post:async(action,body)=>{posts.push([action,body]);return {};}};
@@ -105,4 +105,30 @@ test('an answer conflict shows the reload notice',async()=>{
   assert.equal(reload.textContent,'Reload');reload.listeners.click();assert.equal(reloads,1);
   const other=answerProblem({ok:false,message:'Check your connection, then try again.'},()=>{});
   assert.equal(other.find(n=>n.tagName==='button'),null);
+});
+
+test('the tick marks a line as working and a second click undoes it, keeping a comment as a problem',()=>{
+  assert.equal(tickStatus(null,''),'pass');
+  assert.equal(tickStatus('fail','Blank map'),'pass');
+  assert.equal(tickStatus('skip',''),'pass');
+  assert.equal(tickStatus('pass',''),null);
+  assert.equal(tickStatus('pass','Slow but works'),'fail');
+});
+test('a comment on an unticked line is a problem; on a ticked or skipped line it is a note',()=>{
+  assert.equal(commentStatus(null,'Map stays blank'),'fail');
+  assert.equal(commentStatus('fail','Still blank'),'fail');
+  assert.equal(commentStatus('pass','Slow'),'pass');
+  assert.equal(commentStatus('skip','No drone today'),'skip');
+  assert.equal(commentStatus('fail','  '),null);
+  assert.equal(commentStatus(null,''),undefined);
+});
+test('the open step is the remembered one, else the first unfinished one',()=>{
+  const c=[{done:3,total:3},{done:1,total:4},{done:0,total:2}];
+  assert.equal(startStep(2,c),2);
+  assert.equal(startStep(null,c),1);
+  assert.equal(startStep(9,c),1);
+  assert.equal(startStep(null,[{done:2,total:2}]),0);
+  assert.equal(stepTitle({title:'Stage 3: Measuring'}),'Measuring');
+  assert.equal(stepTitle({title:'Measuring'}),'Measuring');
+  assert.equal(stepTitle({}),'Untitled step');
 });
