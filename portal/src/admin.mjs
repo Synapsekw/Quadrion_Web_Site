@@ -5,27 +5,41 @@ import {createPortalAuth} from './auth.mjs';
 import {createPortalApi} from './api.mjs';
 import {uploadControl} from './upload.mjs';
 import {submitMutation} from './mutations.mjs';
-import {el,button,link,field,heading,empty,notice,bytes,date} from './ui.mjs';
+import {el,button,link,field,heading,empty,notice,bytes,date,skeleton} from './ui.mjs';
 import {renderInbox,renderProgress,renderContent,testerSection} from './feedback-admin.mjs';
-const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,sequence=0,limits,feedbackInbox=0;
+import {createCache,sessionSeed} from './cache.mjs';
+const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,mounted,sequence=0,limits,feedbackInbox=0,shellKey='',navLinks=[],badge,meCache,countsCache;
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
 function select(label,name,options,value){const input=el('select',{id:name,name},options.map(([v,text])=>el('option',{value:v,selected:String(v)===String(value)},text)));return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
 function area(label,name,value=''){const input=el('textarea',{id:name,name,rows:4,maxlength:16000},value);return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
-function clear(status,error){sequence++;content?.replaceChildren();document.querySelectorAll('dialog').forEach(d=>d.remove());window.dispatchEvent(new Event('quadrion:signout'));if(error&&content)content.append(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));}
+function clear(status,error){sequence++;content?.replaceChildren();document.querySelectorAll('dialog').forEach(d=>d.remove());window.dispatchEvent(new Event('quadrion:signout'));if(error&&content)content.append(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));mount();}
 function navigate(path){history.pushState(null,'',path);render();}
 document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/admin/')&&!e.ctrlKey&&!e.metaKey){e.preventDefault();navigate(a.pathname+a.search);}});window.addEventListener('popstate',()=>render());
 function dialog(title,description,body){const d=el('dialog',{class:'editor-dialog'},el('header',{class:'dialog-header'},el('div',{},el('h2',{},title),el('p',{class:'muted'},description)),button('Close',()=>d.close(),true)),body);d.addEventListener('close',()=>{window.dispatchEvent(new Event('quadrion:uploads-pause'));d.remove();});document.body.append(d);d.showModal();return d;}
 function saveForm(fields,action,payload,label='Save changes',confirmation){
   const feedback=el('div',{'aria-live':'polite'}),review=el('div'),save=el('button',{type:'submit',class:'primary'},label);let reviewed=false;
-  const form=el('form',{onsubmit:async e=>{e.preventDefault();if(confirmation&&!reviewed){review.replaceChildren(notice(confirmation(payload())));save.textContent='Confirm '+label.toLowerCase();reviewed=true;return;}save.disabled=true;await submitMutation({send:()=>api.post(action,payload()),refresh:async()=>{form.closest('dialog')?.close();await render();},showError:message=>feedback.replaceChildren(notice(message,'error')),clear});save.disabled=false;}},...fields,review,el('div',{class:'actions'},save),feedback);
+  const form=el('form',{onsubmit:async e=>{e.preventDefault();if(confirmation&&!reviewed){review.replaceChildren(notice(confirmation(payload())));save.textContent='Confirm '+label.toLowerCase();reviewed=true;return;}save.disabled=true;await submitMutation({send:()=>api.post(action,payload()),refresh:async()=>{form.closest('dialog')?.close();await changed();},showError:message=>feedback.replaceChildren(notice(message,'error')),clear});save.disabled=false;}},...fields,review,el('div',{class:'actions'},save),feedback);
   form.addEventListener('input',()=>{reviewed=false;review.replaceChildren();save.textContent=label;});return form;
 }
 function confirmAction(title,description,action,payload){dialog(title,description,saveForm([],action,()=>payload,title));}
+// The shell (sidebar, header) is drawn once and kept; navigation only swaps the <main> and moves the highlight.
+const isActive=(href,path)=>path===href||(href==='/admin/feedback/'&&path.startsWith(href));
+function markNav(){const path=location.pathname;for(const a of navLinks){const on=isActive(a.getAttribute('href'),path);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}}
+function updateBadge(){if(!badge)return;badge.hidden=!feedbackInbox;badge.textContent=String(feedbackInbox);badge.setAttribute('aria-label',feedbackInbox+' waiting');}
 function shell(){
-  const path=location.pathname,items=[['Overview','/admin/'],['Users','/admin/users/'],['Projects','/admin/projects/'],['Releases','/admin/releases/'],['Feedback','/admin/feedback/'],['Activity','/admin/activity/'],...(member.role==='owner'?[['Administrators','/admin/settings/']]:[])];
-  content=el('main',{id:'main',class:'workspace-main'});
-  root.replaceChildren(el('div',{class:'workspace admin-workspace'},el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'ADMINISTRATION'),el('nav',{'aria-label':'Administration'},items.map(([name,href])=>link(href==='/admin/feedback/'?[name,feedbackInbox?el('span',{class:'nav-count','aria-label':feedbackInbox+' waiting'},feedbackInbox):null]:name,href,'nav-item'+(path===href||(href==='/admin/feedback/'&&path.startsWith(href))?' active':'')))),el('div',{class:'sidebar-bottom'},link('Downloads & projects ↗','/portal/','nav-item'),el('p',{class:'account-label'},member.displayName||'Workspace administrator'),el('span',{class:'badge'},member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true))),el('div',{class:'workspace-body'},el('header',{class:'topbar'},el('span',{},'Administration'),el('span',{class:'status-dot'},'Private workspace')),content,el('footer',{class:'workspace-footer'},'Quadrion · Synapse Solutions',link('Client portal','/portal/')))));
+  const key=member.role+'|'+(member.displayName||'');if(key===shellKey&&mounted?.isConnected)return;shellKey=key;
+  const items=[['Overview','/admin/'],['Users','/admin/users/'],['Projects','/admin/projects/'],['Releases','/admin/releases/'],['Feedback','/admin/feedback/'],['Activity','/admin/activity/'],...(member.role==='owner'?[['Administrators','/admin/settings/']]:[])];
+  badge=el('span',{class:'nav-count',hidden:true});
+  navLinks=items.map(([name,href])=>link(href==='/admin/feedback/'?[name,badge]:name,href,'nav-item'));
+  content=mounted=el('main',{id:'main',class:'workspace-main'},skeleton());
+  root.replaceChildren(el('div',{class:'workspace admin-workspace'},el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'ADMINISTRATION'),el('nav',{'aria-label':'Administration'},navLinks),el('div',{class:'sidebar-bottom'},link('Downloads & projects ↗','/portal/','nav-item'),el('p',{class:'account-label'},member.displayName||'Workspace administrator'),el('span',{class:'badge'},member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true))),el('div',{class:'workspace-body'},el('header',{class:'topbar'},el('span',{},'Administration'),el('span',{class:'status-dot'},'Private workspace')),content,el('footer',{class:'workspace-footer'},'Quadrion · Synapse Solutions',link('Client portal','/portal/')))));
+  markNav();updateBadge();
 }
+// A page is built into a fresh <main> off screen while the old one stays up, dimmed; mount() swaps it in.
+function beginPage(){if(mounted){mounted.setAttribute('aria-busy','true');mounted.classList.add('is-loading');}content=el('main',{id:'main',class:'workspace-main'});}
+function mount(){if(!mounted||!content)return;if(mounted!==content){mounted.replaceWith(content);mounted=content;}mounted.removeAttribute('aria-busy');mounted.classList.remove('is-loading');}
+// After a save: the inbox count may have moved, and the page redraws in place.
+function changed(){countsCache?.revalidate();return render();}
 function toolbar(title,description,action){content.append(el('div',{class:'page-toolbar'},heading('ADMINISTRATION',title,description),action));}
 function table(headers,rows){return el('div',{class:'table-scroll'},el('table',{class:'data-table'},el('thead',{},el('tr',{},headers.map(h=>el('th',{scope:'col'},h)))),el('tbody',{},rows)));}
 function searchForm(kind){const query=new URLSearchParams(location.search),search=field('Search '+kind,'search',{value:query.get('search')||'',maxLength:160});return el('form',{class:'search-form',onsubmit:e=>{e.preventDefault();navigate(location.pathname+'?search='+encodeURIComponent(search.input.value));}},search.node,el('button',{type:'submit',class:'secondary'},'Search'));}
@@ -129,16 +143,25 @@ function releaseEditor(){const kind=select('Release type','release-kind',[['app'
 function releaseDetail(r){const file=r.files[0],d=dialog((r.kind==='app'?'Player':'Pipeline')+' '+r.version,r.platform,el('div',{},el('p',{class:'preserve'},r.notes),uploadPanel(file,{releaseId:r.id,limit:limits.releaseBytes}),file?.state==='verified'&&r.status!=='published'?button('Publish release',()=>{d.close();confirmAction('Publish release','This release will be available to all active T1–T3 members.','publish',{kind:'release',id:r.id,revision:r.revision,versionId:null});}):null,r.status==='published'?button('Retire release',()=>{d.close();confirmAction('Retire release','Disable new download links for this release.','archive',{kind:'release',id:r.id,revision:r.revision});},true):null));}
 async function releases(ticket){const data=await list('releases');if(ticket!==sequence)return;toolbar('Software releases','Publish versioned Player installers and processing pipelines.',button('Create release',releaseEditor));content.append(searchForm('releases'),data.items.length?table(['Release','Platform','Status','File',''],data.items.map(r=>el('tr',{},el('td',{},el('strong',{},(r.kind==='app'?'Player':'Pipeline')+' '+r.version),el('small',{class:'table-sub'},r.minimum_app_version?'Player '+r.minimum_app_version+'+':'')),el('td',{},r.platform),el('td',{},stateLabel(r.status)),el('td',{},r.files[0]?stateLabel(r.files[0].state):'No file'),el('td',{},button('Open',()=>releaseDetail(r),true))))):empty('No software releases yet','Create a draft release and upload its installer or package.'));pagination(data);}
 async function activity(ticket){const data=await list('activity');if(ticket!==sequence)return;toolbar('Activity','Permission changes, publication and download-link activity. Link issuance is not proof of a completed download.');content.append(searchForm('events'),table(['Time','Event','Actor','Resource'],data.items.map(e=>el('tr',{},el('td',{},new Date(e.created_at).toLocaleString()),el('td',{},e.action.replaceAll('_',' ')),el('td',{class:'id-cell'},e.actor_id||'System'),el('td',{class:'id-cell'},e.resource_id||e.subject_id||'—')))));pagination(data);}
-function feedbackContext(){return {api,member,get content(){return content;},navigate,dialog,render,search:location.search,origin:location.origin,clipboard:navigator.clipboard};}
-async function render(){const ticket=++sequence;try{
-  if(!auth)return;if(!await auth.getToken()){location.replace('/portal/?login');return;}if(auth.needsPassword()){auth.showPassword();return;}
-  const me=await memberApi.get('me');if(ticket!==sequence)return;member=me.member;
+function feedbackContext(){return {api,member,get content(){return content;},navigate,dialog,render:changed,search:location.search,origin:location.origin,clipboard:navigator.clipboard};}
+async function render(){const ticket=++sequence;markNav();try{
+  if(!auth)return;if(!await auth.getToken()){meCache.clear();location.replace('/portal/?login');return;}if(auth.needsPassword()){shellKey='';auth.showPassword();return;}
+  // me and the inbox count come from memory after the first load; only the page's own data is waited for.
+  const me=await meCache.get();if(ticket!==sequence)return;member=me.member;
   if(member.role==='member'){location.replace('/portal/');return;}
   document.querySelectorAll('dialog').forEach(d=>d.close());
-  // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
-  feedbackInbox=await badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0,()=>0);if(ticket!==sequence)return;shell();
+  shell();countsCache.get().catch(()=>{});beginPage();
   if(!limits)limits=(await api.get('overview')).limits;if(ticket!==sequence)return;
   const path=location.pathname;if(path==='/admin/'||path==='/admin/index.html')await overview(ticket);else if(path==='/admin/users/')await users(ticket);else if(path==='/admin/settings/'&&member.role==='owner')await users(ticket,true);else if(path==='/admin/projects/')await projects(ticket);else if(path==='/admin/releases/')await releases(ticket);else if(path==='/admin/feedback/'||path==='/admin/feedback')await renderInbox(feedbackContext());else if(path==='/admin/feedback/progress/')await renderProgress(feedbackContext());else if(path==='/admin/feedback/content/'&&member.role==='owner')await renderContent(feedbackContext());else if(path==='/admin/activity/')await activity(ticket);else content.append(empty('Page unavailable','Return to administration.',link('Overview','/admin/')));
+  if(ticket!==sequence)return;mount();
   content.querySelector('h1')?.focus({preventScroll:true});
-}catch(error){if(error.status===401){await auth.signOut();return;}if(content)content.replaceChildren(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));else root.replaceChildren(notice(error.message,'error'));}}
-try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:clear});await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}
+}catch(error){if(error.status===401){await auth.signOut();return;}if(ticket!==sequence)return;if(content){content.replaceChildren(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));mount();}else root.replaceChildren(notice(error.message,'error'));}}
+// Background refreshes: when the tab comes back, and the inbox count every minute while it is in view.
+function revalidate(){if(!member)return;meCache.revalidate();countsCache.revalidate();}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')revalidate();});
+setInterval(()=>{if(member&&document.visibilityState!=='hidden')countsCache.revalidate();},60000)?.unref?.();
+try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
+  meCache=createCache(()=>memberApi.get('me'),{seed:sessionSeed('quadrion-me'),onChange:me=>{const m=me.member;if(member&&(m.role!==member.role||m.displayName!==member.displayName))render();}});
+  // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
+  countsCache=createCache(()=>badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0),{onChange:n=>{feedbackInbox=n;updateBadge();}});
+  await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

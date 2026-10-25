@@ -22,3 +22,5 @@ export function empty(title,text,action){return el('section',{class:'empty'},el(
 export function bytes(value){const n=Number(value);if(!Number.isFinite(n))return '—';if(n>=1000**3)return (n/1000**3).toFixed(1)+' GB';return (n/1000**2).toFixed(1)+' MB';}
 export function date(value){return value?new Intl.DateTimeFormat('en',{dateStyle:'medium'}).format(new Date(value)):'—';}
 export async function runButton(target,fn){target.disabled=true;try{await fn();}finally{target.disabled=false;}}
+// A placeholder for the content area while its first data loads; screen readers hear one "Loading" status.
+export function skeleton(rows=4){return el('div',{class:'skeleton',role:'status'},el('span',{class:'sr-only'},'Loading…'),el('span',{class:'sk sk-eyebrow','aria-hidden':'true'}),el('span',{class:'sk sk-title','aria-hidden':'true'}),Array.from({length:rows},()=>el('span',{class:'sk sk-line','aria-hidden':'true'})));}

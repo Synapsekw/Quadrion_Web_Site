@@ -1,7 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {el,field,button,link,notice} from './ui.mjs';
 import {loginDestination} from './routing.mjs';
-export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
+export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key==='quadrion-me'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
 export async function createPortalAuth({root,onChange}){
   const workspaceHome=location.pathname.startsWith('/admin/')?'/admin/':'/portal/';
   let chooseHome=new URLSearchParams(location.search).has('login');
