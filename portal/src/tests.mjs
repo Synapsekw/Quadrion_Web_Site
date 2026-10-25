@@ -23,6 +23,21 @@ export async function sendAnswer(api,{lineId,status,comment='',build=''}){
   try{return {ok:true,...await api.post('answer',{lineId,status,comment:note,build:version})};}
   catch(error){return error.status===409?{ok:false,conflict:true,message:RETIRED_MESSAGE}:{ok:false,message:error.message};}
 }
+// Optimistic answers: the line shows the new answer at once, saves run one after another, and a failed save puts back
+// the last answer the server confirmed. Only the newest click decides what the line shows; an older failure that a later
+// click already replaced comes back with superseded:true and is not shown.
+export function optimisticSave({read,write,send,paint}){
+  let confirmed=read()??null,latest=0,queue=Promise.resolve();
+  return function save(next,request){
+    const mine=++latest;write(next);paint();
+    const run=queue.then(()=>send(request)).then(result=>{
+      if(result.ok)confirmed=result.answer?{...result.answer,itemId:result.itemId??null}:null;
+      if(mine!==latest)return {...result,superseded:true};
+      write(confirmed);paint();return result;
+    },error=>{if(mine===latest){write(confirmed);paint();}return {ok:false,message:error?.message||'Not saved. Try again.',superseded:mine!==latest};});
+    queue=run;return run;
+  };
+}
 // The result Save records: the choice being made, else the one already saved; null means nothing was chosen yet.
 export const saveStatus=(pending,saved)=>pending||saved||null;
 // One-click lines. The tick toggles "works"; unticking a line that still has a comment turns it into a problem.
@@ -282,7 +297,6 @@ export async function renderTests(ctx){
     const row=el('li',{class:'test-line'},tick,
       el('div',{class:'line-main'},el('div',{class:'line-text'},richText(line.html),line.sub?.length?el('ul',{class:'line-sub'},line.sub.map(s=>el('li',{},richText(s,'rich inline')))):null),
         el('div',{class:'line-entry'},note,state),el('div',{class:'line-files'},picker.node),feedback,featureForm),wrap);
-    let busy=false;
     function draw(){
       const a=saved(),status=a?.status||null,text=note.value.trim(),draft=text!==(a?.comment||'').trim();
       const problem=draft&&text&&status!=='pass'&&status!=='skip';
@@ -293,7 +307,6 @@ export async function renderTests(ctx){
       note.placeholder=status==='pass'||status==='skip'?'Add a note':'Something wrong? Write it here';
       skipItem.textContent=status==='skip'?'Undo skip':'Skip this line';
       clearItem.hidden=!a;
-      if(busy)return;
       const linked=a?.itemId&&items.find(i=>i.id===a.itemId),on=a?' · '+buildLabel(a.build):'';
       state.replaceChildren(...[(problem?[el('span',{class:'tone-fail'},'Goes in as a problem when you leave the field.'),' Tick the circle first if it works and this is only a note.']
         :draft&&text?['Your note saves when you leave the field.']
@@ -302,14 +315,17 @@ export async function renderTests(ctx){
         :status==='fail'?[el('span',{class:'tone-fail'},'Reported'),linked?[' as ',link(itemLabel(linked),'#item-'+linked.id,'line-report')]:' as a problem',on]
         :status==='skip'?['Skipped',on]:[])].flat(2));
     }
+    // The tick (and skip, clear, a comment) shows as saved at once; a failed save rolls the line back with a quiet note.
+    const saver=optimisticSave({read:saved,write:a=>{if(a)answers.set(line.id,a);else answers.delete(line.id);},send:request=>sendAnswer(api,request),paint:()=>{draw();onTally();}});
     async function save(status){
-      if(busy)return;busy=true;feedback.replaceChildren();row.classList.add('saving');state.replaceChildren('Saving…');
-      const result=await sendAnswer(api,{lineId:line.id,status,comment:status===null?'':note.value,build:currentBuild()});
-      busy=false;row.classList.remove('saving');
-      if(!result.ok){feedback.replaceChildren(answerProblem(result,reload));draw();if(status==='fail'&&!result.conflict)note.focus();return;}
-      if(result.answer)answers.set(line.id,{...result.answer,itemId:result.itemId});else answers.delete(line.id);
+      feedback.replaceChildren();
+      const typed=note.value,comment=status===null?'':typed,build=currentBuild(),was=saved();
       if(status===null)note.value='';
-      keepBuild(currentBuild());
+      const shown=status===null?null:{...(was||{}),lineId:line.id,status,comment:comment.trim(),build,itemId:was?.itemId??null};
+      const result=await saver(shown,{lineId:line.id,status,comment,build});
+      if(!result.ok){if(result.superseded)return;if(status===null&&!note.value)note.value=typed;draw();feedback.replaceChildren(answerProblem({...result,message:'Not saved: '+result.message},reload));if(status==='fail'&&!result.conflict)note.focus();return;}
+      if(result.superseded)return;
+      keepBuild(build);
       if(picker.files.length&&result.itemId&&status==='fail'){const upload=el('p',{class:'muted','aria-live':'polite'});feedback.replaceChildren(upload);await uploadAll(api,result.itemId,[...picker.files],upload);picker.clear();}
       else if(picker.files.length&&status!=='fail')feedback.replaceChildren(notice('Screenshots go with a problem. They were kept here; untick the line and say what went wrong to send them.'));
       draw();onTally();
