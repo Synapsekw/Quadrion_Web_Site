@@ -2,7 +2,8 @@ import {createClient} from '@supabase/supabase-js';
 import {createRemoteJWKSet,customFetch,decodeJwt,decodeProtectedHeader,jwtVerify} from 'jose';
 import {fail} from './http.mjs';
 // Supabase signs session tokens with an asymmetric key (ES256 or RS256) published at the project's JWKS URL.
-// Those are verified here with no Auth round trip. Legacy HS256 tokens can only be checked by Supabase Auth.
+// Those are verified here with no Auth round trip. Any other algorithm (legacy HS256, or a key type added later)
+// is checked by Supabase Auth itself, as every request was before; 'none' is always refused.
 const ASYMMETRIC=['ES256','RS256'];
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // Errors that are about the token itself are refusals. Anything else (the key set could not be fetched or read)
@@ -42,8 +43,9 @@ export function createBackend(config,{fetch:fetchImpl=fetch,keys,keyCooldown}={}
     service,rpc,
     async verifyUser(token){
       let header;try{header=decodeProtectedHeader(token);}catch{fail('unauthorized');}
-      if(header.alg==='HS256')return authUser(token);
-      if(!ASYMMETRIC.includes(header.alg)||typeof header.kid!=='string'||!header.kid)fail('unauthorized');
+      if(typeof header.alg!=='string'||!header.alg||header.alg.toLowerCase()==='none')fail('unauthorized');
+      if(!ASYMMETRIC.includes(header.alg))return authUser(token);
+      if(typeof header.kid!=='string'||!header.kid)fail('unauthorized');
       let claims;
       try{({payload:claims}=await jwtVerify(token,jwks,{algorithms:ASYMMETRIC,issuer:config.url+'/auth/v1',audience:'authenticated',requiredClaims:['sub','exp','role','aal']}));}
       catch(error){if(TOKEN_ERRORS.has(error?.code))fail('unauthorized');return authUser(token);}

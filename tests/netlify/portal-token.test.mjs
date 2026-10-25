@@ -53,14 +53,14 @@ test('expired, wrong audience, wrong issuer, wrong role and anonymous tokens are
   await refused(p.backend.verifyUser(await p.sign({sub:'not-a-uuid'})));
   assert.equal(p.calls.user,0,'a refused token never falls back to Auth');
 });
-test('a bad signature, a missing key id or an unsupported algorithm is refused',async()=>{
+test('a bad signature, a missing key id or alg none is refused without asking Auth',async()=>{
   const p=await project({algs:['ES256','ES256']});
   // Signed by a different key but naming the published one.
   await refused(p.backend.verifyUser(await p.sign({kid:'k0',signWith:'k1'})));
   const good=await p.sign(),[h,b,s]=good.split('.');
   await refused(p.backend.verifyUser([h,Buffer.from(JSON.stringify({...JSON.parse(Buffer.from(b,'base64url')),sub:'30000000-0000-4000-8000-000000000002'})).toString('base64url'),s].join('.')));
   const header=alg=>Buffer.from(JSON.stringify({alg,kid:'k0',typ:'JWT'})).toString('base64url');
-  for(const alg of ['none','PS256','EdDSA'])await refused(p.backend.verifyUser([header(alg),b,s].join('.')));
+  for(const alg of ['none','NONE'])await refused(p.backend.verifyUser([header(alg),b,s].join('.')));
   await refused(p.backend.verifyUser([Buffer.from(JSON.stringify({alg:'ES256',typ:'JWT'})).toString('base64url'),b,s].join('.')));
   await refused(p.backend.verifyUser('not.a.token'));
   assert.equal(p.calls.user,0);
@@ -74,6 +74,20 @@ test('an unknown key id refetches the key set, so a rotated key verifies; a key 
   const rotated=await p.backend.verifyUser(await p.sign({kid:'k1'}));assert.equal(rotated.userId,userId);assert.equal(p.calls.jwks,3);
   await p.backend.verifyUser(await p.sign({kid:'k1'}));assert.equal(p.calls.jwks,3,'the refreshed set is cached');
   assert.equal(p.calls.user,0);
+});
+test('a token signed with another algorithm (a future key type) goes to the Supabase Auth check instead of a 401',async()=>{
+  const p=await project();
+  const [,b,s]=(await p.sign()).split('.');
+  const header=alg=>Buffer.from(JSON.stringify({alg,kid:'k9',typ:'JWT'})).toString('base64url');
+  for(const alg of ['EdDSA','PS256']){
+    const user=await p.backend.verifyUser([header(alg),b,s].join('.'));
+    assert.equal(user.userId,userId);assert.equal(user.sessionChecked,true);
+  }
+  assert.deepEqual(p.calls,{jwks:0,user:2});
+  // Refusals on their own merits still hold: Auth says no, or the claims are wrong before Auth is asked.
+  p.state.user=null;await refused(p.backend.verifyUser([header('EdDSA'),b,s].join('.')));
+  const [,expired]=(await p.sign({exp:'-1m'})).split('.');
+  await refused(p.backend.verifyUser([header('EdDSA'),expired,s].join('.')));assert.equal(p.calls.user,3);
 });
 test('legacy HS256 tokens and an unreachable key set fall back to the Supabase Auth check',async()=>{
   const p=await project();
