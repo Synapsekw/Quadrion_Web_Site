@@ -97,3 +97,49 @@ Owner sign-in and server database access are now verified. Real member creation,
 ## Branded password reset — 16 October 2026
 
 The password-reset email now uses Quadrion branding and the subject **Reset your Quadrion password**. Its source and update instructions are in `supabase/templates/`. This is a hosted Supabase template, separate from Netlify deployments. The existing recovery link, sender, and callback are preserved. The saved template and desktop/mobile browser previews were verified; a newly delivered message has not been tested for this template.
+
+## Tester feedback, 25 October 2026
+
+The team test board now lives behind the portal login, with one loop around it: a tester fails a line or requests a feature, the owner triages it in one inbox, marks it fixed in a build, and the tester who raised it confirms it or sends it back. The app's **Report a problem** dialog opens the same report form.
+
+**Apply the SQL before the deploy publishes.** The functions call the new RPCs and the bucket on the first request. Run these five migrations by hand in the Supabase SQL editor (project `oxjrkodcmflxejdwsuac`), in this order, each as one script, and expect no error from any of them:
+
+1. `202610250001_feedback_schema.sql` adds the `tester` flag on `portal_members` and the tables `test_content`, `test_lines`, `test_answers`, `feedback_items`, `feedback_reporters`, `feedback_events` and `feedback_attachments`.
+2. `202610250002_feedback_tests_api.sql` holds the test content, answer, import and progress RPCs.
+3. `202610250003_feedback_items_api.sql` holds the inbox, item, owner-action and tester-action RPCs.
+4. `202610250004_feedback_attachments_api.sql` holds the attachment upload, verification and cleanup RPCs.
+5. `202610250005_feedback_bucket.sql` creates the bucket and raises if it is missing afterwards.
+
+Then check that the seven new tables show RLS enabled and forced, and that `anon` and `authenticated` hold no grant on them or on any `portal_feedback_*` or `portal_tests_*` function. Never edit or replay older migrations. Deploy previews answer 503 by design, so test only on production after the merge.
+
+**Storage.** The new private bucket `quadrion-feedback` has a 100,000,000-byte file limit and accepts PNG, JPEG, WebP, MP4, WebM and ZIP. The API enforces the tighter caps: images 10,000,000 bytes, videos 100,000,000 bytes, the app's diagnostics ZIP 50,000,000 bytes, and at most 10 attachments per item. Uploads use a signed URL with tus resume and a server-side SHA-256 check, as for releases. Do not add public or client Storage policies.
+
+**Endpoints.** `/api/portal-feedback` serves testers (their tests, answers, reports, replies, confirmations and attachments). The owner's actions (inbox, item, priority, ask, comment, park, decline, restore, fix, merge, bulk fix, progress, counts, attachment links, **Copy for AI**, test content upload, answer import and the tester flag) join the existing `/api/portal-admin`. Test content upload, answer import and the tester flag are Owner-only. The scheduled cleanup function also verifies and removes abandoned feedback attachments after the release work, so a feedback failure never holds the release work up.
+
+**Pages.**
+
+- `/portal/tests/` is the tester's page: Waiting for you, My tests, My reports and Request a feature.
+- `/portal/report/` is the report form. `/portal/report` without the slash also works. The app opens exactly `/portal/report/?build=<app version>&screen=<screen id>`; nothing else leaves the app. The link survives sign-in for every role, and a foreign or `/admin/` return path is not honoured.
+- `/admin/feedback/` is the owner's inbox, with **Progress** at `/admin/feedback/progress/` and Owner-only **Test content** at `/admin/feedback/content/`.
+
+**Links and notifications.** Attachment links last 300 seconds everywhere, except in **Copy for AI**, where they last 24 hours (86,400 seconds) so an agent session can still open them. Treat a copied block as sensitive until they expire. Notifications are in the portal only (the Tests badge for testers, the Feedback badge for the owner); no email is sent. **Copy message for testers** holds no test content and no project names.
+
+**Tester flag.** The tester pages and the app's report link need the **Tester** flag on the member. The Owner sets it in Admin, Users, **Manage**, section **Test feedback**, then **Save tester access** (saved separately from access). An Owner is not a tester automatically: tick it on your own row to try the tester pages. The Users table shows no tester marker; reopen **Manage** to see the box. A signed-in member without the flag sees "This area is for Quadrion testers."
+
+**Test content and old answers.** The test content comes from the AIO private build as JSON (`node tools/test-board/build.mjs --private <private folder> --json`) and is uploaded under Test content. It lives only in the database, never in either repo or in a built asset. A new version keeps answers on lines that still exist; an answer on a retired line is refused with a "reload" message. **Import answers** loads one tester's earlier results under their member account; the build is stored as `unknown` and shown as "build not recorded". The old board saved a fail on the click and asked for the comment later, so a fail without a comment is kept with the placeholder comment "Marked failed on the earlier test board, without a comment." Each imported fail raises a bug. A second import of the same file adds nothing.
+
+**Audit.** Portal-level changes (tester flag, content uploads, imports, attachment uploads) go to `portal_events`; each item's history (comments, questions, status changes, fixes, confirmations, merges) is in `feedback_events`. Review both with:
+
+```sql
+select created_at, action, actor_id, subject_id, details
+from public.portal_events
+where action in ('member_tester_changed','test_content_uploaded','test_answers_imported',
+  'feedback_upload_started','feedback_attachment_verified','feedback_upload_abandoned')
+order by created_at desc
+limit 100;
+
+select e.created_at, i.number, e.kind, e.actor_id, left(e.body, 80) as body
+from public.feedback_events e join public.feedback_items i on i.id = e.item_id
+order by e.created_at desc
+limit 100;
+```
