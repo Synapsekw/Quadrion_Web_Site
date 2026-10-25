@@ -7,7 +7,7 @@ import {uploadControl} from './upload.mjs';
 import {submitMutation} from './mutations.mjs';
 import {el,button,link,field,heading,empty,notice,bytes,date} from './ui.mjs';
 import {renderInbox,renderProgress,renderContent,testerSection} from './feedback-admin.mjs';
-const root=document.querySelector('#app');let auth,api,memberApi,member,content,sequence=0,limits,feedbackInbox=0;
+const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,sequence=0,limits,feedbackInbox=0;
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
 function select(label,name,options,value){const input=el('select',{id:name,name},options.map(([v,text])=>el('option',{value:v,selected:String(v)===String(value)},text)));return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
 function area(label,name,value=''){const input=el('textarea',{id:name,name,rows:4,maxlength:16000},value);return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
@@ -135,9 +135,10 @@ async function render(){const ticket=++sequence;try{
   const me=await memberApi.get('me');if(ticket!==sequence)return;member=me.member;
   if(member.role==='member'){location.replace('/portal/');return;}
   document.querySelectorAll('dialog').forEach(d=>d.close());
-  feedbackInbox=await api.get('feedbackCounts').then(counts=>Number(counts.inbox)||0,()=>0);if(ticket!==sequence)return;shell();
+  // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
+  feedbackInbox=await badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0,()=>0);if(ticket!==sequence)return;shell();
   if(!limits)limits=(await api.get('overview')).limits;if(ticket!==sequence)return;
   const path=location.pathname;if(path==='/admin/'||path==='/admin/index.html')await overview(ticket);else if(path==='/admin/users/')await users(ticket);else if(path==='/admin/settings/'&&member.role==='owner')await users(ticket,true);else if(path==='/admin/projects/')await projects(ticket);else if(path==='/admin/releases/')await releases(ticket);else if(path==='/admin/feedback/'||path==='/admin/feedback')await renderInbox(feedbackContext());else if(path==='/admin/feedback/progress/')await renderProgress(feedbackContext());else if(path==='/admin/feedback/content/'&&member.role==='owner')await renderContent(feedbackContext());else if(path==='/admin/activity/')await activity(ticket);else content.append(empty('Page unavailable','Return to administration.',link('Overview','/admin/')));
   content.querySelector('h1')?.focus({preventScroll:true});
 }catch(error){if(error.status===401){await auth.signOut();return;}if(content)content.replaceChildren(notice(error.message,'error'),button('Refresh',render,true),button('Sign out',()=>auth.signOut(),true));else root.replaceChildren(notice(error.message,'error'));}}
-try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:clear});await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}
+try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:clear});await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

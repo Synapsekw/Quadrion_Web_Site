@@ -27,6 +27,12 @@ export async function bulkFix({api,ids,build,origin}){
   const result=await api.post('feedbackBulkFix',{ids:unique,build:label});
   return {...result,message:testerMessage({fixes:result.bugs||0,features:result.features||0,build:result.build||label,origin})};
 }
+// The tester message for one item marked fixed: the same wording as a bulk fix of one.
+export const fixMessage=(item,build,origin)=>testerMessage({fixes:item.kind==='bug'?1:0,features:item.kind==='feature'?1:0,build:String(build||'').trim(),origin});
+function fixedNotice(ctx,summary,message){
+  const copy=button('Copy message for testers',async()=>{try{await ctx.clipboard.writeText(message);copy.textContent='Copied';}catch{copy.textContent='Copy was blocked';}},true);
+  return el('div',{class:'fb-fixed'},notice(summary),el('p',{class:'fb-tester-message'},message),copy);
+}
 // Owners only; null for everyone else. payload(checked) is the memberTester body, with the row's revision.
 export function testerToggle(role,user){
   if(role!=='owner')return null;
@@ -56,9 +62,9 @@ async function testerList(ctx){
   return (progress.testers||[]).map(t=>({id:t.userId,name:t.name}));
 }
 // Runs one owner action against the item's current revision; the item is repainted on success.
-function actions(ctx,detail,repaint,showError){
+function actions(ctx,detail,repaint,showError,onFixed){
   const item=detail.item;
-  const act=(action,data={})=>submitMutation({send:()=>ctx.api.post('feedbackAction',{id:item.id,revision:item.revision,action,data}),refresh:repaint,showError});
+  const act=(action,data={},refresh=repaint)=>submitMutation({send:()=>ctx.api.post('feedbackAction',{id:item.id,revision:item.revision,action,data}),refresh,showError});
   const form=(fields,label,run,{secondary=true}={})=>{
     const submit=el('button',{type:'submit',class:secondary?'secondary':'primary'},label);
     return el('form',{class:'fb-action',onsubmit:async e=>{e.preventDefault();submit.disabled=true;try{await run();}finally{submit.disabled=false;}}},...fields,submit);
@@ -88,7 +94,7 @@ function actions(ctx,detail,repaint,showError){
     form([priority.node],'Set priority',()=>act('priority',{priority:priority.input.value})),
     form([el('div',{class:'field'},el('label',{for:'fb-ask'},'Ask a question'),ask)],'Ask a question',async()=>{await act('ask',{body:ask.value});}),
     form([el('div',{class:'field'},el('label',{for:'fb-comment'},'Comment'),comment)],'Comment',async()=>{await act('comment',{body:comment.value});}),
-    open?form([fixBuild.node],'Mark fixed in build',()=>act('fix',{build:fixBuild.input.value.trim()})):null,
+    open?form([fixBuild.node],'Mark fixed in build',()=>{const build=fixBuild.input.value.trim();return act('fix',{build},()=>onFixed(build));}):null,
     el('div',{class:'actions'},
       item.status==='new'?busyButton('Move to the queue',()=>act('triage')):null,
       open?busyButton('Park',()=>act('park',reason.input.value.trim()?{reason:reason.input.value.trim()}:{})):null,
@@ -97,7 +103,7 @@ function actions(ctx,detail,repaint,showError){
     open?reason.node:null,
     open?mergeBox:null);
 }
-function itemBody(ctx,detail,repaint,showError){
+function itemBody(ctx,detail,repaint,showError,onFixed){
   const item=detail.item,lineText=detail.retired?el('p',{class:'fb-line retired'},'Retired line: this test line is not in the current test content.'):detail.line?el('p',{class:'fb-line'},el('span',{class:'muted'},[detail.line.stageTitle,detail.line.groupTitle].filter(Boolean).join(' / ')),el('br'),detail.line.plain):null;
   const names=(item.reporters||[]).map(r=>r.name+(r.confirmedAt?' (confirmed '+buildLabel(r.confirmedBuild)+')':''));
   const attachmentApi={post:(action,body)=>ctx.api.post(action,{id:body.attachmentId})};
@@ -111,7 +117,7 @@ function itemBody(ctx,detail,repaint,showError){
     lineText,
     el('h3',{},'Thread'),threadView(events,{api:attachmentApi,action:'feedbackAttachmentUrl'}),
     loose.length?el('div',{class:'fb-loose'},loose.map(attachment=>attachmentView({api:attachmentApi,action:'feedbackAttachmentUrl',attachment}))):null,
-    actions(ctx,detail,repaint,showError));
+    actions(ctx,detail,repaint,showError,onFixed));
 }
 async function openItem(ctx,summary){
   let changed=false;
@@ -120,8 +126,13 @@ async function openItem(ctx,summary){
   async function paint(){
     const detail=await ctx.api.get('feedbackItem',{id:summary.id});
     changed=true;feedback.replaceChildren();
-    holder.replaceChildren(itemBody(ctx,detail,paint,showError));
+    holder.replaceChildren(itemBody(ctx,detail,paint,showError,fixed));
     return detail;
+  }
+  // After a fix the dialog closes and the page renders once, with the tester message to copy on top.
+  async function fixed(build){
+    changed=false;dlg.close();
+    await showAfterRender(ctx,()=>fixedNotice(ctx,'Marked #'+summary.number+' fixed in '+build+'.',fixMessage(summary,build,ctx.origin)));
   }
   const dlg=ctx.dialog('#'+summary.number+' '+summary.title,statusLabel(summary.status,'owner')+' · '+summary.kind,el('div',{},holder,feedback));
   dlg.addEventListener('close',()=>{if(changed)ctx.render();});
@@ -155,10 +166,7 @@ export async function renderInbox(ctx){
     fixButton.disabled=true;
     try{
       const result=await bulkFix({api:ctx.api,ids:[...selected],build:fixBuild.input.value,origin:ctx.origin});
-      await showAfterRender(ctx,()=>{
-        const copy=button('Copy message for testers',async()=>{try{await ctx.clipboard.writeText(result.message);copy.textContent='Copied';}catch{copy.textContent='Copy was blocked';}},true);
-        return el('div',{class:'fb-fixed'},notice('Marked '+plural(result.fixed,'item','items')+' fixed in '+result.build+' for '+plural(result.testers||0,'tester','testers')+'.'),el('p',{class:'fb-tester-message'},result.message),copy);
-      });
+      await showAfterRender(ctx,()=>fixedNotice(ctx,'Marked '+plural(result.fixed,'item','items')+' fixed in '+result.build+' for '+plural(result.testers||0,'tester','testers')+'.',result.message));
     }catch(error){message.replaceChildren(notice(error.message,'error'));}
     finally{fixButton.disabled=false;}
   }},'Mark fixed');

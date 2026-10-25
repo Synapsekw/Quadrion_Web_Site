@@ -28,6 +28,11 @@ test('bulk fix sends the selected ids and then offers the tester message',async(
   await assert.rejects(bulkFix({api,ids:['a'],build:'  ',origin:'x'}),/Enter the build/);
   assert.equal(posts.length,1);
 });
+test('a single fix offers the same tester message as a bulk one',async()=>{
+  const {fixMessage}=await import('../portal/src/feedback-admin.mjs');
+  assert.equal(fixMessage({kind:'bug'},' 0.26.1 ','https://quadrion.ai'),'1 fix in 0.26.1 is ready to re-check: https://quadrion.ai/portal/tests/');
+  assert.equal(fixMessage({kind:'feature'},'0.26.1','https://quadrion.ai'),'1 feature built in 0.26.1 is ready to try: https://quadrion.ai/portal/tests/');
+});
 test('the tester checkbox shows for owners only',()=>{
   const user={user_id:'10000000-0000-4000-8000-000000000006',revision:4,tester:true};
   assert.equal(testerToggle('admin',user),null);
