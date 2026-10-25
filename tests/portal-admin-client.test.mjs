@@ -19,6 +19,42 @@ test('clearing a failed upload removes private content but leaves its error and 
   assert.ok(children.some(node=>node.message==='Upload service unavailable'));
   assert.ok(children.some(node=>node.label==='Refresh'));
 });
+// Runs admin.mjs against a fake DOM and fetch; replies maps an API action to [status, body].
+async function adminPage(replies,pathname='/admin/nowhere/'){
+  const {createPortalApi}=await import('../portal/src/api.mjs');
+  const source=(await readFile(new URL('../portal/src/admin.mjs',import.meta.url),'utf8')).replace(/^import .+;\r?\n/gm,'');
+  const {createCache,sessionSeed}=await import('../portal/src/cache.mjs');
+  const all=[];
+  const node=(tag,attrs={},...kids)=>{const n={tag,attrs,kids:kids.flat(Infinity).filter(k=>k!=null),isConnected:true,append(...k){this.kids.push(...k);},replaceChildren(...k){this.kids=k;},querySelector:()=>null,
+    getAttribute(k){return this.attrs[k]??null;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},classList:{toggle(){},add(){},remove(){}},
+    replaceWith(next){for(const p of all){const i=p.kids.indexOf(this);if(i>=0)p.kids[i]=next;}}};all.push(n);return n;};
+  const text=n=>n==null?'':typeof n!=='object'?String(n):(n.kids||[]).map(text).join(' ');
+  const root=node('div'),calls=[];
+  const document={querySelector:()=>root,querySelectorAll:()=>[],addEventListener(){},body:node('body')};
+  const window={addEventListener(){},dispatchEvent(){}};
+  const fetcher=async url=>{const action=new URL(url,'https://x.test').searchParams.get('action');calls.push(action);const [status,body]=replies[action];return {ok:status<400,status,json:async()=>body};};
+  const auth={getToken:async()=>'token',userId:async()=>'u1',needsPassword:()=>false,signOut:async()=>{}};
+  const params=['document','window','location','history','createPortalAuth','createPortalApi','el','button','link','field','heading','empty','notice','bytes','date','uploadControl','submitMutation','renderInbox','renderProgress','renderContent','testerSection','createCache','sessionSeed','skeleton','busy','progressBar'];
+  const run=compileFunction('return (async()=>{'+source+'\n})();',params);
+  await run(document,window,{pathname,search:'',origin:'https://x.test',replace(){}},{pushState(){}},async()=>auth,
+    options=>createPortalApi({...options,fetcher}),node,label=>node('button',{},label),(label,href,cls)=>node('a',{href,class:cls},label),()=>({}),(...t)=>node('h1',{},...t),
+    title=>node('section',{},title),message=>node('p',{},message),()=>'',()=>'',()=>({}),async()=>{},async()=>{},async()=>{},async()=>{},()=>null,createCache,sessionSeed,()=>node('div',{},'Loading'),()=>()=>{},()=>({track:()=>()=>{}}));
+  await new Promise(resolve=>setTimeout(resolve,10));
+  return {all,text,calls,page:text(root)};
+}
+test('the admin sidebar links to the Tests page with what is waiting for the owner or admin',async()=>{
+  for(const role of ['owner','admin']){
+    const {all,text,page}=await adminPage({me:[200,{member:{userId:'u1',role,displayName:'Team'}}],feedbackCounts:[200,{waiting:3,inbox:2}]});
+    const tests=all.filter(n=>n.tag==='a'&&n.attrs.href==='/portal/tests/');
+    assert.equal(tests.length,1,role);assert.equal(tests[0].attrs.class,'nav-item');
+    const badge=tests[0].kids.find(k=>typeof k==='object');
+    assert.equal(badge.hidden,false);assert.match(text(tests[0]),/Tests\s+3\s+waiting for you/);
+    assert.match(page,/Feedback/);assert.match(page,/Downloads & projects/);
+  }
+  const {all,text}=await adminPage({me:[200,{member:{userId:'u1',role:'owner',displayName:'Team'}}],feedbackCounts:[200,{waiting:0,inbox:0}]});
+  const tests=all.find(n=>n.tag==='a'&&n.attrs.href==='/portal/tests/');
+  assert.equal(tests.kids.find(k=>typeof k==='object').hidden,true);assert.doesNotMatch(text(tests),/waiting/);
+});
 test('a failing feedback count leaves the admin page standing with no badge',async()=>{
   const {createPortalApi}=await import('../portal/src/api.mjs');
   const source=(await readFile(new URL('../portal/src/admin.mjs',import.meta.url),'utf8')).replace(/^import .+;\r?\n/gm,'');

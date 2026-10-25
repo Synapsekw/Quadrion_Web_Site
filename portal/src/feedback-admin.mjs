@@ -34,12 +34,16 @@ function fixedNotice(ctx,summary,message){
   return el('div',{class:'fb-fixed'},notice(summary),el('p',{class:'fb-tester-message'},message),copy);
 }
 // Owners only; null for everyone else. payload(checked) is the memberTester body, with the row's revision.
+// An owner or admin row has no checkbox: owners and admins always have tester access ({always:true}).
+export const ALWAYS_TESTER='Owners and admins always have tester access';
 export function testerToggle(role,user){
   if(role!=='owner')return null;
+  if(user.role==='owner'||user.role==='admin')return {always:true};
   return {checked:user.tester===true,payload:checked=>({userId:user.user_id,revision:user.revision,tester:checked})};
 }
 export function testerSection(ctx,user,saveForm){
   const toggle=testerToggle(ctx.member.role,user);if(!toggle)return null;
+  if(toggle.always)return el('section',{class:'section-block tester-section'},el('h3',{},'Test feedback'),el('p',{class:'muted'},ALWAYS_TESTER+'.'));
   const input=el('input',{type:'checkbox',id:'edit-tester',name:'tester',checked:toggle.checked});
   const row=el('div',{class:'field check-field'},el('label',{for:'edit-tester'},input,' Tester'),el('small',{},'Testers see the test board and can report problems. Saved separately from access.'));
   return el('section',{class:'section-block tester-section'},el('h3',{},'Test feedback'),saveForm([row],'memberTester',()=>toggle.payload(input.checked),'Save tester access'));

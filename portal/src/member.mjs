@@ -6,12 +6,13 @@ import {el,button,link,field,heading,empty,notice,bytes,date,runButton,skeleton}
 import {renderTests,renderReport} from './tests.mjs';
 import {createCache,sessionSeed} from './cache.mjs';
 import {progressBar} from './progress.mjs';
+import {canTest} from './routing.mjs';
 const root=document.querySelector('#app');let auth,api,feedbackApi,member,content,mounted,sequence=0,countBadge,shellKey='',navLinks=[],meCache,countCache,releaseCache;
 function navigate(path){history.pushState(null,'',path);render();}
 document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/portal/')&&!e.ctrlKey&&!e.metaKey){if(a.hash&&a.pathname===location.pathname&&a.search===location.search)return;e.preventDefault();navigate(a.pathname+a.search+a.hash);}});
 // The Tests badge counts fixes to re-check and questions to answer.
 function showCount(waiting){if(!countBadge)return;countBadge.hidden=!waiting;countBadge.replaceChildren(String(waiting),el('span',{class:'sr-only'},' waiting for you'));}
-function refreshCount(force=false){if(!member?.tester||!countCache)return;(force?countCache.revalidate():countCache.get().catch(()=>{}));}
+function refreshCount(force=false){if(!canTest(member)||!countCache)return;(force?countCache.revalidate():countCache.get().catch(()=>{}));}
 window.addEventListener('quadrion:feedback-changed',()=>refreshCount(true));
 window.addEventListener('popstate',()=>render());
 function clear(){sequence++;member=null;shellKey='';meCache?.clear();content?.replaceChildren(notice('Your workspace access needs to be checked. Reload to continue.','error'),button('Reload workspace',render,true),button('Sign out',()=>auth.signOut(),true));mount();}
@@ -20,9 +21,9 @@ async function download(file,event){const target=event.currentTarget;await runBu
 const navPath=()=>location.pathname.startsWith('/portal/report')?'/portal/tests/':location.pathname;
 function markNav(){const path=navPath();for(const a of navLinks){const href=a.getAttribute('href'),on=path===href||(href!=='/portal/'&&path.startsWith(href));a.classList.toggle('active',on);if(path===href)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}}
 function shell(){
-  const key=[member.role,member.tier,member.tester,member.displayName].join('|');if(key===shellKey&&mounted?.isConnected)return;shellKey=key;
-  const items=[['Overview','/portal/','◈'],['Downloads','/portal/downloads/','↓'],['Projects','/portal/projects/','▦'],...(member.tester?[['Tests','/portal/tests/','✓']]:[]),['Account','/portal/account/','◎']];
-  countBadge=member.tester?el('span',{class:'nav-count',hidden:true}):null;
+  const key=[member.role,member.tier,canTest(member),member.displayName].join('|');if(key===shellKey&&mounted?.isConnected)return;shellKey=key;
+  const items=[['Overview','/portal/','◈'],['Downloads','/portal/downloads/','↓'],['Projects','/portal/projects/','▦'],...(canTest(member)?[['Tests','/portal/tests/','✓']]:[]),['Account','/portal/account/','◎']];
+  countBadge=canTest(member)?el('span',{class:'nav-count',hidden:true}):null;
   content=mounted=el('main',{id:'main',class:'workspace-main'},skeleton());
   navLinks=items.map(([name,href,icon])=>el('a',{href,class:'nav-item'},el('span',{'aria-hidden':'true'},icon),name,href==='/portal/tests/'?countBadge:null));
   const sidebar=el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'WORKSPACE'),el('nav',{'aria-label':'Workspace'},navLinks),el('div',{class:'sidebar-bottom'},member.role!=='member'?link('Administration ↗','/admin/','nav-item'):null,el('p',{class:'account-label'},member.displayName||'Your account'),el('span',{class:'badge'},member.role==='member'?'T'+member.tier+' MEMBER':member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true)));
@@ -97,7 +98,7 @@ async function render(){
     else if(path==='/portal/account/')await account();
     else if(path==='/portal/tests/'||path==='/portal/report/'||path==='/portal/report'){
       // The release list (build suggestions only) loads alongside the page's own data, not before it.
-      const releases=member.tester?releaseCache.get().then(r=>r.items,()=>[]):Promise.resolve([]);
+      const releases=canTest(member)?releaseCache.get().then(r=>r.items,()=>[]):Promise.resolve([]);
       const ctx={content,api:feedbackApi,member,releases,navigate,ticket,current:()=>ticket===sequence};
       await (path==='/portal/tests/'?renderTests:renderReport)(ctx);
     }
@@ -115,7 +116,7 @@ setInterval(()=>{if(member&&document.visibilityState!=='hidden')refreshCount(tru
 try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,track:bar.track});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,track:bar.track,onDenied:status=>{if(status===401||status===403)clear();}});
   // me is read through an API that clears the page only for a lost session, so a background refresh that hits a network blip leaves the page alone.
   const meApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
-  meCache=createCache(()=>meApi.get('me'),{seed:sessionSeed('quadrion-me'),ownerOf:me=>me.member.userId,onChange:me=>{const m=me.member;if(member&&[m.role,m.tier,m.tester,m.displayName].join('|')!==shellKey)render();}});
+  meCache=createCache(()=>meApi.get('me'),{seed:sessionSeed('quadrion-me'),ownerOf:me=>me.member.userId,onChange:me=>{const m=me.member;if(member&&[m.role,m.tier,canTest(m),m.displayName].join('|')!==shellKey)render();}});
   const badgeApi=createPortalApi({scope:'feedback',getToken:auth.getToken});
   countCache=createCache(()=>badgeApi.get('counts').then(c=>Number(c.waiting)||0),{onChange:showCount});
   releaseCache=createCache(()=>api.get('releases'),{maxAge:300000});
