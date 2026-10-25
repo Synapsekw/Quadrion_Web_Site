@@ -105,14 +105,15 @@ test('a fail needs a comment and opens one bug per line',()=>withDb(async db=>{
 test('a fail on a fixed bug reopens it and a fail on a merged bug goes to the kept item',()=>withDb(async db=>{
   await upload(db);
   const {itemId}=await answer(db,ids.testerA,lineA,'fail','Map stays blank');
-  await db.query("update public.feedback_items set status='fixed',fixed_in='0.25.2' where id=$1",[itemId]);
+  await db.query("update public.feedback_items set status='fixed',fixed_in='0.25.3' where id=$1",[itemId]);
   await db.query('update public.feedback_reporters set confirmed_at=now() where item_id=$1',[itemId]);
   const reopened=await answer(db,ids.testerA,lineA,'fail','Blank again','0.25.2');
   assert.equal(reopened.itemId,itemId);
   const row=await one(db,'select status,owner_attention from public.feedback_items where id=$1',[itemId]);
   assert.deepEqual(row,{status:'reopened',owner_attention:true});
   assert.equal((await one(db,'select confirmed_at from public.feedback_reporters where item_id=$1',[itemId])).confirmed_at,null);
-  assert.equal((await one(db,"select body from public.feedback_events where item_id=$1 and kind='reopen'",[itemId])).body,'Blank again');
+  assert.deepEqual(await one(db,"select body,details from public.feedback_events where item_id=$1 and kind='reopen'",[itemId]),
+    {body:'Blank again',details:{build:'0.25.2',fixedIn:'0.25.3',source:'answer'}});
   const kept=(await answer(db,ids.testerB,lineB,'fail','Second map is blank')).itemId;
   await db.query("update public.feedback_items set status='merged',merged_into=$2 where id=$1",[itemId,kept]);
   const merged=await answer(db,ids.testerA,lineA,'fail','Still blank after merge');
@@ -220,4 +221,7 @@ test('the seven API functions are definer, service_role only',()=>withDb(async d
     assert.equal((await one(db,"select has_function_privilege('service_role',$1,'execute') as ok",[f.sig])).ok,true,f.proname);
     for(const role of ['anon','authenticated'])assert.equal((await one(db,'select has_function_privilege($1,$2,$3) as ok',[role,f.sig,'execute'])).ok,false,`${role} ${f.proname}`);
   }
+  const helper=await one(db,"select p.oid::regprocedure::text as sig,p.prosecdef,p.proconfig from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='portal_test_own_bug'");
+  assert.equal(helper.prosecdef,true);assert.deepEqual(helper.proconfig,['search_path=""']);
+  for(const role of ['service_role','anon','authenticated'])assert.equal((await one(db,'select has_function_privilege($1,$2,$3) as ok',[role,helper.sig,'execute'])).ok,false,`${role} portal_test_own_bug`);
 }));

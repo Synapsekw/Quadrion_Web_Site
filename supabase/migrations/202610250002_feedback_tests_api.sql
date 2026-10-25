@@ -133,7 +133,7 @@ begin
       if target.status='fixed' then
         update public.feedback_reporters set confirmed_at=null,confirmed_build=null where item_id=item;
         update public.feedback_items set status=public.portal_feedback_next_status(status,'reopen'),owner_attention=true,revision=revision+1 where id=item;
-        perform public.portal_feedback_log(item,p_actor,'reopen',note,jsonb_build_object('build',v_build,'source','answer'));
+        perform public.portal_feedback_log(item,p_actor,'reopen',note,jsonb_build_object('build',v_build,'fixedIn',target.fixed_in,'source','answer'));
       else
         update public.feedback_items set owner_attention=true,revision=revision+1 where id=item;
         perform public.portal_feedback_log(item,p_actor,'comment',note,jsonb_build_object('build',v_build,'source','answer'));
