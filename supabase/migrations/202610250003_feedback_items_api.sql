@@ -278,6 +278,10 @@ begin
       v_text:=public.portal_feedback_build_text(public.portal_feedback_str(d,'build'),true);
     end if;
     if v_next is null then raise exception 'portal:conflict'; end if;
+    -- A new fix on a fixed item: every reporter confirms the new build, as after a send back.
+    if p_action='fix' and item.status='fixed' then
+      update public.feedback_reporters set confirmed_at=null,confirmed_build=null where item_id=p_id;
+    end if;
     update public.feedback_items set status=v_next,
       reason=case when p_action in ('park','decline') then v_text when p_action in ('restore','fix') then null else reason end,
       fixed_in=case when p_action='fix' then v_text else fixed_in end where id=p_id;
@@ -302,6 +306,7 @@ begin
   -- All or nothing: any item that cannot be marked fixed rolls the whole call back.
   for item in select * from public.feedback_items where id=any(v_ids) order by id for update loop
     if public.portal_feedback_next_status(item.status,'fix') is null then raise exception 'portal:conflict'; end if;
+    if item.status='fixed' then update public.feedback_reporters set confirmed_at=null,confirmed_build=null where item_id=item.id; end if;
     update public.feedback_items set status='fixed',fixed_in=v_build,reason=null,owner_attention=false,revision=revision+1 where id=item.id;
     perform public.portal_feedback_log(item.id,p_actor,'fixed','',jsonb_build_object('build',v_build));
     n:=n+1;

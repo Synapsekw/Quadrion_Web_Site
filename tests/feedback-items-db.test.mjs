@@ -178,6 +178,25 @@ withDb('merge folds reporters and thread and notifies both on fix',async(a,db)=>
   assert.equal(r.status,'confirmed');
 });
 
+withDb('marking a fixed item fixed again clears every confirmation, single and bulk',async(a,db)=>{
+  const item=await a.create(ids.testerA,bug('Map blank twice'));
+  await db.query('insert into public.feedback_reporters(item_id,tester_id) values ($1,$2)',[item.id,ids.testerB]);
+  const confirmed=async()=>(await db.query('select count(*)::int as n from public.feedback_reporters where item_id=$1 and confirmed_at is not null',[item.id])).rows[0].n;
+  await a.owner(ids.owner,item.id,item.revision,'fix',{build:'0.26.0'});
+  let r=await a.tester(ids.testerA,item.id,await rev(db,item.id),'confirm',null,'0.26.0');
+  assert.equal(r.status,'fixed');assert.equal(await confirmed(),1);
+  r=await a.owner(ids.owner,item.id,await rev(db,item.id),'fix',{build:'0.26.1'});
+  assert.equal(r.status,'fixed');assert.equal(await confirmed(),0);
+  assert.equal((await a.mine(ids.testerA)).find(i=>i.id===item.id).waiting,true);
+  await a.tester(ids.testerA,item.id,await rev(db,item.id),'confirm',null,'0.26.1');
+  assert.equal(await confirmed(),1);
+  await a.bulk(ids.owner,[item.id],'0.26.2');
+  assert.equal(await confirmed(),0);
+  r=await a.tester(ids.testerA,item.id,await rev(db,item.id),'confirm',null,'0.26.2');
+  r=await a.tester(ids.testerB,item.id,r.revision,'confirm',null,'0.26.2');
+  assert.equal(r.status,'confirmed');
+});
+
 withDb('decline needs a reason the tester sees',async(a)=>{
   const item=await a.create(ids.testerA,{kind:'feature',title:'Make it purple'});
   for(const data of [{},{reason:'   '},{reason:'x'.repeat(2001)}])

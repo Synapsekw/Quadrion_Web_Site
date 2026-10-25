@@ -145,9 +145,10 @@ begin
       order by i.created_at desc,i.number desc limit 1 for update of i;
     item:=target.id;
     if target.status='fixed' then
-      perform public.portal_feedback_confirm(item,p_actor,nullif(v_build,'unknown'));
+      -- The tester's own build, 'unknown' when blank: never the fixed-in build they did not name.
+      perform public.portal_feedback_confirm(item,p_actor,v_build);
       -- Confirming clears the comment; keep the one the tester just wrote.
-      update public.test_answers set comment=note where tester_id=p_actor and line_id=p_line;
+      update public.test_answers set comment=note,build=v_build where tester_id=p_actor and line_id=p_line;
     elsif item is not null and prev.status is distinct from 'pass' then
       update public.feedback_items set owner_attention=true,revision=revision+1 where id=item;
       perform public.portal_feedback_log(item,p_actor,'line_passed','',jsonb_build_object('build',v_build));
@@ -202,8 +203,10 @@ begin
       v_note:=trim(case when jsonb_typeof(entry.value->'c')='string' then entry.value->>'c' else '' end);
       begin v_at:=nullif(trim(entry.value->>'t'),'')::timestamptz; exception when others then v_at:=null; end;
     end if;
+    -- The old board saved a fail on the click and only asked for the comment later, so keep those too.
+    if v_status='fail' and v_note='' then v_note:='Marked failed on the earlier test board, without a comment.'; end if;
     if v_status is null or v_status not in ('pass','fail','skip') or length(entry.key)>200
-      or entry.key !~ '^[a-z][a-z0-9-]*(:[a-z0-9-]+)+:[0-9a-f]{10}(-[0-9]+)?$' or length(v_note)>16000 or (v_status='fail' and v_note='') then
+      or entry.key !~ '^[a-z][a-z0-9-]*(:[a-z0-9-]+)+:[0-9a-f]{10}(-[0-9]+)?$' or length(v_note)>16000 then
       n_skipped:=n_skipped+1; continue;
     end if;
     perform pg_advisory_xact_lock(hashtextextended('portal-feedback-bug:'||p_tester::text||':'||entry.key,0));

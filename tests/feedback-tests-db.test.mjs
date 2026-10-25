@@ -194,6 +194,29 @@ test('import is idempotent, keeps newer answers and records build unknown',()=>w
   assert.equal((await one(db,'select status from public.test_answers where tester_id=$1 and line_id=$2',[ids.testerA,lineA])).status,'pass');
 }));
 
+test('a pass with no build on a fixed bug records build unknown, not the fixed-in build',()=>withDb(async db=>{
+  await upload(db);
+  const {itemId}=await answer(db,ids.testerA,lineA,'fail','Map stays blank');
+  await db.query("update public.feedback_items set status='fixed',fixed_in='0.25.2' where id=$1",[itemId]);
+  const result=await answer(db,ids.testerA,lineA,'pass',null,'  ');
+  assert.equal(result.answer.build,'unknown');
+  assert.equal((await one(db,'select build from public.test_answers where tester_id=$1 and line_id=$2',[ids.testerA,lineA])).build,'unknown');
+  assert.equal((await one(db,'select confirmed_build from public.feedback_reporters where item_id=$1',[itemId])).confirmed_build,'unknown');
+  assert.equal((await one(db,'select status from public.feedback_items where id=$1',[itemId])).status,'confirmed');
+}));
+
+test('import keeps a fail without a comment under a placeholder and opens its bug',()=>withDb(async db=>{
+  await upload(db);
+  const result=await rpc(db,'portal_tests_import',[ids.owner,'aal2',ids.testerA,{[lineC]:{s:'fail',c:'  ',t:'2020-10-01T10:00:00.000Z'}}]);
+  assert.deepEqual(result,{imported:1,skipped:0,bugs:1,retired:0});
+  const placeholder='Marked failed on the earlier test board, without a comment.';
+  assert.deepEqual(await one(db,'select status,comment,build from public.test_answers where tester_id=$1 and line_id=$2',[ids.testerA,lineC]),{status:'fail',comment:placeholder,build:'unknown'});
+  const bug=await one(db,'select body,status from public.feedback_items where line_id=$1',[lineC]);
+  assert.deepEqual(bug,{body:placeholder,status:'new'});
+  const again=await rpc(db,'portal_tests_import',[ids.owner,'aal2',ids.testerA,{[lineC]:{s:'fail',c:'',t:'2020-10-01T10:00:00.000Z'}}]);
+  assert.deepEqual(again,{imported:0,skipped:1,bugs:0,retired:0});
+}));
+
 test('progress counts per tester and stage',()=>withDb(async db=>{
   await upload(db);
   await answer(db,ids.testerA,lineA,'pass',null,'0.25.0');
