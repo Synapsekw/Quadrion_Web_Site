@@ -86,6 +86,14 @@
     Content-Type = "application/manifest+json"
     Cache-Control = "no-cache"
 
+# Portal and admin bundles carry a content hash in their names (scripts/build-portal.mjs), so a browser can keep
+# them for good; the pages that name them (/portal/*, /admin/*) stay uncached above.
+[[headers]]
+  for = "/assets/portal/h/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
+
 [[redirects]]
   from = "https://quadrionai.netlify.app/*"
   to = "https://quadrion.ai/:splat"

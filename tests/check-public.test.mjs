@@ -26,7 +26,8 @@ test('a private term fails word-bounded and case-insensitive',()=>{
 test('ordinary portal bundles pass',async()=>{
   const dir=new URL('../directions/assets/portal/',import.meta.url);
   let names=[];
-  try{names=(await readdir(dir)).filter(n=>n.endsWith('.js'));}catch(error){if(error.code!=='ENOENT')throw error;}
+  try{names=(await readdir(dir,{recursive:true})).map(n=>n.replace(/\\/g,'/')).filter(n=>n.endsWith('.js'));}catch(error){if(error.code!=='ENOENT')throw error;}
   assert.ok(names.length>0,'run npm run build:portal first');
+  assert.ok(names.some(n=>n.startsWith('h/')),'the hashed bundles are built under h/');
   for(const name of names)assert.deepEqual(findPrivateContent(await readFile(new URL(name,dir),'utf8'),[]),[],name);
 });
