@@ -5,6 +5,9 @@ export function activeMember(member, now) {
     && (member.role === 'member' ? Number.isInteger(member.tier) && member.tier >= 1 && member.tier <= 3
       : ['admin','owner'].includes(member.role) && member.tier === null);
 }
+export function isTester(member, now) {
+  return activeMember(member,now) && member.tester === true;
+}
 export function canAdminister({ member, aal, now }) {
   return activeMember(member,now) && ['admin','owner'].includes(member.role) && ['aal1','aal2'].includes(aal);
 }

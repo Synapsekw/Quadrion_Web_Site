@@ -1,17 +1,23 @@
 import './portal.css';
+import './tests.css';
 import {createPortalAuth} from './auth.mjs';
 import {createPortalApi} from './api.mjs';
 import {el,button,link,field,heading,empty,notice,bytes,date,runButton} from './ui.mjs';
-const root=document.querySelector('#app');let auth,api,member,content,sequence=0;
+import {renderTests,renderReport} from './tests.mjs';
+const root=document.querySelector('#app');let auth,api,feedbackApi,member,content,sequence=0,countBadge;
 function navigate(path){history.pushState(null,'',path);render();}
-document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/portal/')&&!e.ctrlKey&&!e.metaKey){e.preventDefault();navigate(a.pathname+a.search);}});
+document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&a.origin===location.origin&&a.pathname.startsWith('/portal/')&&!e.ctrlKey&&!e.metaKey){if(a.hash&&a.pathname===location.pathname&&a.search===location.search)return;e.preventDefault();navigate(a.pathname+a.search+a.hash);}});
+// The Tests badge counts fixes to re-check and questions to answer.
+async function refreshCount(){if(!member?.tester||!countBadge)return;try{const {waiting}=await feedbackApi.get('counts');countBadge.hidden=!waiting;countBadge.replaceChildren(String(waiting),el('span',{class:'sr-only'},' waiting for you'));}catch{}}
+window.addEventListener('quadrion:feedback-changed',()=>refreshCount());
 window.addEventListener('popstate',()=>render());
 function clear(){sequence++;member=null;content?.replaceChildren(notice('Your workspace access needs to be checked. Reload to continue.','error'),button('Reload workspace',render,true),button('Sign out',()=>auth.signOut(),true));}
 async function download(file,event){await runButton(event.currentTarget,async()=>{try{const result=await api.post('download',{artifactId:file.artifact_id||file.id});const url=new URL(result.url);if(url.protocol!=='https:'||url.hostname!=='oxjrkodcmflxejdwsuac.supabase.co')throw new Error('The download link could not be verified.');const a=el('a',{href:url.href,download:result.filename,rel:'noreferrer'});document.body.append(a);a.click();a.remove();}catch(error){content.prepend(notice(error.message,'error'));}});}
 function shell(){
-  const path=location.pathname;const items=[['Overview','/portal/','◈'],['Downloads','/portal/downloads/','↓'],['Projects','/portal/projects/','▦'],['Account','/portal/account/','◎']];
+  const path=location.pathname.startsWith('/portal/report')?'/portal/tests/':location.pathname;const items=[['Overview','/portal/','◈'],['Downloads','/portal/downloads/','↓'],['Projects','/portal/projects/','▦'],...(member.tester?[['Tests','/portal/tests/','✓']]:[]),['Account','/portal/account/','◎']];
+  countBadge=member.tester?el('span',{class:'nav-count',hidden:true}):null;
   content=el('main',{id:'main',class:'workspace-main'});
-  const sidebar=el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'WORKSPACE'),el('nav',{'aria-label':'Workspace'},items.map(([name,href,icon])=>el('a',{href,class:path===href||(href!=='/portal/'&&path.startsWith(href))?'nav-item active':'nav-item','aria-current':path===href?'page':null},el('span',{'aria-hidden':'true'},icon),name))),el('div',{class:'sidebar-bottom'},member.role!=='member'?link('Administration ↗','/admin/','nav-item'):null,el('p',{class:'account-label'},member.displayName||'Your account'),el('span',{class:'badge'},member.role==='member'?'T'+member.tier+' MEMBER':member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true)));
+  const sidebar=el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'WORKSPACE'),el('nav',{'aria-label':'Workspace'},items.map(([name,href,icon])=>el('a',{href,class:path===href||(href!=='/portal/'&&path.startsWith(href))?'nav-item active':'nav-item','aria-current':path===href?'page':null},el('span',{'aria-hidden':'true'},icon),name,href==='/portal/tests/'?countBadge:null))),el('div',{class:'sidebar-bottom'},member.role!=='member'?link('Administration ↗','/admin/','nav-item'):null,el('p',{class:'account-label'},member.displayName||'Your account'),el('span',{class:'badge'},member.role==='member'?'T'+member.tier+' MEMBER':member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true)));
   root.replaceChildren(el('div',{class:'workspace'},sidebar,el('div',{class:'workspace-body'},el('header',{class:'topbar'},el('span',{},'Client portal'),el('span',{class:'status-dot'},'Private workspace')),content,el('footer',{class:'workspace-footer'},el('span',{},'Quadrion · Synapse Solutions'),link('Support','mailto:info@synapse-solutions.ai')))));
 }
 function fileRow(file){return el('article',{class:'file-row'},el('div',{class:'file-mark','aria-hidden':'true'},file.kind==='pipeline'?'↳':'↓'),el('div',{class:'file-info'},el('h2',{},file.kind==='app'?'Quadrion Player':file.kind==='pipeline'?'Processing pipeline':file.filename),el('p',{class:'muted'},'Version '+file.version+' · '+(file.platform||'AIO project')+' · '+bytes(file.bytes)),file.minimum_app_version?el('p',{class:'compatibility'},'Requires Player '+file.minimum_app_version+' or later'):null,el('details',{},el('summary',{},'Release notes & checksum'),el('p',{class:'preserve'},file.notes||'No release notes.'),el('small',{},'SHA-256'),el('code',{class:'checksum'},file.sha256))),button('Download',e=>download(file,e)));}
@@ -74,9 +80,16 @@ async function render(){
     else if(path==='/portal/projects/')await projects(ticket);
     else if(/^\/portal\/projects\/[0-9a-f-]{36}\/$/i.test(path))await project(ticket,path.split('/')[3]);
     else if(path==='/portal/account/')await account();
+    else if(path==='/portal/tests/'||path==='/portal/report/'||path==='/portal/report'){
+      const releases=member.tester?await api.get('releases').then(r=>r.items,()=>[]):[];if(ticket!==sequence)return;
+      const ctx={content,api:feedbackApi,member,releases,navigate,ticket,current:()=>ticket===sequence};
+      await (path==='/portal/tests/'?renderTests:renderReport)(ctx);
+    }
     else content.append(empty('Page unavailable','Return to your workspace.',link('Overview','/portal/')));
     content.querySelector('h1')?.focus({preventScroll:true});
+    refreshCount();
+    if(location.hash){let id='';try{id=decodeURIComponent(location.hash.slice(1));}catch{}if(id)document.getElementById(id)?.scrollIntoView();}
   }catch(error){if(error.status===401){await auth.signOut();return;}if(content){content.replaceChildren(notice(error.message,'error'),button('Try again',render,true),button('Sign out',()=>auth.signOut(),true));}else root.replaceChildren(notice(error.message,'error'));}
 }
-try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear});await render();}
+try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});await render();}
 catch(error){root.replaceChildren(el('div',{class:'unavailable'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:180}),'/d3-quarter/'),heading('CLIENT PORTAL','Your workspace is on its way.',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

@@ -31,10 +31,10 @@ export async function createPortalAuth({root,onChange}){
   }
   function enterWorkspace(member){
     if(!chooseHome)return false;
-    const destination=loginDestination(member.role);
+    const destination=loginDestination(member.role,location.pathname+location.search);
     if(!destination)throw new Error('Your account does not have workspace access.');
     chooseHome=false;
-    if(location.pathname!==destination){location.replace(destination);return true;}
+    if(location.pathname!==new URL(destination,location.origin).pathname){location.replace(destination);return true;}
     history.replaceState(null,'',destination);return false;
   }
   async function signOut(){window.dispatchEvent(new Event('quadrion:signout'));root.replaceChildren();await client.auth.signOut({scope:'local'});clearSessionData(sessionStorage);location.replace('/portal/?login');}

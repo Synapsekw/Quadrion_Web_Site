@@ -16,19 +16,19 @@ export function checkOrigin(request,config){
   if((request.method==='POST' && origin!==allowed)||(origin&&origin!==allowed))fail('forbidden');
   if(!['GET','POST'].includes(request.method))fail('method');
 }
-export async function readJson(request){
+export async function readJson(request,{maxBytes=32768}={}){
   if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')fail('content_type');
-  if(Number(request.headers.get('content-length')||0)>32768)fail('too_large');
+  if(Number(request.headers.get('content-length')||0)>maxBytes)fail('too_large');
   const reader=request.body?.getReader();let size=0;const chunks=[];
   if(!reader)fail('invalid');
-  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>32768){await reader.cancel();fail('too_large');}chunks.push(value);}
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>maxBytes){await reader.cancel();fail('too_large');}chunks.push(value);}
   let value;try{value=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('invalid');}
   if(!value||typeof value!=='object'||Array.isArray(value))fail('invalid');return value;
 }
 export function keys(value,allowed){if(Object.keys(value).some(k=>!allowed.includes(k)))fail('invalid');}
 export function uuid(value){if(typeof value!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))fail('invalid');return value;}
 export function string(value,max,{empty=true}={}){if(typeof value!=='string'||value.length>max||(!empty&&!value.trim()))fail('invalid');return value.trim();}
-export function memberDto(m){return {userId:m.user_id,role:m.role,tier:m.tier,status:m.status,expiresAt:m.expires_at,displayName:m.display_name||'',company:m.company||'',revision:m.revision};}
+export function memberDto(m){return {userId:m.user_id,role:m.role,tier:m.tier,status:m.status,expiresAt:m.expires_at,displayName:m.display_name||'',company:m.company||'',revision:m.revision,tester:m.tester===true};}
 export async function identity(request,backend){
   const token=/^Bearer ([A-Za-z0-9._-]+)$/.exec(request.headers.get('authorization')||'')?.[1];
   if(!token||token.length>16000)fail('unauthorized');
