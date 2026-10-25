@@ -13,7 +13,48 @@ class FakeNode{
 }
 globalThis.Node=FakeNode;
 globalThis.document={createElement:tag=>new FakeNode(tag),createTextNode:text=>new FakeNode('#text',text)};
-const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE,saveStatus,keepDetailOpen,fillMeter}=await import('../portal/src/tests.mjs');
+const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE,saveStatus,keepDetailOpen,fillMeter,createAct,sendThreadNote}=await import('../portal/src/tests.mjs');
+test('a saved action whose refresh fails says it was saved and offers Reload',async()=>{
+  const posts=[];let reloads=0,after=0;
+  const api={post:async(action,body)=>{posts.push([action,body]);return {};}};
+  const act=createAct({api,refresh:async()=>{throw new Error('Check your connection, then try again.');},reload:()=>reloads++,currentBuild:()=>'0.26.1'});
+  const feedback=document.createElement('div');
+  const ok=await act({id:'item-1',revision:3},'confirm','',feedback,()=>after++);
+  assert.equal(ok,true,'the action was saved, so it must not read as failed');
+  assert.deepEqual(posts,[['act',{id:'item-1',revision:3,action:'confirm',body:'',build:'0.26.1'}]]);
+  assert.match(feedback.textContent,/Saved/);assert.match(feedback.textContent,/could not refresh/);
+  assert.doesNotMatch(feedback.textContent,/connection/);
+  const reload=feedback.find(n=>n.tagName==='button');
+  assert.equal(reload.textContent,'Reload');reload.listeners.click();assert.equal(reloads,1);
+  assert.equal(after,0);
+});
+test('a failed action still reads as failed and a refreshed one runs its follow-up',async()=>{
+  let refreshed=0,after=0;
+  const failing={post:async()=>{throw new Error('Service unavailable');}};
+  const feedback=document.createElement('div');
+  assert.equal(await createAct({api:failing,refresh:async()=>refreshed++,reload:()=>{},currentBuild:()=>''})({id:'i',revision:1},'comment','x',feedback),false);
+  assert.match(feedback.textContent,/Service unavailable/);assert.equal(refreshed,0);
+  const ok=await createAct({api:{post:async()=>({})},refresh:async()=>refreshed++,reload:()=>{},currentBuild:()=>'<bad>'})({id:'i',revision:1},'comment','x',feedback,()=>after++);
+  assert.equal(ok,true);assert.equal(refreshed,1);assert.equal(after,1);
+});
+test('a thread note uploads files first, then comments; either alone is enough',async()=>{
+  const steps=[];
+  const upload=ok=>async files=>{steps.push(['upload',files.map(f=>f.name)]);return ok;};
+  const comment=async text=>{steps.push(['comment',text]);return true;};
+  const refresh=async()=>{steps.push(['refresh']);return true;};
+  const zip={name:'diagnostics.zip'};
+  assert.deepEqual(await sendThreadNote({text:'  ',files:[],upload:upload(true),comment,refresh}),{ok:false,message:'Write a comment or attach a file first.'});
+  assert.deepEqual(steps,[]);
+  assert.equal((await sendThreadNote({text:' Here is the file ',files:[zip],upload:upload(true),comment,refresh})).ok,true);
+  assert.deepEqual(steps.splice(0),[['upload',['diagnostics.zip']],['comment','Here is the file']]);
+  assert.equal((await sendThreadNote({text:'',files:[zip],upload:upload(true),comment,refresh})).ok,true);
+  assert.deepEqual(steps.splice(0),[['upload',['diagnostics.zip']],['refresh']]);
+  // A failed upload keeps the comment back, so the tester can add the file again and send both.
+  assert.deepEqual(await sendThreadNote({text:'With the file',files:[zip],upload:upload(false),comment,refresh}),{ok:false,uploadFailed:true});
+  assert.deepEqual(steps.splice(0),[['upload',['diagnostics.zip']]]);
+  assert.equal((await sendThreadNote({text:'Only words',files:[],upload:upload(true),comment,refresh})).ok,true);
+  assert.deepEqual(steps.splice(0),[['comment','Only words']]);
+});
 test('after a save the comment panel closes unless screenshots were kept',()=>{
   assert.equal(keepDetailOpen(0),false);
   assert.equal(keepDetailOpen(2),true);

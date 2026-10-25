@@ -35,6 +35,26 @@ export function fillMeter(bar,{pass,fail,skip,total}){
 export function answerProblem(result,reload){
   return el('div',{class:'line-problem'},notice(result.message,'error'),result.conflict?button('Reload',reload,true):null);
 }
+const SAVED_MESSAGE='Saved. The page could not refresh to show it; reload to see the latest.';
+// One tester action on a report. A failed post reads as failed (false); once the post is in, the action counts as
+// saved (true) even when the refresh after it fails, so a second click cannot trip over the new revision.
+export function createAct({api,refresh,reload,currentBuild}){
+  return async function act(item,action,body,feedback,after){
+    const version=currentBuild();
+    try{await api.post('act',{id:item.id,revision:item.revision,action,body,build:validBuild(version)?version:''});}
+    catch(error){feedback.replaceChildren(error.status===409?answerProblem({message:CHANGED_MESSAGE,conflict:true},reload):notice(error.message,'error'));return false;}
+    try{await refresh();}catch{feedback.replaceChildren(el('div',{class:'line-problem'},notice(SAVED_MESSAGE),button('Reload',reload,true)));return true;}
+    after?.();return true;
+  };
+}
+// A note in a report thread: the files upload first, then the comment goes; either one alone is enough.
+// When a file fails the comment is held back, so the tester adds the file again and sends both.
+export async function sendThreadNote({text,files,upload,comment,refresh}){
+  const note=String(text||'').trim();
+  if(!note&&!files.length)return {ok:false,message:'Write a comment or attach a file first.'};
+  if(files.length&&!await upload(files))return {ok:false,uploadFailed:true};
+  return {ok:Boolean(note?await comment(note):await refresh())};
+}
 // Test content HTML was allowlisted on upload; it is still rebuilt node by node so nothing outside the list reaches the page.
 const RICH=new Set(['P','UL','OL','LI','PRE','B','I','CODE','H4','DETAILS','SUMMARY','A']);
 function copyRich(node){
@@ -148,10 +168,7 @@ export async function renderTests(ctx){
   build.input.addEventListener('change',()=>keepBuild(build.input.value.trim()));
   const currentBuild=()=>build.input.value.trim();
   async function refresh(){const next=await api.get('mine');items=next.items||[];fillWaiting();fillReports();changed();}
-  async function act(item,action,body,feedback,after){
-    try{await api.post('act',{id:item.id,revision:item.revision,action,body,build:validBuild(currentBuild())?currentBuild():''});await refresh();after?.();return true;}
-    catch(error){feedback.replaceChildren(error.status===409?answerProblem({message:CHANGED_MESSAGE,conflict:true},reload):notice(error.message,'error'));return false;}
-  }
+  const act=createAct({api,refresh,reload,currentBuild});
   function fillWaiting(){
     const list=waitingList(items);
     waitingBox.replaceChildren(el('div',{class:'section-title'},el('h2',{id:'waiting-title'},'Waiting for you'),el('span',{class:'count'},String(list.length))));
@@ -162,7 +179,7 @@ export async function renderTests(ctx){
     const feedback=el('div',{'aria-live':'polite'}),row=el('article',{class:'waiting-row'});
     const head=el('div',{class:'waiting-head'},el('span',{class:'item-number'},itemLabel(item)),el('h3',{},item.title),statusBadge(item.status));
     if(item.status==='fixed'){
-      const reason=textArea('What still goes wrong?','sendback-'+item.id,{rows:3}),back=el('form',{class:'inline-form',hidden:true,onsubmit:async e=>{e.preventDefault();const text=reason.input.value.trim();if(!text){feedback.replaceChildren(notice('Say what still goes wrong so it can be fixed.','error'));reason.input.focus();return;}send.disabled=true;await act(item,'reopen',text,feedback);send.disabled=false;}},reason.node);
+      const reason=textArea('What still goes wrong?','sendback-'+item.id,{rows:3}),back=el('form',{class:'inline-form',hidden:true,onsubmit:async e=>{e.preventDefault();const text=reason.input.value.trim();if(!text){feedback.replaceChildren(notice('Say what still goes wrong so it can be fixed.','error'));reason.input.focus();return;}send.disabled=true;if(!await act(item,'reopen',text,feedback))send.disabled=false;}},reason.node);
       const send=el('button',{type:'submit',class:'primary'},'Send back');back.append(el('div',{class:'actions'},send,button('Cancel',()=>{back.hidden=true;open.hidden=false;open.focus();},true)));
       const confirm=button('Confirm it works',async e=>{e.currentTarget.disabled=true;const target=e.currentTarget;if(!await act(item,'confirm','',feedback))target.disabled=false;});
       const open=button('Send back',()=>{back.hidden=false;open.hidden=true;reason.input.focus();},true);
@@ -171,7 +188,7 @@ export async function renderTests(ctx){
       const question=el('div',{class:'question-text'},el('span',{class:'muted'},'Loading the question…'));
       api.get('item',{id:item.id}).then(detail=>{const asked=[...(detail.events||[])].reverse().find(e=>e.kind==='question');question.replaceChildren(el('span',{class:'eyebrow'},'QUADRION ASKS'),el('p',{class:'preserve'},asked?.body||'Open the report below to see the question.'));}).catch(()=>question.replaceChildren(el('p',{class:'muted'},'The question could not be loaded. It is in the report thread below.')));
       const reply=textArea('Your answer','answer-'+item.id,{rows:3});
-      const form=el('form',{class:'inline-form',onsubmit:async e=>{e.preventDefault();const text=reply.input.value.trim();if(!text){feedback.replaceChildren(notice('Write an answer first.','error'));reply.input.focus();return;}const submit=e.target.querySelector('button[type=submit]');submit.disabled=true;await act(item,'answer',text,feedback);submit.disabled=false;}},reply.node,el('div',{class:'actions'},el('button',{type:'submit',class:'primary'},'Send answer')));
+      const form=el('form',{class:'inline-form',onsubmit:async e=>{e.preventDefault();const text=reply.input.value.trim();if(!text){feedback.replaceChildren(notice('Write an answer first.','error'));reply.input.focus();return;}const submit=e.target.querySelector('button[type=submit]');submit.disabled=true;if(!await act(item,'answer',text,feedback))submit.disabled=false;}},reply.node,el('div',{class:'actions'},el('button',{type:'submit',class:'primary'},'Send answer')));
       row.append(head,question,form,feedback);
     }
     return row;
@@ -190,8 +207,18 @@ export async function renderTests(ctx){
         const detail=await api.get('item',{id:item.id}),feedback=el('div',{'aria-live':'polite'});
         const parts=[detail.retired?el('p',{class:'muted'},'This test line was retired.'):detail.line?el('p',{class:'muted'},'Test line: ',detail.line.plain||''):null,itemThread(api,detail)];
         if(item.status!=='merged'){
-          const note=textArea('Add a comment','comment-'+item.id,{rows:3});
-          parts.push(el('form',{class:'inline-form',onsubmit:async e=>{e.preventDefault();const text=note.input.value.trim();if(!text){feedback.replaceChildren(notice('Write a comment first.','error'));return;}const submit=e.target.querySelector('button[type=submit]');submit.disabled=true;await act({...item,revision:detail.item?.revision??item.revision},'comment',text,feedback,()=>document.getElementById('item-'+item.id)?.setAttribute('open',''));submit.disabled=false;}},note.node,el('div',{class:'actions'},el('button',{type:'submit',class:'secondary'},'Add comment'))));
+          // Also the way back in for an attachment that failed, such as the diagnostics ZIP from the app's report form.
+          const note=textArea('Add a comment','comment-'+item.id,{rows:3}),picker=attachmentPicker('thread-attach-'+item.id,'Attach a file'),status=el('p',{class:'muted','aria-live':'polite'});
+          const reopen=()=>document.getElementById('item-'+item.id)?.setAttribute('open','');
+          parts.push(el('form',{class:'inline-form',onpaste:e=>picker.onPaste(e),onsubmit:async e=>{
+            e.preventDefault();feedback.replaceChildren();const submit=e.target.querySelector('button[type=submit]');submit.disabled=true;
+            const result=await sendThreadNote({text:note.input.value,files:[...picker.files],
+              upload:async files=>{const ok=await uploadAll(api,item.id,files,status);picker.clear();return ok;},
+              comment:text=>act({...item,revision:detail.item?.revision??item.revision},'comment',text,feedback,reopen),
+              refresh:async()=>{try{await refresh();reopen();return true;}catch{feedback.replaceChildren(el('div',{class:'line-problem'},notice('Added. The page could not refresh to show it; reload to see the latest.'),button('Reload',reload,true)));return true;}}});
+            if(result.message)feedback.replaceChildren(notice(result.message,'error'));
+            if(!result.ok)submit.disabled=false;
+          }},note.node,picker.node,status,el('div',{class:'actions'},el('button',{type:'submit',class:'secondary'},'Send'))));
         }else parts.push(el('p',{class:'muted'},'This report was merged into another one that covers the same problem.'));
         body.replaceChildren(...parts.filter(Boolean),feedback);
       }catch(error){loaded=false;body.replaceChildren(notice(error.message,'error'));}
