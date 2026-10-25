@@ -55,3 +55,47 @@ test('quick clicks save in order and only the newest decides what is shown',asyn
   await second;
   assert.equal(l.value,null);
 });
+
+const {saverFor,forgetSavers,defersCommit}=await import('../portal/src/tests.mjs');
+
+test('a step change mid-save keeps one queue per line and the failure shows on the row now on screen',async()=>{
+  forgetSavers();
+  let answer=null;const sends=[];const problems=[];
+  const view=name=>({read:()=>answer,write:a=>{answer=a;},paint(){},send:request=>new Promise(resolve=>sends.push({request,resolve})),problem:r=>problems.push([name,r.message])});
+  const first=saverFor('line-1',view('old row'));
+  const pending=first.save({status:'pass'},{status:'pass'});
+  // The tester moves to another step and back: the row is drawn again.
+  const again=saverFor('line-1',view('new row'));
+  assert.equal(again,first,'the same queue');
+  const second=again.save(null,{status:null});
+  await tick();
+  assert.equal(sends.length,1,'the second save waits behind the first, even from the new row');
+  sends[0].resolve({ok:true,answer:{status:'pass'},itemId:null});
+  await pending;await tick();
+  sends[1].resolve({ok:false,message:'Down'});
+  const result=await second;
+  // What the row's save() does with a failure: report it through the row now on screen.
+  if(!result.ok&&!result.superseded)again.view.problem(result);
+  assert.deepEqual(problems,[['new row','Down']]);
+  assert.deepEqual(answer,{status:'pass',itemId:null},'rolled back to the confirmed pass');
+});
+
+test('a fresh page load resyncs the confirmed answer when nothing is in flight',async()=>{
+  forgetSavers();
+  let answer={status:'skip'};
+  const view={read:()=>answer,write:a=>{answer=a;},paint(){},send:async()=>({ok:false,message:'Down'}),problem(){}};
+  saverFor('line-2',view);
+  answer={status:'pass'};// the server's answers after a reload
+  const entry=saverFor('line-2',view);
+  await entry.save(null,{status:null});
+  assert.deepEqual(answer,{status:'pass'},'a failure rolls back to the reloaded answer, not the old one');
+});
+
+test('leaving the note for the line\'s own tick or menu holds the save back; anywhere else saves it',()=>{
+  const tick={},toggle={},elsewhere={};
+  assert.equal(defersCommit(tick,[tick,toggle]),true,'type a note, then click the tick: the tick decides');
+  assert.equal(defersCommit(toggle,[tick,toggle]),true);
+  assert.equal(defersCommit(null,[tick,toggle],true),true,'Safari: no focus on click, the press marks it');
+  assert.equal(defersCommit(elsewhere,[tick,toggle]),false);
+  assert.equal(defersCommit(null,[tick,toggle]),false,'Ctrl+Enter or a click on the page saves the note');
+});

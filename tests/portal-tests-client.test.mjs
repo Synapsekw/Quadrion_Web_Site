@@ -107,12 +107,13 @@ test('an answer conflict shows the reload notice',async()=>{
   assert.equal(other.find(n=>n.tagName==='button'),null);
 });
 
-test('the tick marks a line as working and a second click undoes it, keeping a comment as a problem',()=>{
-  assert.equal(tickStatus(null,''),'pass');
-  assert.equal(tickStatus('fail','Blank map'),'pass');
-  assert.equal(tickStatus('skip',''),'pass');
-  assert.equal(tickStatus('pass',''),null);
-  assert.equal(tickStatus('pass','Slow but works'),'fail');
+test('the tick marks a line as working and a second click clears it, never filing a report',()=>{
+  assert.equal(tickStatus(null),'pass');
+  assert.equal(tickStatus('fail'),'pass');
+  assert.equal(tickStatus('skip'),'pass');
+  assert.equal(tickStatus('pass'),null);
+  // "Works, with a note" unticked: the answer clears (null, not a fail); the row keeps the note as a draft.
+  assert.equal(tickStatus('pass','Slow but works'),null);
 });
 test('a comment on an unticked line is a problem; on a ticked or skipped line it is a note',()=>{
   assert.equal(commentStatus(null,'Map stays blank'),'fail');

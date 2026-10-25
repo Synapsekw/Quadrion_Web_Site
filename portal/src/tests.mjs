@@ -27,21 +27,50 @@ export async function sendAnswer(api,{lineId,status,comment='',build=''}){
 // the last answer the server confirmed. Only the newest click decides what the line shows; an older failure that a later
 // click already replaced comes back with superseded:true and is not shown.
 export function optimisticSave({read,write,send,paint}){
-  let confirmed=read()??null,latest=0,queue=Promise.resolve();
-  return function save(next,request){
-    const mine=++latest;write(next);paint();
+  let confirmed=read()??null,latest=0,running=0,queue=Promise.resolve();
+  function save(next,request){
+    const mine=++latest;running++;write(next);paint();
     const run=queue.then(()=>send(request)).then(result=>{
       if(result.ok)confirmed=result.answer?{...result.answer,itemId:result.itemId??null}:null;
       if(mine!==latest)return {...result,superseded:true};
       write(confirmed);paint();return result;
-    },error=>{if(mine===latest){write(confirmed);paint();}return {ok:false,message:error?.message||'Not saved. Try again.',superseded:mine!==latest};});
+    },error=>{if(mine===latest){write(confirmed);paint();}return {ok:false,message:error?.message||'Not saved. Try again.',superseded:mine!==latest};})
+      .finally(()=>{running--;});
     queue=run;return run;
-  };
+  }
+  // A page reload brings fresh answers from the server; they become the confirmed state once nothing is in flight.
+  save.resync=()=>{if(!running)confirmed=read()??null;};
+  return save;
+}
+// One save queue per test line for the life of the page, not per drawing of the line: moving to another step and back
+// redraws the rows, and a save still in flight must keep its order and report to whichever row shows the line now.
+// view: {read, write, send, paint} of the row on screen; savers.clear() on sign-out.
+const savers=new Map();
+export function saverFor(lineId,view){
+  let entry=savers.get(lineId);
+  if(!entry){
+    entry={view};
+    entry.save=optimisticSave({read:()=>entry.view.read(),write:a=>entry.view.write(a),send:request=>entry.view.send(request),paint:()=>entry.view.paint()});
+    savers.set(lineId,entry);
+  }else{entry.view=view;entry.save.resync();}
+  return entry;
+}
+export function forgetSavers(){savers.clear();}
+if(typeof window!=='undefined')window.addEventListener?.('quadrion:signout',forgetSavers);
+// The ⋯ menu closes on a click anywhere else; one document listener for the page, pointed at the current Tests page.
+let outsideClick=null,listening=false;
+function onOutsideClick(handler){
+  outsideClick=handler;
+  if(!listening&&typeof document!=='undefined'){document.addEventListener('click',e=>outsideClick?.(e));listening=true;}
 }
 // The result Save records: the choice being made, else the one already saved; null means nothing was chosen yet.
 export const saveStatus=(pending,saved)=>pending||saved||null;
-// One-click lines. The tick toggles "works"; unticking a line that still has a comment turns it into a problem.
-export const tickStatus=(saved,text)=>saved==='pass'?(String(text||'').trim()?'fail':null):'pass';
+// One-click lines. The tick toggles "works". Unticking clears the answer and never files a report: a note stays in the
+// field as an unsent draft, and sending it as a problem is the tester's own next step.
+export const tickStatus=saved=>saved==='pass'?null:'pass';
+// The comment field saves when focus leaves it, except when focus goes to the line's own tick or ⋯ menu: that click
+// decides (a tick saves "works" with the note), so typing a note and then ticking never files a problem first.
+export const defersCommit=(target,controls,pointerDown=false)=>pointerDown||Boolean(target&&controls.includes(target));
 // A comment left on a line: ticked or skipped keeps its result with the note; otherwise the comment is a problem.
 // Emptying the comment of a reported line clears the answer; undefined means there is nothing to save.
 export function commentStatus(saved,text){
@@ -166,9 +195,10 @@ async function uploadOne(api,itemId,file,say){
 }
 // Uploads one after another; a failed file is reported and the rest still go.
 async function uploadAll(api,itemId,files,status){
-  const say=text=>{status.textContent=text;},failed=[];
-  for(const file of files){try{await uploadOne(api,itemId,file,say);}catch(error){failed.push(error.message);}}
-  say(failed.length?failed.join(' ')+' Add it again from the report thread.':files.length?(files.length===1?'Attachment':files.length+' attachments')+' added.':'');
+  const say=text=>{status.textContent=text;},failed=[];let stale=false;
+  for(const file of files){try{await uploadOne(api,itemId,file,say);}catch(error){if(error.reload){stale=true;failed.push(error.message);break;}failed.push(error.message);}}
+  say(failed.length?failed.join(' ')+(stale?'':' Add it again from the report thread.'):files.length?(files.length===1?'Attachment':files.length+' attachments')+' added.':'');
+  if(stale)status.append(' ',button('Reload page',()=>location.reload(),true));
   return !failed.length;
 }
 // attachmentUrl takes {id}; feedback-ui's attachmentView asks with {attachmentId}.
@@ -269,23 +299,26 @@ export async function renderTests(ctx){
   function counts(lines){let pass=0,fail=0,skip=0;for(const l of lines){const s=answers.get(l.id)?.status;if(s==='pass')pass++;else if(s==='fail')fail++;else if(s==='skip')skip++;}return {pass,fail,skip,total:lines.length,done:pass+fail+skip};}
   const plural=(n,one,many)=>n+' '+(n===1?one:many);
   let openMenu=null,onTally=()=>{};
-  function closeMenu(focus=false){if(!openMenu)return;const m=openMenu;openMenu=null;m.menu.hidden=true;m.toggle.setAttribute('aria-expanded','false');if(focus)m.toggle.focus();}
-  document.addEventListener('click',e=>{if(openMenu&&!openMenu.wrap.contains(e.target))closeMenu();});
+  function closeMenu(focus=false){if(!openMenu)return;const m=openMenu;openMenu=null;m.menu.hidden=true;m.toggle.setAttribute('aria-expanded','false');if(focus)m.toggle.focus();m.onClose?.();}
+  onOutsideClick(e=>{if(openMenu&&!openMenu.wrap.contains(e.target))closeMenu();});
   function lineRow(line){
     const id=line.id.replace(/[^a-z0-9-]/g,'-'),saved=()=>answers.get(line.id),about=line.plain||'this line';
     const feedback=el('div',{class:'line-feedback','aria-live':'polite'}),state=el('p',{class:'line-state','aria-live':'polite'});
     const note=el('textarea',{id:'note-'+id,class:'line-note',rows:1,maxlength:8000,placeholder:'Something wrong? Write it here','aria-label':'Comment on: '+about});
     note.value=saved()?.comment||'';
     const picker=attachmentPicker('attach-'+id,'Attach a screenshot');
-    const tick=el('button',{type:'button',class:'tick','aria-pressed':'false','aria-label':'Works: '+about,onclick:()=>save(tickStatus(saved()?.status,note.value))});
+    // deferred: the note's blur save was held back because focus went to this line's tick or menu.
+    let deferred=false,pointerDown=false;
+    const tick=el('button',{type:'button',class:'tick','aria-pressed':'false','aria-label':'Works: '+about,onclick:()=>{pointerDown=false;const next=tickStatus(saved()?.status);save(next,{keepNote:next===null});}});
     const toggle=el('button',{type:'button',class:'line-more','aria-haspopup':'true','aria-expanded':'false','aria-label':'More for this line'},el('span',{'aria-hidden':'true'},'⋯'));
     const featureForm=featureRequest({lineId:line.id,idPrefix:'line-'+id,compact:true});featureForm.hidden=true;
-    const pick=fn=>()=>{closeMenu();fn();};
-    const skipItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(saved()?.status==='skip'?null:'skip'))});
-    const clearItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(null))},'Clear my answer');
+    // How a menu choice treats a held-back note: 'save' (the choice saves it), 'commit' (save the note first), 'attach' (after the file).
+    const pick=(fn,mode)=>()=>{const held=deferred;deferred=false;closeMenu();if(held&&mode==='commit')commit();if(held&&mode==='attach')deferred=true;fn();};
+    const skipItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(saved()?.status==='skip'?null:'skip',{keepNote:true}),'save')});
+    const clearItem=el('button',{type:'button',role:'menuitem',onclick:pick(()=>save(null),'save')},'Clear my answer');
     const menuItems=[skipItem,
-      el('button',{type:'button',role:'menuitem',onclick:pick(()=>picker.node.querySelector('input[type=file]').click())},'Attach a screenshot'),
-      el('button',{type:'button',role:'menuitem',onclick:pick(()=>{featureForm.hidden=!featureForm.hidden;if(!featureForm.hidden)featureForm.querySelector('input')?.focus();})},'Request a feature about this'),
+      el('button',{type:'button',role:'menuitem',onclick:pick(()=>picker.node.querySelector('input[type=file]').click(),'attach')},'Attach a screenshot'),
+      el('button',{type:'button',role:'menuitem',onclick:pick(()=>{featureForm.hidden=!featureForm.hidden;if(!featureForm.hidden)featureForm.querySelector('input')?.focus();},'commit')},'Request a feature about this'),
       clearItem];
     const menu=el('div',{class:'line-menu',role:'menu','aria-label':'More for this line',hidden:true,onkeydown:e=>{
       const shown=menuItems.filter(b=>!b.hidden),at=shown.indexOf(document.activeElement);
@@ -294,7 +327,11 @@ export async function renderTests(ctx){
       else if(e.key==='Tab')closeMenu();
     }},menuItems);
     const wrap=el('div',{class:'line-menu-wrap'},toggle,menu);
-    toggle.addEventListener('click',()=>{const was=openMenu?.menu===menu;closeMenu();if(was)return;draw();menu.hidden=false;toggle.setAttribute('aria-expanded','true');openMenu={menu,toggle,wrap};menuItems.find(b=>!b.hidden)?.focus();});
+    // Closing the menu without a choice sends a held-back note the way leaving the field would have.
+    const onClose=()=>{if(deferred){deferred=false;commit();}};
+    toggle.addEventListener('click',()=>{pointerDown=false;const was=openMenu?.menu===menu;closeMenu();if(was)return;draw();menu.hidden=false;toggle.setAttribute('aria-expanded','true');openMenu={menu,toggle,wrap,onClose};menuItems.find(b=>!b.hidden)?.focus();});
+    // Safari does not focus buttons on click, so a press on the tick or the toggle also marks the blur as theirs.
+    for(const control of [tick,toggle])control.addEventListener('pointerdown',()=>{pointerDown=true;setTimeout(()=>{pointerDown=false;},0);});
     const row=el('li',{class:'test-line'},tick,
       el('div',{class:'line-main'},el('div',{class:'line-text'},richText(line.html),line.sub?.length?el('ul',{class:'line-sub'},line.sub.map(s=>el('li',{},richText(s,'rich inline')))):null),
         el('div',{class:'line-entry'},note,state),el('div',{class:'line-files'},picker.node),feedback,featureForm),wrap);
@@ -317,14 +354,17 @@ export async function renderTests(ctx){
         :status==='skip'?['Skipped',on]:[])].flat(2));
     }
     // The tick (and skip, clear, a comment) shows as saved at once; a failed save rolls the line back with a quiet note.
-    const saver=optimisticSave({read:saved,write:a=>{if(a)answers.set(line.id,a);else answers.delete(line.id);},send:request=>sendAnswer(api,request),paint:()=>{draw();onTally();}});
-    async function save(status){
-      feedback.replaceChildren();
+    // problem(): how this row shows a failed save; a save started on an earlier drawing of the line reports here too.
+    const entry=saverFor(line.id,{read:saved,write:a=>{if(a)answers.set(line.id,a);else answers.delete(line.id);},send:request=>sendAnswer(api,request),paint:()=>{draw();onTally();},
+      problem(result,status,typed){if(status===null&&!note.value)note.value=typed;draw();feedback.replaceChildren(answerProblem({...result,message:'Not saved: '+result.message},reload));if(status==='fail'&&!result.conflict)note.focus();}});
+    // keepNote: an untick or skip leaves the typed note in the field (a skip saves it with the skip).
+    async function save(status,{keepNote=false}={}){
+      deferred=false;feedback.replaceChildren();
       const typed=note.value,comment=status===null?'':typed,build=currentBuild(),was=saved();
-      if(status===null)note.value='';
+      if(status===null&&!keepNote)note.value='';
       const shown=status===null?null:{...(was||{}),lineId:line.id,status,comment:comment.trim(),build,itemId:was?.itemId??null};
-      const result=await saver(shown,{lineId:line.id,status,comment,build});
-      if(!result.ok){if(result.superseded)return;if(status===null&&!note.value)note.value=typed;draw();feedback.replaceChildren(answerProblem({...result,message:'Not saved: '+result.message},reload));if(status==='fail'&&!result.conflict)note.focus();return;}
+      const result=await entry.save(shown,{lineId:line.id,status,comment,build});
+      if(!result.ok){if(!result.superseded)entry.view.problem(result,status,typed);return;}
       if(result.superseded)return;
       keepBuild(build);
       if(picker.files.length&&result.itemId&&status==='fail'){const upload=el('p',{class:'muted','aria-live':'polite'});feedback.replaceChildren(upload);await uploadAll(api,result.itemId,[...picker.files],upload);picker.clear();}
@@ -333,7 +373,8 @@ export async function renderTests(ctx){
       if(status==='fail'||result.itemId){await refresh().catch(()=>{});draw();}
     }
     function commit(){const a=saved(),text=note.value.trim();if(text===(a?.comment||'').trim())return;const next=commentStatus(a?.status,text);if(next!==undefined)save(next);}
-    note.addEventListener('change',commit);
+    note.addEventListener('focusout',e=>{const held=defersCommit(e.relatedTarget,[tick,toggle],pointerDown);pointerDown=false;if(held){deferred=true;return;}commit();});
+    picker.node.querySelector('input[type=file]').addEventListener('change',()=>{if(deferred){deferred=false;commit();}});
     note.addEventListener('input',draw);
     note.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();note.blur();}});
     note.addEventListener('paste',e=>picker.onPaste(e));
