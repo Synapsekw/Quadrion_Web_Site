@@ -94,7 +94,8 @@ async function render(){
     else if(/^\/portal\/projects\/[0-9a-f-]{36}\/$/i.test(path))await project(ticket,path.split('/')[3]);
     else if(path==='/portal/account/')await account();
     else if(path==='/portal/tests/'||path==='/portal/report/'||path==='/portal/report'){
-      const releases=member.tester?await releaseCache.get().then(r=>r.items,()=>[]):[];if(ticket!==sequence)return;
+      // The release list (build suggestions only) loads alongside the page's own data, not before it.
+      const releases=member.tester?releaseCache.get().then(r=>r.items,()=>[]):Promise.resolve([]);
       const ctx={content,api:feedbackApi,member,releases,navigate,ticket,current:()=>ticket===sequence};
       await (path==='/portal/tests/'?renderTests:renderReport)(ctx);
     }

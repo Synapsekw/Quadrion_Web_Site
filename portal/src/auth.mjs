@@ -2,12 +2,20 @@ import {createClient} from '@supabase/supabase-js';
 import {el,field,button,link,notice,busy} from './ui.mjs';
 import {loginDestination} from './routing.mjs';
 export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key==='quadrion-me'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
-export async function createPortalAuth({root,onChange}){
-  const workspaceHome=location.pathname.startsWith('/admin/')?'/admin/':'/portal/';
-  let chooseHome=new URLSearchParams(location.search).has('login');
+// The public Supabase URL and publishable key, kept for the tab's session so a reload or the hop to /admin/ skips a request.
+const CONFIG_KEY='quadrion-config';
+async function portalConfig(){
+  try{const kept=JSON.parse(sessionStorage.getItem(CONFIG_KEY)||'null');if(typeof kept?.url==='string'&&typeof kept.publishableKey==='string')return kept;}catch{}
   const response=await fetch('/api/portal?action=config',{cache:'no-store',credentials:'omit'});
   if(!response.ok)throw new Error('Portal access is being prepared. Please contact info@synapse-solutions.ai if you need access.');
   const config=await response.json();
+  try{if(typeof config.url==='string'&&typeof config.publishableKey==='string')sessionStorage.setItem(CONFIG_KEY,JSON.stringify({url:config.url,publishableKey:config.publishableKey}));}catch{}
+  return config;
+}
+export async function createPortalAuth({root,onChange}){
+  const workspaceHome=location.pathname.startsWith('/admin/')?'/admin/':'/portal/';
+  let chooseHome=new URLSearchParams(location.search).has('login');
+  const config=await portalConfig();
   const params=new URLSearchParams(location.hash.slice(1));
   if(['invite','recovery'].includes(params.get('type')))sessionStorage.setItem('quadrion-password-setup','true');
   const callbackError=params.get('error_description');

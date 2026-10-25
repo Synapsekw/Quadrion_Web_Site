@@ -175,10 +175,11 @@ function notTester(content){content.append(empty('This area is for Quadrion test
 const itemLabel=item=>'#'+item.number+' '+(item.kind==='feature'?'Feature':'Bug');
 // --- The tester page ---
 export async function renderTests(ctx){
-  const {content,api,member,releases,current}=ctx;
+  const {content,api,member,current}=ctx;
   content.append(heading('TESTING','Tests','Go through the steps in order. Tick each line that works; if something is wrong, write it in its comment field. Anything you report comes back here when it is fixed.'));
   if(!member?.tester){notTester(content);return;}
-  const [model,answerRows,mine]=await Promise.all([api.get('content'),api.get('answers'),api.get('mine')]);
+  // ctx.releases may be a list or a promise of one; it is only for the build suggestions.
+  const [model,answerRows,mine,releases]=await Promise.all([api.get('content'),api.get('answers'),api.get('mine'),Promise.resolve(ctx.releases).catch(()=>[])]);
   if(!current())return;
   const suggestions=buildSuggestions(releases),answers=new Map((answerRows||[]).map(a=>[a.lineId,a]));
   const reload=()=>redraw(content,()=>renderTests(ctx));
@@ -382,9 +383,10 @@ export async function renderTests(ctx){
 }
 // --- The report form the app's "Report a problem" dialog opens ---
 export async function renderReport(ctx){
-  const {content,api,member,releases}=ctx;
+  const {content,api,member}=ctx;
   content.append(heading('REPORT A PROBLEM','Report a problem','Tell us what went wrong. Attach the diagnostics file the app saved, or a screenshot.'));
   if(!member?.tester){notTester(content);return;}
+  const releases=await Promise.resolve(ctx.releases).catch(()=>[]);
   const prefill=prefillFromQuery(location.search),suggestions=buildSuggestions(releases);
   const build=buildField('report-build',suggestions,prefill.build||readBuild()||suggestions[0]||'',prefill.build?'Filled in by the app.':'The version you were using, from Help > About.');
   const screen=field('Screen','report-screen',{value:prefill.screen,maxLength:80,autocomplete:'off',help:prefill.screen?'Filled in by the app.':'Optional. Where in the app it happened.'});

@@ -57,9 +57,17 @@ function selectField(label,name,options,value){
 }
 const clock=value=>value?new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'';
 const priorityTag=priority=>el('span',{class:'priority priority-'+priority},priority);
-async function testerList(ctx){
-  const progress=await ctx.api.get('feedbackProgress');
-  return (progress.testers||[]).map(t=>({id:t.userId,name:t.name}));
+// Tester names for the filters come from the progress report, the only list there is; it is kept for five minutes
+// so the inbox does not fetch the whole report on every visit. Saving a member's tester flag forgets it.
+let testerCache=null;
+const testerNames=progress=>(progress.testers||[]).map(t=>({id:t.userId,name:t.name}));
+export function forgetTesters(){testerCache=null;}
+function testerList(ctx,now=Date.now()){
+  if(testerCache&&testerCache.api===ctx.api&&now-testerCache.at<300000)return testerCache.promise;
+  const promise=ctx.api.get('feedbackProgress').then(testerNames);
+  testerCache={api:ctx.api,at:now,promise};
+  promise.catch(()=>{if(testerCache?.promise===promise)testerCache=null;});
+  return promise;
 }
 // Runs one owner action against the item's current revision; the item is repainted on success.
 function actions(ctx,detail,repaint,showError,onFixed){
@@ -142,8 +150,10 @@ async function openItem(ctx,summary){
     if(detail.item.owner_attention)ctx.api.post('feedbackAction',{id:detail.item.id,revision:detail.item.revision,action:'seen',data:{}}).then(()=>{changed=true;},()=>{});
   }catch(error){showError(error.message);}
 }
+// testers is a promise: the inbox draws without waiting for it and the Tester list fills in when it arrives.
 function filterForm(ctx,testers,current){
-  const tester=selectField('Tester','fb-f-tester',[['','Anyone'],...testers.map(t=>[t.id,t.name])],current.tester||'');
+  const tester=selectField('Tester','fb-f-tester',[['','Anyone'],...(current.tester?[[current.tester,'Selected tester']]:[])],current.tester||'');
+  testers.then(list=>{const chosen=tester.input.value||current.tester||'';tester.input.replaceChildren(...[['','Anyone'],...list.map(t=>[t.id,t.name])].map(([v,text])=>el('option',{value:v,selected:String(v)===String(chosen)},text)));},()=>{});
   const kind=selectField('Kind','fb-f-kind',[['','Bugs and features'],['bug','Bugs'],['feature','Features']],current.kind||'');
   const status=selectField('Status','fb-f-status',[['','Any status'],[OPEN,'Open'],...['new','triaged','question','fixed','confirmed','reopened','parked','declined','merged'].map(s=>[s,statusLabel(s,'owner')])],current.status||'');
   const priority=selectField('Priority','fb-f-priority',[['','Any priority'],['high','High'],['normal','Normal'],['low','Low']],current.priority||'');
@@ -158,7 +168,7 @@ function filterForm(ctx,testers,current){
 export async function renderInbox(ctx){
   const current=filterFromSearch(ctx.search),query=new URLSearchParams(ctx.search||'');
   const offset=Math.max(0,Number(query.get('offset'))||0);
-  const [data,testers]=await Promise.all([ctx.api.get('feedbackInbox',{...current,...(offset?{offset}:{})}),testerList(ctx)]);
+  const testers=testerList(ctx),data=await ctx.api.get('feedbackInbox',{...current,...(offset?{offset}:{})});
   head(ctx,'Feedback inbox','Bugs and feature requests from testers, newest attention first.');
   const selected=new Set(),message=el('div',{'aria-live':'polite'}),count=el('span',{class:'muted'},'0 selected');
   const fixBuild=field('Fixed in build','fb-bulk-build',{maxLength:80});
@@ -200,6 +210,7 @@ export async function renderInbox(ctx){
 }
 export async function renderProgress(ctx){
   const data=await ctx.api.get('feedbackProgress');
+  testerCache={api:ctx.api,at:Date.now(),promise:Promise.resolve(testerNames(data))};
   head(ctx,'Test progress','Per tester and stage, with the last build each tester answered on.');
   const names=new Map((data.testers||[]).map(t=>[t.userId,t.name]));
   const blocks=(data.testers||[]).map(t=>el('section',{class:'section-block'},el('h2',{},t.name),t.stages.length?el('div',{class:'table-scroll'},el('table',{class:'data-table'},el('thead',{},el('tr',{},['Stage','Answered','Pass','Fail','Skip','Last build'].map(h=>el('th',{scope:'col'},h)))),el('tbody',{},t.stages.map(s=>el('tr',{},el('td',{},s.title),el('td',{},s.answered+' of '+s.total),el('td',{},s.pass),el('td',{class:s.fail?'fail-count':''},s.fail),el('td',{},s.skip),el('td',{},buildLabel(s.lastBuild))))))):el('p',{class:'muted'},'No test content uploaded yet.')));
