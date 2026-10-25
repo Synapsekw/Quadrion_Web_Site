@@ -88,7 +88,7 @@ async function render(){
     else content.append(empty('Page unavailable','Return to your workspace.',link('Overview','/portal/')));
     content.querySelector('h1')?.focus({preventScroll:true});
     refreshCount();
-    if(location.hash)document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    if(location.hash){let id='';try{id=decodeURIComponent(location.hash.slice(1));}catch{}if(id)document.getElementById(id)?.scrollIntoView();}
   }catch(error){if(error.status===401){await auth.signOut();return;}if(content){content.replaceChildren(notice(error.message,'error'),button('Try again',render,true),button('Sign out',()=>auth.signOut(),true));}else root.replaceChildren(notice(error.message,'error'));}
 }
 try{auth=await createPortalAuth({root,onChange:render});api=createPortalApi({getToken:auth.getToken,onDenied:clear});feedbackApi=createPortalApi({scope:'feedback',getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});await render();}

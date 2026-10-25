@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 // A tiny DOM stand-in, enough for ui.mjs el(): the tester page helpers build real nodes with it.
 class FakeNode{
-  constructor(tag,text){this.tagName=tag;this.children=[];this.attributes={};this.listeners={};this.className='';this.text=text;}
+  constructor(tag,text){this.tagName=tag;this.children=[];this.attributes={};this.listeners={};this.className='';this.text=text;this.style={};}
+  replaceChildren(...nodes){this.children=nodes;}
   setAttribute(k,v){this.attributes[k]=v;}
   addEventListener(type,fn){this.listeners[type]=fn;}
   append(...nodes){this.children.push(...nodes);}
@@ -12,7 +13,24 @@ class FakeNode{
 }
 globalThis.Node=FakeNode;
 globalThis.document={createElement:tag=>new FakeNode(tag),createTextNode:text=>new FakeNode('#text',text)};
-const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE}=await import('../portal/src/tests.mjs');
+const {waitingList,sendAnswer,answerProblem,RETIRED_MESSAGE,saveStatus,keepDetailOpen,fillMeter}=await import('../portal/src/tests.mjs');
+test('after a save the comment panel closes unless screenshots were kept',()=>{
+  assert.equal(keepDetailOpen(0),false);
+  assert.equal(keepDetailOpen(2),true);
+});
+test('save with no choice records nothing',()=>{
+  assert.equal(saveStatus(null,undefined),null);
+  assert.equal(saveStatus(null,'pass'),'pass');
+  assert.equal(saveStatus('fail','pass'),'fail');
+});
+test('progress meters set widths through the CSSOM, not a style attribute',()=>{
+  const bar=document.createElement('span');
+  fillMeter(bar,{pass:1,fail:1,skip:0,total:4});
+  assert.deepEqual(bar.children.map(n=>n.style.width),['25%','25%','0%']);
+  assert.ok(bar.children.every(n=>!('style' in n.attributes)));
+  fillMeter(bar,{pass:0,fail:0,skip:0,total:0});
+  assert.deepEqual(bar.children.map(n=>n.style.width),['0%','0%','0%']);
+});
 const line='walk:open-map:0a1b2c3d4e';
 test('the waiting list puts fixed items before questions',()=>{
   const items=[

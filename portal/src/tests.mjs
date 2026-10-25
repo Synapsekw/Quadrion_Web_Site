@@ -23,6 +23,15 @@ export async function sendAnswer(api,{lineId,status,comment='',build=''}){
   try{return {ok:true,...await api.post('answer',{lineId,status,comment:note,build:version})};}
   catch(error){return error.status===409?{ok:false,conflict:true,message:RETIRED_MESSAGE}:{ok:false,message:error.message};}
 }
+// The result Save records: the choice being made, else the one already saved; null means nothing was chosen yet.
+export const saveStatus=(pending,saved)=>pending||saved||null;
+// After a save the comment panel closes, unless screenshots were kept back (they only go with a fail).
+export const keepDetailOpen=filesLeft=>filesLeft>0;
+// Meter segments get their width through the CSSOM: the production CSP (style-src 'self') refuses style attributes.
+export function fillMeter(bar,{pass,fail,skip,total}){
+  const segment=(cls,n)=>{const node=el('i',{class:cls});node.style.width=total?n/total*100+'%':'0%';return node;};
+  bar.replaceChildren(segment('m-pass',pass),segment('m-fail',fail),segment('m-skip',skip));
+}
 export function answerProblem(result,reload){
   return el('div',{class:'line-problem'},notice(result.message,'error'),result.conflict?button('Reload',reload,true):null);
 }
@@ -116,6 +125,12 @@ function itemThread(api,detail){
   if(events.length&&loose.length)events[0].attachments=[...events[0].attachments,...loose];
   return threadView(events,{api:attachmentApi(api),action:'attachmentUrl'});
 }
+// Redraws a page in place; a failure shows its message with a way to try again, and focus goes to the new h1.
+async function redraw(content,render){
+  content.replaceChildren();
+  try{await render();}catch(error){content.replaceChildren(notice(error.message,'error'),button('Try again',()=>redraw(content,render),true));}
+  content.querySelector('h1')?.focus({preventScroll:true});
+}
 function notTester(content){content.append(empty('This area is for Quadrion testers.','Testing access is given by Quadrion. Contact info@synapse-solutions.ai if you expected to see your tests here.',link('Overview','/portal/')));}
 const itemLabel=item=>'#'+item.number+' '+(item.kind==='feature'?'Feature':'Bug');
 // --- The tester page ---
@@ -126,7 +141,7 @@ export async function renderTests(ctx){
   const [model,answerRows,mine]=await Promise.all([api.get('content'),api.get('answers'),api.get('mine')]);
   if(!current())return;
   const suggestions=buildSuggestions(releases),answers=new Map((answerRows||[]).map(a=>[a.lineId,a]));
-  const reload=async()=>{content.replaceChildren();await renderTests(ctx);content.querySelector('h1')?.focus({preventScroll:true});};
+  const reload=()=>redraw(content,()=>renderTests(ctx));
   const waitingBox=el('section',{class:'section-block',id:'waiting','aria-labelledby':'waiting-title'}),reportsBox=el('section',{class:'section-block',id:'reports','aria-labelledby':'reports-title'});
   let items=mine.items||[];
   const build=buildField('test-build',suggestions,readBuild()||suggestions[0]||'','The version you are testing, from Help > About.');
@@ -190,8 +205,7 @@ export async function renderTests(ctx){
   function progress(lines){
     const bar=el('span',{class:'meter','aria-hidden':'true'}),text=el('span',{class:'progress-text'});
     const node=el('span',{class:'progress'},bar,text);
-    const update=()=>{const c=counts(lines),pct=n=>c.total?n/c.total*100+'%':'0%';
-      bar.replaceChildren(el('i',{class:'m-pass',style:'width:'+pct(c.pass)}),el('i',{class:'m-fail',style:'width:'+pct(c.fail)}),el('i',{class:'m-skip',style:'width:'+pct(c.skip)}));
+    const update=()=>{const c=counts(lines);fillMeter(bar,c);
       text.textContent=c.done+' of '+c.total+(c.fail?' · '+c.fail+' failed':'');};
     updaters.push(update);update();return node;
   }
@@ -200,7 +214,7 @@ export async function renderTests(ctx){
     const comment=textArea('Comment','comment-'+id,{rows:3,maxLength:8000,value:answers.get(line.id)?.comment||''});
     const picker=attachmentPicker('attach-'+id,'Attach a screenshot');
     const save=el('button',{type:'submit',class:'primary'},'Save');
-    const detail=el('form',{class:'line-detail',hidden:true,onpaste:e=>picker.onPaste(e),onsubmit:e=>{e.preventDefault();submit(pending||answers.get(line.id)?.status||'skip');}},comment.node,picker.node,el('div',{class:'actions'},save,button('Close',()=>{detail.hidden=true;pending=null;draw();},true)));
+    const detail=el('form',{class:'line-detail',hidden:true,onpaste:e=>picker.onPaste(e),onsubmit:e=>{e.preventDefault();const status=saveStatus(pending,answers.get(line.id)?.status);if(status)submit(status);else feedback.replaceChildren(notice('Choose Pass, Fail or Skip first.','error'));}},comment.node,picker.node,el('div',{class:'actions'},save,button('Close',()=>{detail.hidden=true;pending=null;draw();},true)));
     let pending=null;
     const choices=['pass','fail','skip'].map(status=>el('button',{type:'button',class:'choice choice-'+status,'aria-pressed':'false',onclick:()=>choose(status)},{pass:'Pass',fail:'Fail',skip:'Skip'}[status]));
     const more=el('button',{type:'button',class:'link-button',onclick:()=>{detail.hidden=false;comment.input.focus();}},'Comment');
@@ -229,7 +243,7 @@ export async function renderTests(ctx){
       const upload=el('p',{class:'muted','aria-live':'polite'});
       if(picker.files.length&&result.itemId){feedback.replaceChildren(upload);await uploadAll(api,result.itemId,[...picker.files],upload);picker.clear();}
       else if(picker.files.length){feedback.replaceChildren(notice('Screenshots go with a failed line. They were kept here; mark the line failed to send them.'));}
-      detail.hidden=picker.files.length>0;
+      detail.hidden=!keepDetailOpen(picker.files.length);
       choices.forEach(c=>c.disabled=false);save.disabled=false;draw();tally();
       if(status==='fail'||result.itemId){await refresh().catch(()=>{});draw();}
     }
@@ -291,7 +305,7 @@ export async function renderReport(ctx){
       const upload=el('p',{class:'muted','aria-live':'polite'});form.replaceChildren(upload);
       const ok=!picker.files.length||await uploadAll(api,item.id,[...picker.files],upload);
       const done=el('section',{class:'report-done',tabindex:'-1'},el('span',{class:'eyebrow'},'REPORT SENT'),el('h2',{},'Thanks. Report #'+item.number+' is in.'),el('p',{class:'muted'},ok?'You will see replies and fixes under My reports on your Tests page.':'The report is in, but an attachment did not make it. Add it from the report thread.'),upload,
-        el('div',{class:'actions'},link('Go to my reports','/portal/tests/#reports','button-link'),button('Report another problem',()=>{content.replaceChildren();renderReport(ctx);},true)));
+        el('div',{class:'actions'},link('Go to my reports','/portal/tests/#reports','button-link'),button('Report another problem',()=>redraw(content,()=>renderReport(ctx)),true)));
       form.replaceWith(done);done.focus();
     }catch(error){feedback.replaceChildren(notice(error.message,'error'));submit.disabled=false;}
   }},el('div',{class:'form-pair'},build.node,screen.node),title.node,what.node,steps.node,picker.node,el('div',{class:'actions'},submit),feedback);
