@@ -1,4 +1,4 @@
-import {Upload} from 'tus-js-client';
+import {loadUpload} from './tus.mjs';
 import {el,button,link,field,heading,empty,notice,busy} from './ui.mjs';
 import {statusBadge,buildLabel,prefillFromQuery,buildSuggestions,attachmentKind,threadView} from './feedback-ui.mjs';
 // Tester pages: Waiting for you, My tests, My reports, Request a feature, and the report form the app opens.
@@ -152,7 +152,8 @@ async function uploadOne(api,itemId,file,say){
   const kind=attachmentKind(file);if(!kind.ok)throw new Error(file.name+': '+kind.reason);
   const filename=safeFilename(file.name,kind.mime);
   say('Preparing '+filename+'…');
-  const session=await api.post('attachmentBegin',{itemId,filename,bytes:file.size,sha256:await hashFile(file)});
+  const [Upload,sha256]=await Promise.all([loadUpload(),hashFile(file)]);
+  const session=await api.post('attachmentBegin',{itemId,filename,bytes:file.size,sha256});
   try{
     await new Promise((resolve,reject)=>new Upload(file,{endpoint:session.endpoint,headers:{'x-signature':session.token,'x-upsert':'false'},chunkSize:6*1024*1024,uploadDataDuringCreation:true,storeFingerprintForResuming:false,retryDelays:[0,3000,5000,10000],
       metadata:{bucketName:session.bucket,objectName:session.objectPath,contentType:session.contentType,cacheControl:'0'},

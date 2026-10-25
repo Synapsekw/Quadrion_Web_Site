@@ -1,4 +1,4 @@
-import {Upload} from 'tus-js-client';
+import {loadUpload} from './tus.mjs';
 import {el,button,notice,bytes} from './ui.mjs';
 const prefix='quadrion-upload:';
 const urlStorage={
@@ -39,6 +39,7 @@ export function uploadControl({api,releaseId=null,projectVersionId=null,kind='bi
       const session=prior?await api.post('resumeUpload',{id:prior,filename:file.name,bytes:file.size,sha256}):await api.post('upload',input);
       expectedFile={filename:file.name,bytes:file.size};expectedLabel.textContent='Upload file: '+file.name+' · '+bytes(file.size)+'. Select this same file to resume.';
       sessionId=session.id;sessionStorage.setItem(key,sessionId);status.textContent='Uploading to the private library…';progress.value=0;
+      const Upload=await loadUpload();if(cancelled)return;
       await new Promise((resolve,reject)=>{
         rejectPending=reject;
         current=new Upload(file,{endpoint:session.endpoint,headers:{'x-signature':session.token,'x-upsert':'false'},chunkSize:6*1024*1024,uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,urlStorage,fingerprint:async()=>session.objectPath+':'+sha256,retryDelays:[0,3000,5000,10000,20000],metadata:{bucketName:session.bucket,objectName:session.objectPath,contentType:session.contentType,cacheControl:'0'},onProgress:(done,total)=>{progress.value=done/total*100;status.textContent='Uploading · '+bytes(done)+' of '+bytes(total);},onError:()=>reject(new Error('Upload paused. Select the same file and resume.')),onSuccess:resolve});

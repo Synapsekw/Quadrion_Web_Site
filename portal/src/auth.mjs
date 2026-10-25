@@ -1,4 +1,4 @@
-import {createClient} from '@supabase/supabase-js';
+import {createClient} from './supabase-auth.mjs';
 import {el,field,button,link,notice,busy} from './ui.mjs';
 import {loginDestination} from './routing.mjs';
 export function clearSessionData(storage){for(const key of Object.keys(storage))if(key==='quadrion-auth'||key==='quadrion-password-setup'||key==='quadrion-me'||key.startsWith('quadrion-upload:'))storage.removeItem(key);}
