@@ -9,7 +9,7 @@ import {el,button,link,field,heading,empty,notice,bytes,date,skeleton,busy} from
 import {renderInbox,renderProgress,renderContent,testerSection,forgetTesters} from './feedback-admin.mjs';
 import {createCache,sessionSeed} from './cache.mjs';
 import {progressBar} from './progress.mjs';
-const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,mounted,sequence=0,limits,feedbackInbox=0,shellKey='',navLinks=[],badge,meCache,countsCache;
+const root=document.querySelector('#app');let auth,api,memberApi,badgeApi,member,content,mounted,sequence=0,limits,feedbackInbox=0,feedbackWaiting=0,shellKey='',navLinks=[],badge,waitingBadge,meCache,countsCache;
 const stateLabel=s=>el('span',{class:'badge state-'+s},s);
 function select(label,name,options,value){const input=el('select',{id:name,name},options.map(([v,text])=>el('option',{value:v,selected:String(v)===String(value)},text)));return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
 function area(label,name,value=''){const input=el('textarea',{id:name,name,rows:4,maxlength:16000},value);return {input,node:el('div',{class:'field'},el('label',{for:name},label),input)};}
@@ -26,12 +26,13 @@ function confirmAction(title,description,action,payload){dialog(title,descriptio
 // The shell (sidebar, header) is drawn once and kept; navigation only swaps the <main> and moves the highlight.
 const isActive=(href,path)=>path===href||(href==='/admin/feedback/'&&path.startsWith(href));
 function markNav(){const path=location.pathname;for(const a of navLinks){const on=isActive(a.getAttribute('href'),path);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}}
-function updateBadge(){if(!badge)return;badge.hidden=!feedbackInbox;badge.textContent=String(feedbackInbox);badge.setAttribute('aria-label',feedbackInbox+' waiting');}
+function updateBadge(){if(badge){badge.hidden=!feedbackInbox;badge.textContent=String(feedbackInbox);badge.setAttribute('aria-label',feedbackInbox+' waiting');}if(waitingBadge){waitingBadge.hidden=!feedbackWaiting;waitingBadge.replaceChildren(...(feedbackWaiting?[String(feedbackWaiting),el('span',{class:'sr-only'},' waiting for you')]:[]));}}
 function shell(){
   const key=member.role+'|'+(member.displayName||'');if(key===shellKey&&mounted?.isConnected)return;shellKey=key;
-  const items=[['Overview','/admin/'],['Users','/admin/users/'],['Projects','/admin/projects/'],['Releases','/admin/releases/'],['Feedback','/admin/feedback/'],['Activity','/admin/activity/'],...(member.role==='owner'?[['Administrators','/admin/settings/']]:[])];
-  badge=el('span',{class:'nav-count',hidden:true});
-  navLinks=items.map(([name,href])=>link(href==='/admin/feedback/'?[name,badge]:name,href,'nav-item'));
+  const items=[['Overview','/admin/'],['Users','/admin/users/'],['Projects','/admin/projects/'],['Releases','/admin/releases/'],['Feedback','/admin/feedback/'],['Tests','/portal/tests/'],['Activity','/admin/activity/'],...(member.role==='owner'?[['Administrators','/admin/settings/']]:[])];
+  badge=el('span',{class:'nav-count',hidden:true});waitingBadge=el('span',{class:'nav-count',hidden:true});
+  // Tests is the team's own tester page in the portal (owners and admins always have tester access), badged with what waits for them.
+  navLinks=items.map(([name,href])=>link(href==='/admin/feedback/'?[name,badge]:href==='/portal/tests/'?[name,waitingBadge]:name,href,'nav-item'));
   content=mounted=el('main',{id:'main',class:'workspace-main'},skeleton());
   root.replaceChildren(el('div',{class:'workspace admin-workspace'},el('aside',{class:'sidebar'},link(el('img',{src:'/assets/quadrion-horizontal-on-dark.svg',alt:'Quadrion',width:168}),'/d3-quarter/','brand'),el('span',{class:'nav-label'},'ADMINISTRATION'),el('nav',{'aria-label':'Administration'},navLinks),el('div',{class:'sidebar-bottom'},link('Downloads & projects ↗','/portal/','nav-item'),el('p',{class:'account-label'},member.displayName||'Workspace administrator'),el('span',{class:'badge'},member.role.toUpperCase()),button('Sign out',()=>{clear();auth.signOut();},true))),el('div',{class:'workspace-body'},el('header',{class:'topbar'},el('span',{},'Administration'),el('span',{class:'status-dot'},'Private workspace')),content,el('footer',{class:'workspace-footer'},'Quadrion · Synapse Solutions',link('Client portal','/portal/')))));
   markNav();updateBadge();
@@ -168,5 +169,5 @@ setInterval(()=>{if(member&&document.visibilityState!=='hidden')countsCache.reva
 try{auth=await createPortalAuth({root,onChange:render});const bar=progressBar();api=createPortalApi({getToken:auth.getToken,onDenied:clear,admin:true,track:bar.track});badgeApi=createPortalApi({getToken:auth.getToken,admin:true});memberApi=createPortalApi({getToken:auth.getToken,onDenied:status=>{if(status===401||status===403)clear();}});
   meCache=createCache(()=>memberApi.get('me'),{seed:sessionSeed('quadrion-me'),ownerOf:me=>me.member.userId,onChange:me=>{const m=me.member;if(member&&(m.role!==member.role||m.displayName!==member.displayName))render();}});
   // The badge has its own API without onDenied: a failed count only hides the badge, never the page.
-  countsCache=createCache(()=>badgeApi.get('feedbackCounts').then(counts=>Number(counts.inbox)||0),{onChange:n=>{feedbackInbox=n;updateBadge();}});
+  countsCache=createCache(()=>badgeApi.get('feedbackCounts').then(counts=>({inbox:Number(counts.inbox)||0,waiting:Number(counts.waiting)||0})),{onChange:n=>{feedbackInbox=n.inbox;feedbackWaiting=n.waiting;updateBadge();}});
   await render();}catch(error){root.replaceChildren(el('main',{class:'unavailable'},heading('ADMINISTRATION','Workspace setup in progress',error.message),link('Return to Quadrion','/d3-quarter/','button-link')));}

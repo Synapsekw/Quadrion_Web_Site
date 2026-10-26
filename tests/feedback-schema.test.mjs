@@ -5,7 +5,7 @@ let db;
 before(async()=>{db=await portalDb({testers:true});});
 after(async()=>{await db?.close();});
 const tables=['test_content','test_lines','test_answers','feedback_items','feedback_reporters','feedback_events','feedback_attachments'];
-const internal=['portal_tester_active','portal_feedback_visible','portal_feedback_next_status','portal_feedback_log','portal_feedback_open_bug','portal_feedback_confirm'];
+const internal=['portal_is_tester','portal_tester_active','portal_feedback_visible','portal_feedback_next_status','portal_feedback_log','portal_feedback_open_bug','portal_feedback_confirm'];
 const line='map:switch-view:0123456789';
 const one=async(sql,args=[])=>(await db.query(sql,args)).rows[0];
 const confirm=(item,tester,build)=>one('select * from public.portal_feedback_confirm($1,$2,$3)',[item,tester,build]);
@@ -62,10 +62,18 @@ test('only the owner sets the tester flag, revision checked and audited',async()
   await rpc(db,'portal_member_tester',[ids.owner,'aal2',target,before.revision+1,false]);
 });
 
-test('portal_tester_active refuses a member without the flag',async()=>{
+test('portal_tester_active refuses a member without the flag and passes an active owner or admin',async()=>{
   await assert.rejects(rpc(db,'portal_tester_active',[ids.t1]),/portal:forbidden/);
-  await assert.rejects(rpc(db,'portal_tester_active',[ids.owner]),/portal:forbidden/);
   assert.equal((await one('select (public.portal_tester_active($1)).user_id as id',[ids.testerA])).id,ids.testerA);
+  for(const id of [ids.owner,ids.admin])assert.equal((await one('select (public.portal_tester_active($1)).user_id as id',[id])).id,id);
+  for(const status of ['suspended','revoked','invited']){
+    await db.query('update public.portal_members set status=$2 where user_id=$1',[ids.admin,status]);
+    try{await assert.rejects(rpc(db,'portal_tester_active',[ids.admin]),/portal:forbidden/,status);}
+    finally{await db.query("update public.portal_members set status='active' where user_id=$1",[ids.admin]);}
+  }
+  await db.query("update public.portal_members set expires_at=now()-interval '1 day' where user_id=$1",[ids.admin]);
+  try{await assert.rejects(rpc(db,'portal_tester_active',[ids.admin]),/portal:forbidden/);}
+  finally{await db.query('update public.portal_members set expires_at=null where user_id=$1',[ids.admin]);}
   await db.query("update public.portal_members set status='suspended' where user_id=$1",[ids.testerB]);
   try{await assert.rejects(rpc(db,'portal_tester_active',[ids.testerB]),/portal:forbidden/);}
   finally{await db.query("update public.portal_members set status='active' where user_id=$1",[ids.testerB]);}

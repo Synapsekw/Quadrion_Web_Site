@@ -1,4 +1,5 @@
 import {loadUpload} from './tus.mjs';
+import {canTest} from './routing.mjs';
 import {el,button,link,field,heading,empty,notice,busy} from './ui.mjs';
 import {statusBadge,buildLabel,prefillFromQuery,buildSuggestions,attachmentKind,threadView} from './feedback-ui.mjs';
 // Tester pages: Waiting for you, My tests, My reports, Request a feature, and the report form the app opens.
@@ -223,7 +224,7 @@ const itemLabel=item=>'#'+item.number+' '+(item.kind==='feature'?'Feature':'Bug'
 export async function renderTests(ctx){
   const {content,api,member,current}=ctx;
   content.append(heading('TESTING','Tests','Go through the steps in order. Tick each line that works; if something is wrong, write it in its comment field. Anything you report comes back here when it is fixed.'));
-  if(!member?.tester){notTester(content);return;}
+  if(!canTest(member)){notTester(content);return;}
   // ctx.releases may be a list or a promise of one; it is only for the build suggestions.
   const [model,answerRows,mine,releases]=await Promise.all([api.get('content'),api.get('answers'),api.get('mine'),Promise.resolve(ctx.releases).catch(()=>[])]);
   if(!current())return;
@@ -443,7 +444,7 @@ export async function renderTests(ctx){
 export async function renderReport(ctx){
   const {content,api,member}=ctx;
   content.append(heading('REPORT A PROBLEM','Report a problem','Tell us what went wrong. Attach the diagnostics file the app saved, or a screenshot.'));
-  if(!member?.tester){notTester(content);return;}
+  if(!canTest(member)){notTester(content);return;}
   const releases=await Promise.resolve(ctx.releases).catch(()=>[]);
   const prefill=prefillFromQuery(location.search),suggestions=buildSuggestions(releases);
   const build=buildField('report-build',suggestions,prefill.build||readBuild()||suggestions[0]||'',prefill.build?'Filled in by the app.':'The version you were using, from Help > About.');

@@ -41,6 +41,14 @@ test('the tester checkbox shows for owners only',()=>{
   assert.equal(toggle.checked,true);
   assert.deepEqual(toggle.payload(false),{userId:user.user_id,revision:4,tester:false});
   assert.equal(testerToggle('owner',{...user,tester:undefined}).checked,false);
+  assert.equal(testerToggle('owner',{...user,role:'member'}).checked,true);
+});
+test('owner and admin rows say they always have tester access instead of a checkbox',async()=>{
+  const {ALWAYS_TESTER}=await import('../portal/src/feedback-admin.mjs');
+  assert.equal(ALWAYS_TESTER,'Owners and admins always have tester access');
+  for(const role of ['owner','admin'])
+    assert.deepEqual(testerToggle('owner',{user_id:'10000000-0000-4000-8000-000000000001',revision:1,tester:false,role}),{always:true},role);
+  assert.equal(testerToggle('admin',{role:'admin'}),null);
 });
 test('a notice after render lands in the new content node, not the old one',async()=>{
   const oldMain={prepended:[],prepend(n){this.prepended.push(n);}},newMain={prepended:[],prepend(n){this.prepended.push(n);}};

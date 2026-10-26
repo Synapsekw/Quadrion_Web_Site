@@ -45,5 +45,14 @@ test('tester flag counts only on an active membership', () => {
   assert.equal(isTester({...member,tier:1,tester:true},now),true);
   assert.equal(isTester({...member,role:'owner',tier:null,tester:true},now),true);
   for(const m of [{...member,tester:false},member,{...member,tester:'true'},{...member,tester:true,status:'suspended'},
-    {...member,tester:true,expiresAt:new Date(now).toISOString()},{...member,role:'owner',tier:null},null]) assert.equal(isTester(m,now),false);
+    {...member,tester:true,expiresAt:new Date(now).toISOString()},null]) assert.equal(isTester(m,now),false);
+});
+test('owners and admins always have tester access while their membership is active', () => {
+  for(const role of ['owner','admin']){
+    assert.equal(isTester({...member,role,tier:null},now),true,role);
+    assert.equal(isTester({...member,role,tier:null,tester:false},now),true,role);
+    for(const status of ['suspended','revoked','invited'])assert.equal(isTester({...member,role,tier:null,status},now),false,role+' '+status);
+    assert.equal(isTester({...member,role,tier:null,expiresAt:new Date(now).toISOString()},now),false,role+' expired');
+  }
+  assert.equal(isTester({...member,role:'superuser',tier:null},now),false);
 });
