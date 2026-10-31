@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy | Quadrion AI</title>
+<meta name="description" content="How the Quadrion AI desktop app handles your data: what stays on your computer, when it connects to the internet, and what the Quadrion account and tester portal store.">
+<link rel="canonical" href="https://quadrion.ai/privacy/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quadrion AI">
+<meta property="og:title" content="Quadrion AI privacy policy">
+<meta property="og:url" content="https://quadrion.ai/privacy/">
+<meta name="theme-color" content="#0B0F13">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/fonts/plex.css">
+<style>
+:root {
+  --bg0: #0B0F13; --bg1: #11161C; --bg2: #1E2630; --line: #2A3340;
+  --t0: #EEF2F5; --t1: #C5CDD6; --t2: #8E99A6; --mint: #5ED1B3;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --gut: clamp(16px, 3.4vw, 48px);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg0); color: var(--t0);
+  font-family: var(--sans); font-size: 16px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip; text-rendering: optimizeLegibility;
+}
+a { color: var(--mint); text-underline-offset: 3px; }
+a:hover { color: var(--t0); }
+a:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; border-radius: 2px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px var(--gut); border-bottom: 1px solid var(--line); }
+.top img { display: block; height: 40px; width: auto; margin: -8px 0 -8px -8px; }
+.top a.home { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--t1); text-decoration: none; }
+.top a.home:hover { color: var(--mint); }
+main { max-width: 760px; margin: 0 auto; padding: clamp(48px, 8vw, 96px) var(--gut) 72px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mint); margin: 0; }
+h1 { font-size: clamp(36px, 6vw, 54px); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; margin: 18px 0 14px; }
+.updated { font: 400 13px/1.4 var(--mono); color: var(--t2); margin: 0 0 40px; }
+.lead { font-size: 18px; color: var(--t1); }
+h2 { font-size: 22px; font-weight: 500; letter-spacing: -.015em; line-height: 1.25; margin: 56px 0 14px; padding-top: 28px; border-top: 1px solid var(--line); }
+h3 { font-size: 17px; font-weight: 600; margin: 32px 0 8px; }
+p, li { color: var(--t1); }
+p { margin: 0 0 14px; }
+ul { margin: 0 0 14px; padding-left: 22px; }
+li { margin: 0 0 8px; }
+li::marker { color: var(--t2); }
+strong { color: var(--t0); font-weight: 600; }
+code { font-family: var(--mono); font-size: .9em; color: var(--t0); background: var(--bg2); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+.note { background: var(--bg1); border: 1px solid var(--line); border-left: 3px solid var(--mint); padding: 16px 18px; margin: 20px 0; }
+.note p:last-child { margin: 0; }
+.foot { border-top: 1px solid var(--line); padding: 32px var(--gut) 48px; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; font: 400 12px/1.6 var(--mono); letter-spacing: .06em; color: var(--t2); }
+.foot nav { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+.foot a { color: var(--t1); text-decoration: none; display: inline-flex; align-items: center; min-height: 32px; }
+.foot a:hover, .foot a[aria-current] { color: var(--mint); }
+@media print {
+  :root { --bg0: #fff; --bg1: #fff; --bg2: #eee; --t0: #000; --t1: #111; --t2: #444; --line: #bbb; --mint: #000; }
+  .top, .foot nav { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a href="/d3-quarter/" aria-label="Quadrion AI home"><img src="/assets/quadrion-horizontal-on-dark.svg" alt="Quadrion AI" width="746" height="156"></a>
+  <a class="home" href="/d3-quarter/">Back to site</a>
+</header>
+
+<main>
+  <p class="eyebrow">Quadrion AI desktop app</p>
+  <h1>Privacy policy</h1>
+  <p class="updated">Last updated: 31 October 2026</p>
+
+  <p class="lead">Quadrion AI is a desktop application by Synapse Solutions, part of Orbit Aerials (&ldquo;we&rdquo;, &ldquo;us&rdquo;). This policy explains what happens to your data when you use the app, and what we store when you use a Quadrion account or the tester portal on quadrion.ai.</p>
+
+  <h2 id="offline-first">Offline first</h2>
+  <p>Quadrion AI works on your computer. Your projects, photos, video, 3D models, point clouds, maps, annotations and reports stay on the drives and network shares where you keep them. You do not need an account to use the app.</p>
+  <p>A new installation sends nothing over the internet until you do one of the things listed under <a href="#connections">When Quadrion AI connects to the internet</a>: add a cloud AI key, sign in to a Quadrion account, switch on online maps, start a download, or join a team server.</p>
+
+  <h2 id="no-telemetry">No telemetry</h2>
+  <p>Quadrion AI does not collect usage statistics, analytics or crash reports, and has no advertising. Logs and crash reports are written only to your own computer.</p>
+  <p><strong>Report a problem</strong> in the app saves your description and a diagnostics bundle to your computer; nothing is uploaded or emailed. They leave your computer only if you choose to send them to us yourself (see <a href="#feedback">Feedback and the tester portal</a>). The diagnostics bundle contains system details (such as Windows version and graphics card), your settings with keys and passwords removed, recent log lines with secrets removed, installed map and processing packs, recent jobs and the list of projects the app knows about. You can open the bundle and check it before sending it.</p>
+
+  <h2 id="connections">When Quadrion AI connects to the internet</h2>
+  <p>Each connection below happens only after an action of yours, and only to the service named.</p>
+
+  <h3 id="cloud-ai">Cloud AI, with your own API key</h3>
+  <p>Cloud AI is allowed by default in a new installation, but nothing is sent until you add your own API key from Anthropic, OpenAI or Google. You can switch cloud AI off in Settings.</p>
+  <p>When you use an AI feature, Quadrion AI sends the request directly from your computer to the provider whose key you added, under that provider&rsquo;s terms and privacy policy. Depending on the feature, a request contains your message, the project and view context the AI needs to answer (for example item names, measurements and positions), and, where the project allows it, images such as the current view, photos or crops. If you enter an Anthropic workspace ID, it is sent to Anthropic with the request.</p>
+  <p>Before the first message in a project, Quadrion AI shows what will be sent. If you choose <strong>Always allow</strong> for that project, later messages are sent without this preview. Synapse Solutions does not receive or store this content. Quadrion AI records token counts for your own usage overview on your computer only.</p>
+  <p>You can keep data away from cloud AI: switch on <strong>Offline only</strong>; set a project to forbid cloud AI; or choose <strong>Keep this project&rsquo;s images on this PC</strong>. Projects shared as read-only packages forbid cloud AI unless their author allowed it.</p>
+
+  <h3 id="local-models">Local AI and vision models</h3>
+  <p>AI models that run on your own computer (for example through Ollama, LM Studio or llama.cpp, the model in the Analytics pack, or vision detection models you import) process your data on that computer and send nothing over the internet. Quadrion AI does not download AI models; you install them yourself. If you point Quadrion AI at a model server on another machine on your network, it treats that server like cloud AI: it needs cloud AI to be allowed and is blocked by <strong>Offline only</strong>.</p>
+
+  <h3 id="online-maps">Online map imagery</h3>
+  <p>Online maps are off by default. If you switch them on in Settings, Quadrion AI requests map tiles for the area you are viewing from the source you pick:</p>
+  <ul>
+    <li><strong>Sentinel-2 cloudless</strong> imagery from EOX (<code>tiles.maps.eox.at</code>), with no key;</li>
+    <li><strong>Esri World Imagery</strong> (<code>server.arcgisonline.com</code>, or <code>ibasemaps-api.arcgis.com</code> with your own Esri key);</li>
+    <li><strong>Mapbox</strong> maps (<code>api.mapbox.com</code>), with your own Mapbox key.</li>
+  </ul>
+  <p>A tile request contains the tile&rsquo;s position and zoom level, so the provider can tell which area you are looking at, plus the app name and version. It contains no project data. Your key, if you added one, is sent only to its own provider; saving or testing a key sends one test request. Sentinel-2 tiles are kept in a cache on your computer (up to 300&nbsp;MB) so they still show offline; Esri and Mapbox tiles are not saved to disk.</p>
+
+  <h3 id="map-downloads">Offline map region downloads</h3>
+  <p>When you download a map region in Settings, Quadrion AI downloads OpenStreetMap-based map data from Protomaps (<code>build-metadata.protomaps.dev</code> and <code>build.protomaps.com</code>). The requests reveal the area you asked for, but contain no project data.</p>
+
+  <h3 id="processing-tools">Processing engine download</h3>
+  <p>If you choose to install the OpenDroneMap processing engine in Settings, Quadrion AI downloads its installer from GitHub (<code>github.com</code>), and checks that the file matches the expected version before using it.</p>
+
+  <h3 id="updates">Updates</h3>
+  <p><strong>Microsoft Store copies</strong> are updated by the Microsoft Store; the app&rsquo;s own update features are switched off in them.</p>
+  <p><strong>Quadrion account updates.</strong> On copies installed from our website, you can sign in to your Quadrion account in Settings. Your email and password go to our sign-in service (run on Supabase) for quadrion.ai, and the app keeps a sign-in token in Windows Credential Manager. While you are signed in, and automatic updates are on (the default), the app checks quadrion.ai for updates when it starts and every six hours. A check sends your sign-in token, the app and processing-tools versions and your platform (Windows 64-bit). New versions download in the background and install only when you restart the app. Each download is recorded against your account (see <a href="#feedback">what we store</a>). You can switch automatic updates off in Settings, or sign out.</p>
+  <p><strong>Update address.</strong> Separately, you can set an update address in Settings and check it yourself. This is off by default and sends only an ordinary request for the update list and, if you choose to install, the installer.</p>
+
+  <h3 id="team-server">Team server</h3>
+  <p>If you join a team server with an invite code, projects you set to sync send their changes and files to that server, together with a device record (your display name and initials, the device&rsquo;s public key and the app version). The team server is run by your organisation, not by us. Projects you keep in a shared network folder are written to that folder.</p>
+
+  <h3 id="links">Links</h3>
+  <p>Links in the app, such as provider sign-up pages and map credits, open in your web browser only when you click them.</p>
+
+  <h3 id="offline-only">Offline only</h3>
+  <p>The <strong>Offline only</strong> switch in the title bar stops every internet connection listed above: cloud AI and model servers on other machines, online maps, map and engine downloads, updates and team server sync. It is a setting for each Windows user. Shared network folders you choose are not affected.</p>
+
+  <h2 id="credentials">API keys and sign-in tokens</h2>
+  <p>API keys you enter (for AI providers and map providers), your Quadrion account sign-in token and your team-server device key are stored in Windows Credential Manager, for your Windows user on that computer. They are never written to project files, logs or settings files, and each key is sent only to the service it belongs to.</p>
+
+  <h2 id="feedback">Feedback and the tester portal</h2>
+  <p>Quadrion accounts are created by us; there is no public sign-up. When you choose <strong>Send to Quadrion</strong> in the app&rsquo;s Report a problem dialog, the app opens <code>quadrion.ai/portal/report/</code> in your browser, with the app version and the name of the current screen in the link. Nothing else leaves the app. You then sign in on the website and decide what to submit.</p>
+  <p>On the portal we store:</p>
+  <ul>
+    <li><strong>Your account:</strong> email address, a password managed by our sign-in service (we never see it), your access level and, if you add them, your display name and company.</li>
+    <li><strong>Reports and test results:</strong> the title and description you write, the app version and screen, comments, questions and status changes, and your pass, fail or skip answers on test lists.</li>
+    <li><strong>Attachments you upload:</strong> screenshots, screen recordings and diagnostics bundles (up to 10 per report).</li>
+    <li><strong>Activity records:</strong> account and access changes, uploads, and download links issued for software and projects.</li>
+  </ul>
+  <p>We use this to fix problems, plan features, provide software downloads and keep the portal secure. We do not sell it or use it for advertising.</p>
+  <p><strong>How long we keep it.</strong> Reports, comments and attachments are kept while they help us support the product, until we delete them or you ask us to. Uploads that were started but never finished are deleted automatically after about a week. Activity records are deleted after 365 days, and download records after 90 days. Links to attachments expire after a few minutes.</p>
+  <p><strong>Where it is stored.</strong> The website runs on Netlify; portal requests are handled in Singapore. Portal data and files are stored with Supabase in Mumbai, India. These providers process the data on our behalf, and keep their own short-lived technical logs (such as IP addresses) to operate and secure their services.</p>
+  <p><strong>Your choices.</strong> You can see and change your profile and password in the portal. To get a copy of your data, correct it, or have your account, reports or attachments deleted, email us at the address below.</p>
+
+  <h2 id="children">Children</h2>
+  <p>Quadrion AI is a professional tool and is not directed at children.</p>
+
+  <h2 id="changes">Changes</h2>
+  <p>We will post changes to this policy on this page with a new date.</p>
+
+  <h2 id="contact">Contact</h2>
+  <p>Synapse Solutions, part of Orbit Aerials, Kuwait.<br>Email: <a href="mailto:info@synapse-solutions.ai">info@synapse-solutions.ai</a></p>
+</main>
+
+<footer class="foot">
+  <span>&copy; 2026 Synapse Solutions</span>
+  <nav aria-label="Footer">
+    <a href="/d3-quarter/">Quadrion AI</a>
+    <a href="/privacy/" aria-current="page">Privacy</a>
+    <a href="mailto:info@synapse-solutions.ai">Contact</a>
+  </nav>
+</footer>
+</body>
+</html>
